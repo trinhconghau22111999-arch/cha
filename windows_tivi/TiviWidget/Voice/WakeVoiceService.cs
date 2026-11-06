@@ -10,8 +10,7 @@ namespace TiviWidget;
 
 /// <summary>
 /// Luôn bật mic của laptop và nghe "nghe nè &lt;lệnh&gt; ok".
-/// Ưu tiên nhận dạng của Windows 10 (WinRT, tiếng Việt, cần bật "Online speech recognition");
-/// nếu không có thì dùng System.Speech với gói tiếng Việt.
+/// Chỉ dùng nhận dạng giọng nói trực tuyến của Windows (WinRT, tiếng Việt; cần bật "Online speech recognition").
 /// Windows không hỏi quyền micro cho app desktop: service tự kiểm tra các công tắc trong Settings,
 /// báo đúng lỗi, mở trang cài đặt cần bật, tự thử lại, và ghi log.
 /// </summary>
@@ -24,8 +23,6 @@ internal sealed class WakeVoiceService : IDisposable
     private readonly WakeCommandParser _parser = new();
     private readonly object _lock = new();
     private SpeechRecognizer _rec;
-    private System.Speech.Recognition.SpeechRecognitionEngine _sapi;
-    private VoskListener _vosk;
     private volatile bool _on;
     private volatile bool _wanted;
     private volatile bool _starting;
@@ -39,8 +36,6 @@ internal sealed class WakeVoiceService : IDisposable
 
     public bool Enabled => _on || _wanted;
 
-    /// <summary>Các từ thêm vào bộ từ hẹp của bộ nhận dạng offline (tên đài, tên kênh).</summary>
-    public string[] ExtraWords { get; set; } = Array.Empty<string>();
 
     public async Task StartAsync()
     {
@@ -58,18 +53,7 @@ internal sealed class WakeVoiceService : IDisposable
 
             string why = await TryStartWinRtAsync();
             if (why == null) { Ok("Windows"); return; }
-            VoiceLog.Write("WinRT không bật được: " + why);
-
-            // Windows chưa có tiếng Việt (vd. máy để tiếng Anh): dùng bộ nhận dạng tiếng Việt kèm theo app
-            string why2 = await TryStartVoskAsync();
-            if (why2 == null) { Ok("offline"); return; }
-            VoiceLog.Write("Vosk không bật được: " + why2);
-
-            string why3 = TryStartSapi();
-            if (why3 == null) { Ok("System.Speech"); return; }
-            VoiceLog.Write("System.Speech không bật được: " + why3);
-
-            Fail(why + " " + why2 + " " + why3, _pendingSettings);
+            Fail(why, _pendingSettings);
         }
         finally { _starting = false; }
     }
@@ -115,13 +99,6 @@ internal sealed class WakeVoiceService : IDisposable
                 try { await rec.ContinuousRecognitionSession.CancelAsync(); } catch (Exception) { }
                 try { rec.Dispose(); } catch (Exception) { }
             });
-        }
-        var vosk = _vosk; _vosk = null;
-        if (vosk != null) { try { vosk.Dispose(); } catch (Exception) { } }
-        var sapi = _sapi; _sapi = null;
-        if (sapi != null)
-        {
-            try { sapi.RecognizeAsyncCancel(); sapi.Dispose(); } catch (Exception) { }
         }
         lock (_lock) _parser.Reset();
     }
@@ -260,41 +237,6 @@ internal sealed class WakeVoiceService : IDisposable
         {
             _rec = null;
             return "WinRT: " + ex.Message + ".";
-        }
-    }
-
-    private async Task<string> TryStartVoskAsync()
-    {
-        var v = new VoskListener();
-        var err = await v.StartAsync(OnPhrase, t => Heard?.Invoke(t), m => Status?.Invoke(m), ExtraWords,
-            () => { lock (_lock) return _parser.Capturing; });
-        if (err != null) { v.Dispose(); return err; }
-        _vosk = v;
-        return null;
-    }
-
-    private string TryStartSapi()
-    {
-        try
-        {
-            var info = System.Speech.Recognition.SpeechRecognitionEngine.InstalledRecognizers()
-                .FirstOrDefault(r => r.Culture.Name.StartsWith("vi", StringComparison.OrdinalIgnoreCase));
-            if (info == null) return "System.Speech cũng chưa có gói tiếng Việt.";
-
-            var eng = new System.Speech.Recognition.SpeechRecognitionEngine(info);
-            eng.SetInputToDefaultAudioDevice();
-            eng.LoadGrammar(new System.Speech.Recognition.DictationGrammar());
-            eng.SpeechRecognized += (_, e) =>
-            {
-                if (e.Result != null && !string.IsNullOrWhiteSpace(e.Result.Text)) OnPhrase(e.Result.Text);
-            };
-            eng.RecognizeAsync(System.Speech.Recognition.RecognizeMode.Multiple);
-            _sapi = eng;
-            return null;
-        }
-        catch (Exception ex)
-        {
-            return "System.Speech: " + ex.Message + ".";
         }
     }
 }

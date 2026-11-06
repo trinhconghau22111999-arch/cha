@@ -86,7 +86,6 @@ public partial class MainWindow : Window
 
         _voice.Recognized += text => Dispatcher.BeginInvoke(new Action(() => OnVoiceText(text)));
         _voice.Status += msg => Dispatcher.BeginInvoke(new Action(() => ShowStatus(msg)));
-        _wake.ExtraWords = _groups.SelectMany(g => new[] { g.Name }.Concat(g.Channels.Select(c => c.Name))).ToArray();
         _wake.Command += cmd => Dispatcher.BeginInvoke(new Action(() => OnVoiceText(cmd)));
         _wake.Heard += t => Dispatcher.BeginInvoke(new Action(() => ShowStatus("Nghe được: " + t)));
         _wake.Status += msg => Dispatcher.BeginInvoke(new Action(() => ShowStatus(msg)));

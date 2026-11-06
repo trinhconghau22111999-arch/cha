@@ -5,24 +5,6 @@ $root    = Split-Path -Parent $MyInvocation.MyCommand.Path
 $proj    = Join-Path $root "..\TiviWidget\TiviWidget.csproj"
 $publish = Join-Path $root "..\publish"
 
-# Mô hình nhận dạng tiếng Việt chạy trên máy (Vosk), đóng kèm trong bộ cài. Thiếu thì app tự tải ở lần chạy đầu.
-$model = Join-Path $root "..\TiviWidget\Assets\model-vn"
-if (-not (Test-Path (Join-Path $model "am"))) {
-    try {
-        Write-Host "0/2 Tải mô hình giọng nói tiếng Việt (~35 MB)"
-        $zip = Join-Path $env:TEMP "vosk-model-small-vn-0.4.zip"
-        $tmp = Join-Path $env:TEMP "vosk-vn-extract"
-        Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
-        Invoke-WebRequest "https://alphacephei.com/vosk/models/vosk-model-small-vn-0.4.zip" -OutFile $zip
-        Expand-Archive $zip $tmp -Force
-        $inner = Get-ChildItem $tmp -Directory | Select-Object -First 1
-        New-Item -ItemType Directory -Force (Split-Path $model) | Out-Null
-        Move-Item $inner.FullName $model
-    } catch {
-        Write-Warning "Không tải được mô hình tiếng Việt: $($_.Exception.Message). App sẽ tự tải khi chạy lần đầu."
-    }
-}
-
 Write-Host "1/2 Publish -> $publish"
 dotnet publish $proj -c $Configuration -r win-x64 --self-contained true -p:PublishSingleFile=true -o $publish
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish lỗi" }

@@ -11,21 +11,20 @@
 | Git (tuỳ chọn) | Quản lý mã nguồn | https://git-scm.com | `git --version` |
 | JDK 17 + Android SDK (chỉ để build APK tại máy) | Build APK Android | Khuyến nghị dùng CI (`ci/android-tv-build.yml`) | `java -version` |
 
-Không cần Visual Studio. NuGet (WebView2, NAudio, System.Speech, xunit) được `dotnet restore` tự tải.
+Không cần Visual Studio. NuGet (WebView2, NAudio, xunit) được `dotnet restore` tự tải.
 
 ## 2. Kiểm tra nhanh (PowerShell)
 
 ```powershell
 dotnet --list-sdks
 Get-ChildItem "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue | Out-Null; "WebView2 key: " + (Test-Path "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}")
-Add-Type -AssemblyName System.Speech
-[System.Speech.Recognition.SpeechRecognitionEngine]::InstalledRecognizers() | ForEach-Object { $_.Culture.Name }
+[Windows.Media.SpeechRecognition.SpeechRecognizer,Windows.Media.SpeechRecognition,ContentType=WindowsRuntime]::SupportedTopicLanguages | ForEach-Object { $_.LanguageTag }
 ```
 
 Kết quả mong đợi:
 - Có dòng `8.0.x`.
 - `WebView2 key: True`.
-- Danh sách culture có `vi-VN`. Nếu không có, phải cài gói tiếng Việt cho giọng nói.
+- Danh sách có `vi-VN`. Giọng nói chỉ dùng nhận dạng trực tuyến của Windows: bật Settings > Privacy > Speech > Online speech recognition, Privacy > Microphone (cả "desktop apps"), và cài tiếng Việt ở Time & language > Speech.
 
 ## 3. Cấu trúc thư mục cần có
 
