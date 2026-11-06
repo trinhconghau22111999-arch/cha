@@ -108,3 +108,20 @@ Ghi chú: touchlock không chặn được chạm chuột trực tiếp trong v�
 ## I. Ghi nhận lỗi
 
 Khi có lỗi, ghi: số mục (ví dụ F7), các bước, kết quả thực tế, ảnh hoặc log (`%LOCALAPPDATA%` nếu có), và phiên bản (0.12.0).
+
+## J. Nghe nền bằng mic laptop ("nghe nè ... ok")
+
+Cần: Settings > Privacy > Speech > Online speech recognition = On; cho phép desktop app dùng micro; gói tiếng Việt.
+
+| # | Thao tác | Mong đợi |
+|---|---|---|
+| J1 | Mở app, đợi vài giây | Thông báo "Nghe nền đang bật" (nếu lỗi, thông báo nêu lý do) |
+| J2 | Nói "nghe nè mở YouTube ok" | Sang YouTube |
+| J3 | Nói "nghe nè", ngừng, rồi "mở TV kênh HTV9", ngừng, rồi "ok" | Phát HTV9 |
+| J4 | Nói "nghe nè mở bài hát Lạc trôi ok" khi đang ở YouTube | Tìm "mở bài hát Lạc trôi" đúng dấu |
+| J5 | Nói "nghe nè mở TV" rồi im 15 giây | Thông báo hết thời gian, không làm gì |
+| J6 | Nói "mở YouTube ok" (không có "nghe nè") | Không làm gì |
+| J7 | Ctrl+Alt+M | Tắt nghe nền; bấm lại thì bật |
+| J8 | Để chạy 1 giờ, thỉnh thoảng nói lệnh | Vẫn nhận lệnh, không treo |
+
+Lưu ý: tiếng TV phát ra loa có thể bị mic nghe lại; chỉ cụm "nghe nè" mới kích hoạt.
