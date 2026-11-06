@@ -6,7 +6,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using NAudio.Wave;
 using Vosk;
@@ -40,7 +39,7 @@ internal sealed class VoskListener : IDisposable
     private Model _model;
     private VoskRecognizer _gram;
     private WaveInEvent _wave;
-    private Channel<(string gram, byte[] pcm)> _queue;
+    private System.Threading.Channels.Channel<(string gram, byte[] pcm)> _queue;
     private CancellationTokenSource _cts;
 
     private Action<string> _onPhrase, _onHeard;
@@ -84,7 +83,7 @@ internal sealed class VoskListener : IDisposable
             });
             VoiceLog.Write("Đã nạp mô hình Vosk: " + dir + " (bộ từ hẹp " + words.Count + " từ)");
 
-            _queue = Channel.CreateUnbounded<(string, byte[])>();
+            _queue = System.Threading.Channels.Channel.CreateUnbounded<(string gram, byte[] pcm)>();
             _cts = new CancellationTokenSource();
             _ = Task.Run(() => WorkAsync(_cts.Token));
 
