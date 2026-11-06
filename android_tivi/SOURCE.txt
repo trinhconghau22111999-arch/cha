@@ -1,0 +1,5 @@
+Nguồn: github.com/trinhconghau22111999-arch/a3 , nhánh main, commit 8cee384
+Module: tv  (applicationId com.desktopmini.tivi)
+Bước 1: copy nguyên vẹn, chưa sửa gì.
+Bước 2: trong tv/.../MainActivity.kt ẩn khỏi thanh dưới các nút Menu, Ái Kara, Cài đặt, Home, ← và nút X (visibility=GONE).
+        Giữ nguyên mã và hàm; ◀▶ bỏ qua nút đã ẩn; ô chọn mặc định rơi vào TV/YouTube.

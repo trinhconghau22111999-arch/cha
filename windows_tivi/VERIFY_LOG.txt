@@ -1,0 +1,16 @@
+Nhật ký kiểm tra trong môi trường Linux (.NET 8.0.133, không có NuGet, không có Windows)
+
+ĐÃ KIỂM TRA
+1. Compile các file C# thuần (LunarCalendar, VoiceText, ChannelRepository, TvScripts, WebScripts,
+   YtRules, RemoteControl, DesktopHost) với một stub cho InputInjector: không lỗi.
+2. verify_logic: 39/39 kiểm tra đạt (lịch âm, giọng nói, ghép kênh, lọc YouTube, lệnh điều khiển,
+   đọc channels.json thật: 34 đài, 45 kênh).
+3. Phân tích cú pháp (Roslyn) toàn bộ 19 file .cs trong TiviWidget và TiviWidget.Tests: không lỗi.
+4. XAML (MainWindow.xaml, App.xaml) là XML hợp lệ; các tên x:Name được code dùng đều có trong XAML.
+
+CHƯA KIỂM TRA (cần Windows)
+- Lỗi ngữ nghĩa trong các file dùng WPF, WebView2, NAudio, System.Speech:
+  MainWindow.xaml.cs, App.xaml.cs, RemoteBridge.cs, AdBlocker.cs, VoiceService.cs, InputInjector.cs.
+- Toàn bộ hành vi chạy thật: nền WorkerW, WebView2, WebRTC/Firebase, giọng nói, phím, chuột,
+  âm lượng, màn hình, khởi động cùng Windows, bộ cài.
+- Xem TEST_PLAN.md mục B đến I.

@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>TiviWidget</AssemblyName>
+    <RootNamespace>TiviWidget</RootNamespace>
+    <Product>Tivi Desktop Widget</Product>
+    <Version>0.12.0</Version>
+    <!-- Cần để WebView2 chạy khi publish thành một file .exe -->
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Cho project test truy cập các lớp internal (RemoteControl, LunarCalendar, ...) -->
+    <InternalsVisibleTo Include="TiviWidget.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Assets\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2420.47" />
+    <PackageReference Include="System.Speech" Version="8.0.0" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+
+</Project>

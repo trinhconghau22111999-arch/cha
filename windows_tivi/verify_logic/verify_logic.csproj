@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Kiểm tra nhanh logic C# thuần (lịch âm, giọng nói, ghép kênh, lọc YouTube, lệnh điều khiển).
+       Không cần NuGet, không mở cửa sổ. Chạy: dotnet run -c Release -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>CS8632;CS0168</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Stub/InputInjector.cs" />
+    <Compile Include="../TiviWidget/LunarCalendar.cs" />
+    <Compile Include="../TiviWidget/Voice/VoiceText.cs" />
+    <Compile Include="../TiviWidget/Tv/ChannelRepository.cs" />
+    <Compile Include="../TiviWidget/Tv/TvScripts.cs" />
+    <Compile Include="../TiviWidget/Web/WebScripts.cs" />
+    <Compile Include="../TiviWidget/Web/YtRules.cs" />
+    <Compile Include="../TiviWidget/Remote/RemoteControl.cs" />
+    <Compile Include="../TiviWidget/DesktopHost.cs" />
+    <None Include="../TiviWidget/Assets/channels.json" CopyToOutputDirectory="PreserveNewest" Link="Assets/channels.json" />
+  </ItemGroup>
+</Project>
