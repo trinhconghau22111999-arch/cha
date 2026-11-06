@@ -4,6 +4,8 @@ name: Windows widget
 
 on:
   push:
+    paths:
+      - "windows_tivi/**"
   workflow_dispatch:
 
 jobs:

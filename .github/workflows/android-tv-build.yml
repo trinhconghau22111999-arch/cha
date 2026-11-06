@@ -4,6 +4,8 @@ name: Android TV APK
 
 on:
   push:
+    paths:
+      - "android_tivi/**"
   workflow_dispatch:
 
 jobs:
