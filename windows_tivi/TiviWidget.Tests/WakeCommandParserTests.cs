@@ -47,6 +47,17 @@ public class WakeCommandParserTests
     }
 
     [Fact]
+    public void HasWakeAndHasEnd()
+    {
+        Assert.True(WakeCommandParser.HasWake("à nghe nè mở"));
+        Assert.True(WakeCommandParser.HasWake("nghe nhé"));
+        Assert.False(WakeCommandParser.HasWake("nghe nhạc"));
+        Assert.True(WakeCommandParser.HasEnd("mở tv ô kê"));
+        Assert.True(WakeCommandParser.HasEnd("mở tv ok"));
+        Assert.False(WakeCommandParser.HasEnd("mở tv"));
+    }
+
+    [Fact]
     public void NoWakeWordMeansNoCommand()
     {
         var p = new WakeCommandParser();

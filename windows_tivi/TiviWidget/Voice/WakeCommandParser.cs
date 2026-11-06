@@ -79,6 +79,20 @@ internal sealed class WakeCommandParser
         return false;
     }
 
+    private static string[] Split(string text) =>
+        (text ?? "").Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>Câu có chứa "nghe nè" không.</summary>
+    public static bool HasWake(string text) => FindWake(Split(text)) >= 0;
+
+    /// <summary>Câu có chứa "ok" (hoặc "ô kê") không.</summary>
+    public static bool HasEnd(string text)
+    {
+        var t = Split(text);
+        for (int i = 0; i < t.Length; i++) if (IsEnd(t, i)) return true;
+        return false;
+    }
+
     private static int FindWake(string[] toks)
     {
         for (int i = 0; i + 1 < toks.Length; i++)

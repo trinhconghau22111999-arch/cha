@@ -39,6 +39,9 @@ internal sealed class WakeVoiceService : IDisposable
 
     public bool Enabled => _on || _wanted;
 
+    /// <summary>Các từ thêm vào bộ từ hẹp của bộ nhận dạng offline (tên đài, tên kênh).</summary>
+    public string[] ExtraWords { get; set; } = Array.Empty<string>();
+
     public async Task StartAsync()
     {
         _wanted = true;
@@ -263,7 +266,8 @@ internal sealed class WakeVoiceService : IDisposable
     private async Task<string> TryStartVoskAsync()
     {
         var v = new VoskListener();
-        var err = await v.StartAsync(OnPhrase, m => Status?.Invoke(m));
+        var err = await v.StartAsync(OnPhrase, t => Heard?.Invoke(t), m => Status?.Invoke(m), ExtraWords,
+            () => { lock (_lock) return _parser.Capturing; });
         if (err != null) { v.Dispose(); return err; }
         _vosk = v;
         return null;
