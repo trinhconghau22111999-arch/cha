@@ -512,9 +512,20 @@ class TvPane(private val act: Activity, private val full: FullscreenHost) {
         return d.split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() && it !in skip }.joinToString("")
     }
 
+    // Câu người nói: đổi cách đọc ("hát tê vê chín" -> "htv9"). Chỉ dùng cho câu nói, không dùng cho tên kênh.
+    private fun normQuery(t: String): String {
+        val d = java.text.Normalizer.normalize(t.lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("\\p{Mn}+"), "").replace('đ', 'd')
+        val skip = setOf("mo", "kenh", "dai", "truyen", "hinh", "xem", "cho", "toi", "tv", "len", "bat")
+        val words = d.split(Regex("[^a-z0-9]+")).filter { it.isNotEmpty() }
+        val s = SpokenName.convert(words).filter { it !in skip }.joinToString("")
+        // chỉ còn số (vd "kênh ba"): không đoán, giữ cách chuẩn hoá cũ
+        return if (s.isNotEmpty() && s.all { it.isDigit() }) normName(t) else s
+    }
+
     /** Remote giong noi: tim kenh/dai theo ten da noi (vd "HTV9", "Ca Mau", "VTV1") roi phat. true neu tim thay. */
     fun playByName(q: String): Boolean {
-        val nq = normName(q)
+        val nq = normQuery(q)
         if (nq.isEmpty()) return false
         var best = 0; var bestGi = -1; var bestUrl = ""; var bestDiff = Int.MAX_VALUE
         groups.forEachIndexed { gi, g ->

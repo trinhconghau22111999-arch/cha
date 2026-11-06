@@ -41,6 +41,14 @@ var h9 = ChannelMatcher.Find("HTV9", groups);
 Check(h9.HasValue && h9.Value.Gi == 1 && h9.Value.Url == "u10068", "channel htv9");
 Check(ChannelMatcher.Find("không có", groups) == null, "channel unknown");
 
+// ---- Đọc tên kênh viết tắt
+Check(ChannelMatcher.NormQuery("hát tê vê chín") == "htv9", "spoken htv9");
+Check(ChannelMatcher.NormQuery("vê tê vê một") == "vtv1", "spoken vtv1");
+Check(ChannelMatcher.NormQuery("a nờ tê vê") == "antv", "spoken antv");
+Check(ChannelMatcher.NormQuery("Việt Nam") == "vietnam", "viet nam unchanged");
+var sp = ChannelMatcher.Find("mở kênh hát tê vê chín", groups);
+Check(sp.HasValue && sp.Value.Gi == 1 && sp.Value.Url == "u10068", "channel spoken htv9");
+
 // ---- Lọc YouTube
 Check(YtRules.Allowed("https://www.youtube.com/watch?v=abc"), "yt watch");
 Check(YtRules.Allowed("https://youtu.be/abc"), "youtu.be");
