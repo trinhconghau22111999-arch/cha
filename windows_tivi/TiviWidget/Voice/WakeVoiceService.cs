@@ -25,6 +25,7 @@ internal sealed class WakeVoiceService : IDisposable
     private readonly object _lock = new();
     private SpeechRecognizer _rec;
     private System.Speech.Recognition.SpeechRecognitionEngine _sapi;
+    private VoskListener _vosk;
     private volatile bool _on;
     private volatile bool _wanted;
     private volatile bool _starting;
@@ -50,26 +51,33 @@ internal sealed class WakeVoiceService : IDisposable
             var mic = CheckMicrophone();
             if (mic != null) { Fail(mic.Value.msg, mic.Value.settings); return; }
 
+            VoiceLog.Write("Ngôn ngữ giao diện Windows: " + System.Globalization.CultureInfo.CurrentUICulture.Name);
+
             string why = await TryStartWinRtAsync();
-            if (why == null) { Ok(); return; }
+            if (why == null) { Ok("Windows"); return; }
             VoiceLog.Write("WinRT không bật được: " + why);
 
-            string why2 = TryStartSapi();
-            if (why2 == null) { Ok(); return; }
-            VoiceLog.Write("System.Speech không bật được: " + why2);
+            // Windows chưa có tiếng Việt (vd. máy để tiếng Anh): dùng bộ nhận dạng tiếng Việt kèm theo app
+            string why2 = await TryStartVoskAsync();
+            if (why2 == null) { Ok("offline"); return; }
+            VoiceLog.Write("Vosk không bật được: " + why2);
 
-            Fail(why + " " + why2, _pendingSettings);
+            string why3 = TryStartSapi();
+            if (why3 == null) { Ok("System.Speech"); return; }
+            VoiceLog.Write("System.Speech không bật được: " + why3);
+
+            Fail(why + " " + why2 + " " + why3, _pendingSettings);
         }
         finally { _starting = false; }
     }
 
     private string _pendingSettings = "ms-settings:privacy-speech";
 
-    private void Ok()
+    private void Ok(string engine)
     {
         _on = true;
-        VoiceLog.Write("Nghe nền ĐANG BẬT");
-        Status?.Invoke("Nghe nền đang bật: nói \"nghe nè ... ok\" (Ctrl+Alt+M để tắt/bật)");
+        VoiceLog.Write("Nghe nền ĐANG BẬT (" + engine + ")");
+        Status?.Invoke("Nghe nền đang bật (" + engine + "): nói \"nghe nè ... ok\" (Ctrl+Alt+M để tắt/bật)");
     }
 
     private void Fail(string msg, string settingsUri)
@@ -105,6 +113,8 @@ internal sealed class WakeVoiceService : IDisposable
                 try { rec.Dispose(); } catch (Exception) { }
             });
         }
+        var vosk = _vosk; _vosk = null;
+        if (vosk != null) { try { vosk.Dispose(); } catch (Exception) { } }
         var sapi = _sapi; _sapi = null;
         if (sapi != null)
         {
@@ -248,6 +258,15 @@ internal sealed class WakeVoiceService : IDisposable
             _rec = null;
             return "WinRT: " + ex.Message + ".";
         }
+    }
+
+    private async Task<string> TryStartVoskAsync()
+    {
+        var v = new VoskListener();
+        var err = await v.StartAsync(OnPhrase, m => Status?.Invoke(m));
+        if (err != null) { v.Dispose(); return err; }
+        _vosk = v;
+        return null;
     }
 
     private string TryStartSapi()

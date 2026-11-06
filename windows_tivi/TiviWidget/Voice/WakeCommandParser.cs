@@ -41,7 +41,7 @@ internal sealed class WakeCommandParser
 
         for (; i < toks.Length; i++)
         {
-            if (EndWords.Contains(Key(toks[i])))
+            if (IsEnd(toks, i))
             {
                 var cmd = string.Join(" ", _buf).Trim();
                 Reset();
@@ -64,6 +64,19 @@ internal sealed class WakeCommandParser
     {
         Capturing = false;
         _buf.Clear();
+    }
+
+    /// <summary>"ok", "oke", hoặc nhận dạng thành "ô kê" (hai từ).</summary>
+    private static bool IsEnd(string[] toks, int i)
+    {
+        var k = Key(toks[i]);
+        if (EndWords.Contains(k)) return true;
+        if (k == "o" && i + 1 < toks.Length)
+        {
+            var n = Key(toks[i + 1]);
+            return n == "ke" || n == "key" || n == "kay";
+        }
+        return false;
     }
 
     private static int FindWake(string[] toks)

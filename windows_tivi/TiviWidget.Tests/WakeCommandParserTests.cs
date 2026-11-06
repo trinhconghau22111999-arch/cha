@@ -40,6 +40,13 @@ public class WakeCommandParserTests
     }
 
     [Fact]
+    public void OkHeardAsOKeTwoWords()
+    {
+        var p = new WakeCommandParser();
+        Assert.Equal("mở du tup", p.Feed("nghe nè mở du tup ô kê", T0));
+    }
+
+    [Fact]
     public void NoWakeWordMeansNoCommand()
     {
         var p = new WakeCommandParser();
