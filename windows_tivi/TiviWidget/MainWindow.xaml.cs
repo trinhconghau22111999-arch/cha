@@ -68,7 +68,7 @@ public partial class MainWindow : Window
         {
             UpdateClock();
             _wake.Tick();
-            DesktopHost.UpdateState(_hwnd);   // Bước 5: có app thì thu nhỏ, không có thì phủ màn hình
+            DesktopHost.UpdateState(_hwnd);   // luôn phóng to tối đa trên desktop
         };
         _clock.Start();
         UpdateClock();

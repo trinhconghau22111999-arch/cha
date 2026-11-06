@@ -11,11 +11,8 @@ namespace TiviWidget;
 internal static class DesktopHost
 {
     // ===== Cấu hình hành vi (Bước 5) =====
-    /// <summary>true: có app trên màn hình chính thì ẩn hẳn widget. false: thu nhỏ về góc phải dưới (mặc định).</summary>
+    /// <summary>true: có app trên màn hình chính thì ẩn hẳn widget. false: luôn phóng to tối đa (mặc định).</summary>
     public const bool HideWhenAppsOpen = false;
-    public const int CompactWidth = 480;     // pixel vật lý
-    public const int CompactHeight = 270;
-    public const int CompactMargin = 16;
 
     private const uint WM_SPAWN_WORKER = 0x052C;
     private const uint SMTO_NORMAL = 0x0000;
@@ -149,7 +146,10 @@ internal static class DesktopHost
         return count;
     }
 
-    /// <summary>Đặt bố cục theo trạng thái hiện tại: phủ màn hình chính, thu nhỏ góc phải dưới, hoặc ẩn.</summary>
+    /// <summary>
+    /// Luôn phóng to hết cỡ trên desktop màn hình chính (vùng làm việc: không đè taskbar nên thanh nút dưới
+    /// vẫn thấy). Không thu nhỏ, không full màn hình độc quyền; app khác mở thì nằm đè lên trên widget.
+    /// </summary>
     private static void Layout(IntPtr child)
     {
         if (_appsOpen && HideWhenAppsOpen)
@@ -159,24 +159,9 @@ internal static class DesktopHost
         }
 
         ShowWindow(child, SW_SHOWNOACTIVATE);
-
-        if (_appsOpen)
-        {
-            // Góc phải dưới, nằm trong vùng làm việc (không đè lên taskbar)
-            var wa = WorkArea();
-            int x = wa.Right - CompactWidth - CompactMargin;
-            int y = wa.Bottom - CompactHeight - CompactMargin;
-            SetWindowPos(child, IntPtr.Zero, x, y, CompactWidth, CompactHeight,
-                         SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-        }
-        else
-        {
-            // Không có app nào trên màn hình chính: phủ toàn bộ màn hình chính
-            int cx = GetSystemMetrics(SM_CXSCREEN);
-            int cy = GetSystemMetrics(SM_CYSCREEN);
-            SetWindowPos(child, IntPtr.Zero, 0, 0, cx, cy,
-                         SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-        }
+        var wa = WorkArea();
+        SetWindowPos(child, IntPtr.Zero, wa.Left, wa.Top, wa.Right - wa.Left, wa.Bottom - wa.Top,
+                     SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
     }
 
     private static RECT WorkArea()

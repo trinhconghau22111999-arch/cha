@@ -27,11 +27,11 @@ Test không mở cửa sổ và không gọi chuột, âm lượng, màn hình.
 
 | # | Thao tác | Mong đợi |
 |---|---|---|
-| C1 | Chạy app, không mở app nào | Widget phủ toàn màn hình chính, nằm sau icon desktop |
-| C2 | Mở Notepad (cửa sổ thường) | Widget thu nhỏ về góc phải dưới 480×270, trên taskbar |
-| C3 | Đóng Notepad | Widget trở lại toàn màn hình trong vài giây |
+| C1 | Chạy app, không mở app nào | Widget phóng to hết cỡ vùng làm việc (trên taskbar, thanh nút dưới thấy đủ), nằm sau icon desktop |
+| C2 | Mở Notepad (cửa sổ thường) | Widget KHÔNG thu nhỏ, vẫn phóng to tối đa phía sau Notepad |
+| C3 | Đóng Notepad | Widget vẫn như cũ, thấy lại ngay |
 | C4 | Bật `HideWhenAppsOpen = true` và build lại; mở Notepad | Widget ẩn; đóng Notepad thì hiện lại |
-| C5 | Đổi độ phân giải | Widget phủ lại màn hình chính |
+| C5 | Đổi độ phân giải hoặc vị trí/kích thước taskbar | Widget phóng to lại vừa vùng làm việc mới |
 | C6 | Cửa sổ Start, Search | Không làm widget thu nhỏ (đã bỏ qua) |
 
 ## D. Thủ công — TV (Bước 6)
