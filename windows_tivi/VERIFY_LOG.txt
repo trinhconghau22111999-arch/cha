@@ -14,3 +14,14 @@ CHƯA KIỂM TRA (cần Windows)
 - Toàn bộ hành vi chạy thật: nền WorkerW, WebView2, WebRTC/Firebase, giọng nói, phím, chuột,
   âm lượng, màn hình, khởi động cùng Windows, bộ cài.
 - Xem TEST_PLAN.md mục B đến I.
+
+CẬP NHẬT 2026-11-06 (GitHub Actions, windows-latest, commit 2c5aeb3)
+ĐÃ KIỂM TRA THÊM
+- dotnet restore + build + test + publish win-x64 + Inno Setup: THÀNH CÔNG trên runner Windows.
+  Nghĩa là MainWindow.xaml.cs, App.xaml.cs, RemoteBridge.cs, AdBlocker.cs, VoiceService.cs,
+  InputInjector.cs đã compile ngữ nghĩa được. Bộ cài .exe được tạo (artifact TiviWidget-Setup).
+- Đã sửa 3 lỗi compile: Opacity của WebView2 (chỉ đọc), case Key.Return trùng Key.Enter,
+  thiếu using System.Windows.Controls.Primitives (UniformGrid); và 1 lỗi accessibility trong test.
+VẪN CHƯA KIỂM TRA (cần máy Windows thật)
+- Hành vi chạy: nền WorkerW, WebRTC/Firebase, giọng nói vi-VN, phím/chuột, âm lượng, khởi động cùng Windows.
+  Làm các mục C, D, F trong TEST_PLAN.md.
