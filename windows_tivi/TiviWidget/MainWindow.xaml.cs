@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Text.Json;
@@ -699,8 +700,7 @@ public partial class MainWindow : Window
                 case Key.Down: YtRemote("down"); break;
                 case Key.Left: YtRemote("left"); break;
                 case Key.Right: YtRemote("right"); break;
-                case Key.Enter:
-                case Key.Return: YtRemote("ok"); break;
+                case Key.Enter: YtRemote("ok"); break;
                 case Key.Escape:
                 case Key.Back: YtBack(); break;
                 default: return;
@@ -725,7 +725,6 @@ public partial class MainWindow : Window
             case Key.Up when _level < 2:    MoveNav(-_navCols); break;
             case Key.Down when _level < 2:  MoveNav(_navCols); break;
             case Key.Enter:
-            case Key.Return:
                 if (_level < 2 && _navSel < _nav.Count)
                     _nav[_navSel].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 break;
