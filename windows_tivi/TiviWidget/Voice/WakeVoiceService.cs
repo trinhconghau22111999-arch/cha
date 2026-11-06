@@ -1,6 +1,9 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Win32;
+using NAudio.Wave;
 using Windows.Media.SpeechRecognition;
 
 namespace TiviWidget;
@@ -9,35 +12,88 @@ namespace TiviWidget;
 /// Luôn bật mic của laptop và nghe "nghe nè &lt;lệnh&gt; ok".
 /// Ưu tiên nhận dạng của Windows 10 (WinRT, tiếng Việt, cần bật "Online speech recognition");
 /// nếu không có thì dùng System.Speech với gói tiếng Việt.
+/// Windows không hỏi quyền micro cho app desktop: service tự kiểm tra các công tắc trong Settings,
+/// báo đúng lỗi, mở trang cài đặt cần bật, tự thử lại, và ghi log.
 /// </summary>
 internal sealed class WakeVoiceService : IDisposable
 {
     private const int PrivacyNotAccepted = unchecked((int)0x80045509);
+    private const int AccessDenied = unchecked((int)0x80070005);
+    private static readonly TimeSpan RetryEvery = TimeSpan.FromSeconds(20);
 
     private readonly WakeCommandParser _parser = new();
     private readonly object _lock = new();
     private SpeechRecognizer _rec;
     private System.Speech.Recognition.SpeechRecognitionEngine _sapi;
     private volatile bool _on;
+    private volatile bool _wanted;
+    private volatile bool _starting;
+    private DateTime _nextRetry = DateTime.MinValue;
+    private string _lastSettingsOpened = "";
 
     public event Action<string> Command;
     public event Action<string> Status;
+    /// <summary>Mọi câu nghe được (kể cả không có "nghe nè"), để thấy mic có hoạt động không.</summary>
+    public event Action<string> Heard;
 
-    public bool Enabled => _on;
+    public bool Enabled => _on || _wanted;
 
     public async Task StartAsync()
     {
-        if (_on) return;
-        _on = true;
-        string why = await TryStartWinRtAsync();
-        if (why == null) { Status?.Invoke("Nghe nền đang bật: nói \"nghe nè ... ok\" (Ctrl+Alt+M để tắt/bật)"); return; }
-        string why2 = TryStartSapi();
-        if (why2 == null) { Status?.Invoke("Nghe nền đang bật: nói \"nghe nè ... ok\" (Ctrl+Alt+M để tắt/bật)"); return; }
-        _on = false;
-        Status?.Invoke("Không bật được nghe nền. " + why + " | " + why2);
+        _wanted = true;
+        if (_on || _starting) return;
+        _starting = true;
+        try
+        {
+            VoiceLog.Write("Bắt đầu bật nghe nền");
+
+            var mic = CheckMicrophone();
+            if (mic != null) { Fail(mic.Value.msg, mic.Value.settings); return; }
+
+            string why = await TryStartWinRtAsync();
+            if (why == null) { Ok(); return; }
+            VoiceLog.Write("WinRT không bật được: " + why);
+
+            string why2 = TryStartSapi();
+            if (why2 == null) { Ok(); return; }
+            VoiceLog.Write("System.Speech không bật được: " + why2);
+
+            Fail(why + " " + why2, _pendingSettings);
+        }
+        finally { _starting = false; }
     }
 
+    private string _pendingSettings = "ms-settings:privacy-speech";
+
+    private void Ok()
+    {
+        _on = true;
+        VoiceLog.Write("Nghe nền ĐANG BẬT");
+        Status?.Invoke("Nghe nền đang bật: nói \"nghe nè ... ok\" (Ctrl+Alt+M để tắt/bật)");
+    }
+
+    private void Fail(string msg, string settingsUri)
+    {
+        _on = false;
+        _nextRetry = DateTime.UtcNow + RetryEvery;
+        VoiceLog.Write("LỖI: " + msg);
+        Status?.Invoke("Mic chưa nghe được: " + msg);
+        // Chỉ tự mở trang cài đặt một lần cho mỗi loại lỗi, tránh bật liên tục
+        if (!string.IsNullOrEmpty(settingsUri) && settingsUri != _lastSettingsOpened)
+        {
+            _lastSettingsOpened = settingsUri;
+            try { Process.Start(new ProcessStartInfo(settingsUri) { UseShellExecute = true }); } catch (Exception) { }
+        }
+    }
+
+    /// <summary>Tắt theo ý người dùng (không tự thử lại nữa).</summary>
     public void Stop()
+    {
+        _wanted = false;
+        StopEngines();
+    }
+
+    private void StopEngines()
     {
         _on = false;
         var rec = _rec; _rec = null;
@@ -59,16 +115,60 @@ internal sealed class WakeVoiceService : IDisposable
 
     public void Dispose() => Stop();
 
-    /// <summary>Gọi mỗi giây: huỷ lệnh đang gom nếu quá thời gian mà chưa nghe "ok".</summary>
+    /// <summary>Gọi mỗi giây: huỷ lệnh quá hạn; nếu đang lỗi thì tự thử bật lại (sau khi người dùng bật công tắc).</summary>
     public void Tick()
     {
         bool timedOut;
         lock (_lock) timedOut = _parser.Tick(DateTime.UtcNow);
         if (timedOut) Status?.Invoke("Hết thời gian: không nghe thấy \"ok\", đã huỷ lệnh");
+
+        if (_wanted && !_on && !_starting && DateTime.UtcNow >= _nextRetry)
+        {
+            _nextRetry = DateTime.UtcNow + RetryEvery;
+            _ = StartAsync();
+        }
+    }
+
+    /// <summary>Kiểm tra micro trước khi nghe. Trả về null nếu ổn.</summary>
+    private static (string msg, string settings)? CheckMicrophone()
+    {
+        try
+        {
+            // Windows 10: công tắc quyền micro nằm trong registry (hộp thoại xin quyền không có với app desktop)
+            const string baseKey = @"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone";
+            foreach (var hive in new[] { Registry.LocalMachine, Registry.CurrentUser })
+            {
+                using var k = hive.OpenSubKey(baseKey);
+                if (k?.GetValue("Value") as string == "Deny")
+                    return ("Windows đang tắt quyền micro. Bật: Settings > Privacy > Microphone > Allow apps to access your microphone.",
+                            "ms-settings:privacy-microphone");
+            }
+            using (var k = Registry.CurrentUser.OpenSubKey(baseKey + @"\NonPackaged"))
+            {
+                if (k?.GetValue("Value") as string == "Deny")
+                    return ("Windows đang chặn ứng dụng desktop dùng micro. Bật: Settings > Privacy > Microphone > Allow desktop apps to access your microphone.",
+                            "ms-settings:privacy-microphone");
+            }
+        }
+        catch (Exception ex) { VoiceLog.Write("Không đọc được quyền micro: " + ex.Message); }
+
+        try
+        {
+            int n = WaveInEvent.DeviceCount;
+            VoiceLog.Write("Số micro tìm thấy: " + n);
+            if (n == 0)
+                return ("Không thấy micro nào. Cắm micro hoặc bật micro trong Settings > System > Sound > Input.",
+                        "ms-settings:sound");
+        }
+        catch (Exception ex) { VoiceLog.Write("Không liệt kê được micro: " + ex.Message); }
+        return null;
     }
 
     private void OnPhrase(string text)
     {
+        VoiceLog.Write("Nghe: " + text);
+        Heard?.Invoke(text);
+
         string cmd;
         bool capturing;
         lock (_lock)
@@ -76,7 +176,11 @@ internal sealed class WakeVoiceService : IDisposable
             cmd = _parser.Feed(text, DateTime.UtcNow);
             capturing = _parser.Capturing;
         }
-        if (cmd != null) Command?.Invoke(cmd);
+        if (cmd != null)
+        {
+            VoiceLog.Write("LỆNH: " + cmd);
+            Command?.Invoke(cmd);
+        }
         else if (capturing) Status?.Invoke("Đang nghe lệnh... nói \"ok\" khi xong");
     }
 
@@ -84,9 +188,15 @@ internal sealed class WakeVoiceService : IDisposable
     {
         try
         {
+            var tags = SpeechRecognizer.SupportedTopicLanguages.Select(l => l.LanguageTag).ToArray();
+            VoiceLog.Write("Ngôn ngữ nhận dạng của Windows: " + string.Join(", ", tags));
             var lang = SpeechRecognizer.SupportedTopicLanguages
                 .FirstOrDefault(l => l.LanguageTag.StartsWith("vi", StringComparison.OrdinalIgnoreCase));
-            if (lang == null) return "Windows chưa có nhận dạng tiếng Việt (Settings > Time & language > Speech).";
+            if (lang == null)
+            {
+                _pendingSettings = "ms-settings:privacy-speech";
+                return "Windows chưa có nhận dạng giọng nói tiếng Việt: bật Settings > Privacy > Speech > Online speech recognition và cài tiếng Việt ở Time & language > Speech.";
+            }
 
             var rec = new SpeechRecognizer(lang);
             rec.Constraints.Add(new SpeechRecognitionTopicConstraint(SpeechRecognitionScenario.Dictation, "dictation"));
@@ -94,7 +204,8 @@ internal sealed class WakeVoiceService : IDisposable
             if (comp.Status != SpeechRecognitionResultStatus.Success)
             {
                 rec.Dispose();
-                return "Không nạp được ngữ pháp: " + comp.Status;
+                _pendingSettings = "ms-settings:privacy-speech";
+                return "Không nạp được nhận dạng giọng nói (" + comp.Status + "): kiểm tra Online speech recognition.";
             }
 
             var session = rec.ContinuousRecognitionSession;
@@ -105,13 +216,14 @@ internal sealed class WakeVoiceService : IDisposable
                 if (!string.IsNullOrWhiteSpace(t)) OnPhrase(t);
             };
             // Phiên tự dừng khi im lặng lâu: mở lại để nghe liên tục
-            session.Completed += async (_, _) =>
+            session.Completed += async (_, e) =>
             {
+                VoiceLog.Write("Phiên nghe kết thúc: " + e.Status + ", mở lại");
                 while (_on && ReferenceEquals(_rec, rec))
                 {
                     await Task.Delay(700);
                     try { await session.StartAsync(); return; }
-                    catch (Exception) { await Task.Delay(3000); }
+                    catch (Exception ex) { VoiceLog.Write("Mở lại phiên lỗi: " + ex.Message); await Task.Delay(3000); }
                 }
             };
 
@@ -122,12 +234,19 @@ internal sealed class WakeVoiceService : IDisposable
         catch (Exception ex) when (ex.HResult == PrivacyNotAccepted)
         {
             _rec = null;
-            return "Hãy bật Settings > Privacy > Speech > Online speech recognition.";
+            _pendingSettings = "ms-settings:privacy-speech";
+            return "Cần bật Settings > Privacy > Speech > Online speech recognition.";
+        }
+        catch (Exception ex) when (ex.HResult == AccessDenied || ex is UnauthorizedAccessException)
+        {
+            _rec = null;
+            _pendingSettings = "ms-settings:privacy-microphone";
+            return "Windows từ chối quyền micro: bật Settings > Privacy > Microphone > Allow desktop apps to access your microphone.";
         }
         catch (Exception ex)
         {
             _rec = null;
-            return "WinRT: " + ex.Message;
+            return "WinRT: " + ex.Message + ".";
         }
     }
 
@@ -137,7 +256,7 @@ internal sealed class WakeVoiceService : IDisposable
         {
             var info = System.Speech.Recognition.SpeechRecognitionEngine.InstalledRecognizers()
                 .FirstOrDefault(r => r.Culture.Name.StartsWith("vi", StringComparison.OrdinalIgnoreCase));
-            if (info == null) return "System.Speech chưa có gói tiếng Việt.";
+            if (info == null) return "System.Speech cũng chưa có gói tiếng Việt.";
 
             var eng = new System.Speech.Recognition.SpeechRecognitionEngine(info);
             eng.SetInputToDefaultAudioDevice();
@@ -152,7 +271,7 @@ internal sealed class WakeVoiceService : IDisposable
         }
         catch (Exception ex)
         {
-            return "System.Speech: " + ex.Message;
+            return "System.Speech: " + ex.Message + ".";
         }
     }
 }

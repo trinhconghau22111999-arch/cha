@@ -69,9 +69,12 @@ internal sealed class WakeCommandParser
     private static int FindWake(string[] toks)
     {
         for (int i = 0; i + 1 < toks.Length; i++)
-            if (Key(toks[i]) == "nghe" && Key(toks[i + 1]) == "ne") return i;
+            if (Key(toks[i]) == "nghe" && IsWakeTail(Key(toks[i + 1]))) return i;
         return -1;
     }
+
+    // "nè" hay bị nhận dạng thành "né/nẻ/nhé"
+    private static bool IsWakeTail(string k) => k == "ne" || k == "nhe";
 
     private static string Key(string tok) =>
         string.Concat(VoiceText.Fold(tok).Where(char.IsLetterOrDigit));

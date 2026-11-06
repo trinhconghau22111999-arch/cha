@@ -33,6 +33,13 @@ public class WakeCommandParserTests
     }
 
     [Fact]
+    public void RecognizerMayHearNheInsteadOfNe()
+    {
+        var p = new WakeCommandParser();
+        Assert.Equal("mở TV", p.Feed("nghe nhé mở TV ok", T0));
+    }
+
+    [Fact]
     public void NoWakeWordMeansNoCommand()
     {
         var p = new WakeCommandParser();

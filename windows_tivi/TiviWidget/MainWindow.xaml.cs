@@ -87,6 +87,7 @@ public partial class MainWindow : Window
         _voice.Recognized += text => Dispatcher.BeginInvoke(new Action(() => OnVoiceText(text)));
         _voice.Status += msg => Dispatcher.BeginInvoke(new Action(() => ShowStatus(msg)));
         _wake.Command += cmd => Dispatcher.BeginInvoke(new Action(() => OnVoiceText(cmd)));
+        _wake.Heard += t => Dispatcher.BeginInvoke(new Action(() => ShowStatus("Nghe được: " + t)));
         _wake.Status += msg => Dispatcher.BeginInvoke(new Action(() => ShowStatus(msg)));
         _control.KeyPressed += OnRemoteKey;
         _control.BackPressed += OnRemoteBack;
@@ -694,7 +695,7 @@ public partial class MainWindow : Window
         // Ctrl+Alt+M: tắt/bật nghe nền "nghe nè ... ok"
         if (key == Key.M && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt))
         {
-            if (_wake.Enabled) { _wake.Stop(); ShowStatus("Đã tắt nghe nền"); }
+            if (_wake.Enabled) { _wake.Stop(); VoiceLog.Write("Người dùng tắt nghe nền"); ShowStatus("Đã tắt nghe nền"); }
             else _ = _wake.StartAsync();
             e.Handled = true;
             return;
