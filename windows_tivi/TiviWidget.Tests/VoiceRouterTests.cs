@@ -23,11 +23,11 @@ public class VoiceRouterTests
     }
 
     [Theory]
-    [InlineData("mở TV", VoiceTarget.Tv)]
-    [InlineData("mở YouTube", VoiceTarget.YouTube)]
-    [InlineData("Cà Mau", VoiceTarget.None)]
-    public void OpenCommandOnly(string q, VoiceTarget expected) =>
-        Assert.Equal(expected, VoiceRouter.OpenCommand(q));
+    [InlineData("mở TV", "Tv")]
+    [InlineData("mở YouTube", "YouTube")]
+    [InlineData("Cà Mau", "None")]
+    public void OpenCommandOnly(string q, string expected) =>
+        Assert.Equal(expected, VoiceRouter.OpenCommand(q).ToString());
 
     [Theory]
     [InlineData("mở TV")]
