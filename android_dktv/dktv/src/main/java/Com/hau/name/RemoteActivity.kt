@@ -248,10 +248,8 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         key(DPadButton.OK, "ok", 72, 72, Gravity.CENTER)
         attachTouchpad(pad)
         root.addView(pad, LinearLayout.LayoutParams(-1, 0, 1f).also { it.topMargin = dp(10); it.bottomMargin = dp(4) })
-        root.addView(TextView(this).apply {
-            text = "Trượt: di chuyển  ·  Chạm: nhấp  ·  2 ngón: cuộn  ·  Giữ ▼ 2 giây: xuống thanh dưới"
-            setTextColor(Neon.DIM); textSize = 10f; gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(-1, -2).also { it.bottomMargin = dp(8) })
+        // Dòng chú thích cách dùng chuột cảm ứng đã được ẩn khỏi giao diện
+        root.addView(View(this), LinearLayout.LayoutParams(-1, dp(8)))
 
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         // Hang 1: 2 thanh truot nam ngang (am luong | do sang), moi thanh nam trong 1 the toi vat goc
