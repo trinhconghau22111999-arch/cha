@@ -151,7 +151,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         root.addView(View(this).apply { setBackgroundColor(Color.BLACK) },
             LinearLayout.LayoutParams(-1, dp(2)).also { it.topMargin = dp(8) })
 
-        // Hang tren: tat/mo man hinh (DK_TV) + man hinh chinh (DK TV 2) + giong noi + khoa cam ung + phong to
+        // Hang tren: tat/mo man hinh + chuyen doi giao dien + khoa cam ung + phong to + giong noi (cuoi hang, ben phai cung)
         btnPower = IconButton(this, IconButton.POWER).also {
             it.setOnClickListener {
                 tvScreenOn = !tvScreenOn
@@ -183,7 +183,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         // 5 nut cung co, cach deu, nhan 2 dong cho can doi
         screenBox = labeled(btnScreen, "CHUYỂN ĐỔI\nGIAO DIỆN", 52, true)
         touchBox = labeled(btnTouch, "TẮT CẢM\nỨNG TV", 52, true)
-        for (b in listOf(powerBox, screenBox, labeled(btnMic, "GIỌNG\nNÓI", 52, true), touchBox, labeled(btnFull, "PHÓNG TO\nMÀN HÌNH", 52, true))) {
+        for (b in listOf(powerBox, screenBox, touchBox, labeled(btnFull, "PHÓNG TO\nMÀN HÌNH", 52, true), labeled(btnMic, "GIỌNG\nNÓI", 52, true))) {
             top.addView(b, LinearLayout.LayoutParams(0, -2, 1f))
         }
         root.addView(top, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(10) })

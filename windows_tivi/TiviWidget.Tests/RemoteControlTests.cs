@@ -69,15 +69,15 @@ public class RemoteControlTests
     }
 
     [Fact]
-    public void ThreeQuickBacksGoHome()
+    public void ThreeQuickBacksDoNotGoHome()
     {
         var rc = new RemoteControl();
         int back = 0, home = 0;
         rc.BackPressed += () => back++;
         rc.HomePressed += () => home++;
         for (int i = 0; i < 3; i++) rc.Handle("{\"action\":\"back\"}");
-        Assert.Equal(2, back);
-        Assert.Equal(1, home);
+        Assert.Equal(3, back);   // mỗi lần bấm lùi chỉ là 1 lần lùi
+        Assert.Equal(0, home);   // đã bỏ tính năng lùi 3 lần để về trang chủ
     }
 
     [Fact]

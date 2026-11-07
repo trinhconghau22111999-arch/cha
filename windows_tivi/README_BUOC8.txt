@@ -12,7 +12,7 @@ Tivi Desktop Widget — Bước 8: điều khiển từ điện thoại (remote)
 CÁCH ĐỔI SANG WINDOWS
 - move/click/scroll: điều khiển con trỏ thật của Windows. Widget nằm trên nền desktop nên thao tác
   đúng với những gì đang thấy. Khi cửa sổ khác che widget thì click đi vào cửa sổ đó.
-- back: như Esc. 3 lần lùi liên tục trong 1 giây thì về trang chủ (như Android).
+- back: như Esc (đã bỏ tính năng lùi 3 lần để về trang chủ).
 - home: đầu trang chọn đài -> sang YouTube; còn lại -> về trang chọn đài. Bản Android có
   thêm màn hình chính trống; Windows chưa có màn hình trống nên dùng hai trạng thái trên.
 - media: play/pause, bài trước, bài sau. Windows không có phím tua nên rew/fwd đổi bài.

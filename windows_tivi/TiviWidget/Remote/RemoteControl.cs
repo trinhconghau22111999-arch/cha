@@ -13,8 +13,6 @@ internal sealed class RemoteControl
     private const double Gain = 1.6;      // như GAIN bên Android
     private const int WheelPerPx = 6;     // dy (px) -> đơn vị cuộn chuột
 
-    private readonly List<DateTime> _backTimes = new();
-
     public event Action<string> KeyPressed;     // up, down, left, right, ok
     public event Action BackPressed;
     public event Action HomePressed;
@@ -98,19 +96,9 @@ internal sealed class RemoteControl
         InputInjector.SetCursor(nx, ny);
     }
 
-    /// <summary>Lùi 1 lần: như back của Android. Lùi 3 lần liên tục (mỗi lần cách nhau không quá 1 giây) thì về trang chủ.</summary>
+    /// <summary>Lùi 1 lần: như back của Android. (Đã bỏ tính năng bấm lùi 3 lần liên tục để về trang chủ.)</summary>
     private void Back()
     {
-        var now = DateTime.UtcNow;
-        if (_backTimes.Count > 0 && (now - _backTimes[_backTimes.Count - 1]).TotalMilliseconds > 1000)
-            _backTimes.Clear();
-        _backTimes.Add(now);
-        if (_backTimes.Count >= 3)
-        {
-            _backTimes.Clear();
-            HomePressed?.Invoke();
-            return;
-        }
         BackPressed?.Invoke();
     }
 

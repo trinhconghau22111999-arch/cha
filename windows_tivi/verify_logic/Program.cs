@@ -74,7 +74,7 @@ string vq = null; rc.VoiceQuery += v => vq = v;
 rc.Handle("{\"action\":\"voice\",\"q\":\"mở TV\"}"); Check(vq == "mở TV", "voice");
 int back = 0, home = 0; rc.BackPressed += () => back++; rc.HomePressed += () => home++;
 for (int i = 0; i < 3; i++) rc.Handle("{\"action\":\"back\"}");
-Check(back == 2 && home == 1, $"back burst back={back} home={home}");
+Check(back == 3 && home == 0, $"back burst back={back} home={home}");
 bool threw = false; try { rc.Handle("không phải json"); } catch { threw = true; }
 Check(!threw, "invalid json ignored");
 InputInjector.Calls.Clear();
