@@ -218,7 +218,7 @@ public partial class MainWindow : Window
         foreach (var js in new[]
         {
             WebScripts.YtOnlyAdWithFlag, WebScripts.VoiceHook, WebScripts.HideOpenApp,
-            WebScripts.YtNoMute, WebScripts.YtNav, WebScripts.HideShorts, WebScripts.YtFill
+            WebScripts.YtNoMute, WebScripts.YtNav, WebScripts.HideShorts, WebScripts.YtFill, WebScripts.YtHomeClean
         })
             _ = core.ExecuteScriptAsync(js);
         ApplyBrightness(core);

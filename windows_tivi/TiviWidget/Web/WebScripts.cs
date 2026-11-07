@@ -452,6 +452,34 @@ internal static class WebScripts
 })();
 """;
 
+    /// <summary>Trang chủ YouTube chỉ chừa lưới video: ẩn thanh trên cùng (tìm kiếm, đăng nhập), thanh chọn mục và menu bên trái.
+    /// Chỉ áp dụng khi đang ở trang chủ (đường dẫn "/"); vào video hay trang khác thì giao diện như cũ.</summary>
+    public const string YtHomeClean = """
+(function(){
+  if (window.__wbHomeInit) return;
+  window.__wbHomeInit = true;
+  var st = document.createElement('style');
+  st.id = 'wb-home-style';
+  st.textContent =
+    'html.wb-home ytd-masthead,html.wb-home #masthead-container,html.wb-home ytd-mini-guide-renderer,html.wb-home ytd-guide-renderer,html.wb-home tp-yt-app-drawer,' +
+    'html.wb-home #chips-wrapper,html.wb-home ytd-feed-filter-chip-bar-renderer,html.wb-home ytd-rich-grid-renderer #header,' +
+    'html.wb-home ytm-mobile-topbar-renderer,html.wb-home .mobile-topbar-header,html.wb-home ytm-chip-cloud-renderer,html.wb-home .chip-cloud{display:none!important}' +
+    'html.wb-home ytd-app{--ytd-persistent-guide-width:0px!important;--ytd-mini-guide-width:0px!important;--ytd-masthead-height:0px!important;--ytd-toolbar-height:0px!important}' +
+    'html.wb-home ytd-page-manager,html.wb-home #page-manager{margin-top:0!important;margin-left:0!important}' +
+    'html.wb-home ytd-browse,html.wb-home ytd-two-column-browse-results-renderer{padding-top:0!important}' +
+    'html.wb-home ytd-app[mini-guide-visible] ytd-page-manager,html.wb-home ytd-app[guide-persistent-and-visible] ytd-page-manager{margin-left:0!important}';
+  (document.head || document.documentElement).appendChild(st);
+  function sync(){
+    var home = location.pathname === '/' || location.pathname === '';
+    document.documentElement.classList.toggle('wb-home', home);
+  }
+  sync();
+  window.addEventListener('yt-navigate-finish', sync);
+  window.addEventListener('popstate', sync);
+  setInterval(sync, 700);
+})();
+""";
+
     /// <summary>Bản có cờ __wbAdSkip như configureWebView() bên Android.</summary>
     public const string YtOnlyAdWithFlag = "window.__wbAdSkip=true;" + YtOnlyAd;
 
