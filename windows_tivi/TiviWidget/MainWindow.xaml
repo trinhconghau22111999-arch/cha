@@ -7,6 +7,37 @@
         WindowStyle="None"
         ResizeMode="NoResize"
         ShowInTaskbar="False">
+  <Window.Resources>
+    <!-- Nút chế độ (TV / YouTube): màu nền do code đặt (xanh dương, đỏ, trắng) nên dùng khuôn riêng để hover/nhấn không ghi đè màu -->
+    <Style x:Key="ModeButton" TargetType="Button">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="Foreground" Value="#1A1A1A" />
+      <Setter Property="BorderBrush" Value="#B5B5B5" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="#1A1A1A" />
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.8" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
   <DockPanel>
     <!-- Thanh dưới: TV, YouTube, ← (khi xem kênh), trạng thái, đồng hồ + âm lịch.
          Đặt mọi nút ở đây vì WebView2 là cửa sổ riêng, WPF không vẽ đè lên được. -->
@@ -16,9 +47,9 @@
                    VerticalAlignment="Center" FontWeight="Bold" Foreground="#1A1A1A" />
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
           <Button x:Name="BtnTv" Content="TV" Width="110" Height="32" Margin="0,0,4,0"
-                  FontWeight="Bold" Click="BtnTv_Click" />
+                  Style="{StaticResource ModeButton}" FontWeight="Bold" Click="BtnTv_Click" />
           <Button x:Name="BtnYt" Content="YouTube" Width="110" Height="32" Margin="0,0,4,0"
-                  FontWeight="Bold" Click="BtnYt_Click" />
+                  Style="{StaticResource ModeButton}" FontWeight="Bold" Click="BtnYt_Click" />
           <Button x:Name="BtnBack" Content="←" Width="48" Height="32" Margin="0,0,4,0"
                   FontSize="16" FontWeight="Bold" Visibility="Collapsed" Click="BtnBack_Click" />
         </StackPanel>

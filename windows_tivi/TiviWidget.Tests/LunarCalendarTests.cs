@@ -15,4 +15,17 @@ public class LunarCalendarTests
         var r = LunarCalendar.SolarToLunar(d, m, y);
         Assert.Equal(new[] { ld, lm, ly, 0 }, r);
     }
+
+    [Theory]
+    [InlineData(2026, 11, 2, "Thứ hai")]
+    [InlineData(2026, 11, 3, "Thứ ba")]
+    [InlineData(2026, 11, 4, "Thứ tư")]
+    [InlineData(2026, 11, 5, "Thứ năm")]
+    [InlineData(2026, 11, 6, "Thứ sáu")]
+    [InlineData(2026, 11, 7, "Thứ bảy")]
+    [InlineData(2026, 11, 8, "Chủ nhật")]
+    public void VietnameseWeekday_FullNames(int y, int m, int d, string expected)
+    {
+        Assert.Equal(expected, LunarCalendar.VietnameseWeekday(new System.DateTime(y, m, d).DayOfWeek));
+    }
 }

@@ -5,6 +5,18 @@ namespace TiviWidget;
 /// <summary>Đổi dương lịch -> âm lịch Việt Nam (UTC+7), thuật toán Hồ Ngọc Đức. Port từ LunarCalendar.kt.</summary>
 internal static class LunarCalendar
 {
+    /// <summary>Tên thứ bằng tiếng Việt: "Thứ hai" ... "Thứ bảy", "Chủ nhật".</summary>
+    public static string VietnameseWeekday(DayOfWeek d) => d switch
+    {
+        DayOfWeek.Monday => "Thứ hai",
+        DayOfWeek.Tuesday => "Thứ ba",
+        DayOfWeek.Wednesday => "Thứ tư",
+        DayOfWeek.Thursday => "Thứ năm",
+        DayOfWeek.Friday => "Thứ sáu",
+        DayOfWeek.Saturday => "Thứ bảy",
+        _ => "Chủ nhật"
+    };
+
     private const double TZ = 7.0;
     private const double Dr = Math.PI / 180;
 

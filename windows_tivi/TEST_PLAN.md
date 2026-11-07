@@ -6,7 +6,7 @@ Lệnh: `dotnet test TiviWidget.Tests/TiviWidget.Tests.csproj`
 
 | Lớp test | Kiểm tra | Mong đợi |
 |---|---|---|
-| LunarCalendarTests | 1/1/2000, 10/2/2024, 17/2/2026, 6/11/2026 | 25/11/1999; 1/1/2024; 1/1/2026; 28/9/2026 |
+| LunarCalendarTests | 1/1/2000, 10/2/2024, 17/2/2026, 6/11/2026; tên thứ 2..8/11/2026 | 25/11/1999; 1/1/2024; 1/1/2026; 28/9/2026; "Thứ hai"..."Chủ nhật" |
 | VoiceRouterTests | Câu ghép YouTube và TV; lệnh mở đơn; câu không có nội dung; chuẩn hoá | Tách đúng app và nội dung; giữ dấu trong nội dung |
 | ChannelMatcherTests | "ca mau", "HTV9", tên không có | Đúng kênh; không có thì null |
 | RemoteControlTests | key, bar, quality, touchlock, brightness, voice, back x3, JSON hỏng | Sự kiện đúng giá trị; lệnh rác không gây lỗi |
@@ -38,13 +38,13 @@ Test không mở cửa sổ và không gọi chuột, âm lượng, màn hình.
 
 | # | Thao tác | Mong đợi |
 |---|---|---|
-| D1 | Bấm nút TV | Hiện "Chọn Kênh" với các đài, 3 cột |
+| D1 | Bấm nút TV | Hiện "Chọn Kênh" với các đài, 3 cột; nút TV xanh dương, nút YouTube trắng |
 | D2 | Bấm đài 1 kênh (ví dụ Vĩnh Long) | Phát luôn, không qua danh sách kênh |
 | D3 | Bấm đài nhiều kênh (Việt Nam) | Hiện danh sách kênh; bấm VTV1 thì phát |
 | D4 | Khi phát: đếm 5-4-3-2-1 | Lớp đen đếm ngược, sau đó hình hiện ra |
 | D5 | Khi phát: nút ← ở thanh dưới; Esc; Backspace | Quay lại danh sách kênh; hết ← về danh sách đài |
 | D6 | Phím N hoặc PageDown khi đang xem | Sang kênh kế tiếp trong cùng đài |
-| D7 | Đồng hồ thanh dưới | Hiện giờ, thứ, ngày, "ÂL d/m" đúng với lịch Việt Nam (6/11/2026 là ÂL 28/9) |
+| D7 | Đồng hồ thanh dưới | Hiện "Thứ bảy" (chủ nhật: "Chủ nhật") rồi giờ, ngày, "ÂL d/m" đúng với lịch Việt Nam (6/11/2026 là ÂL 28/9) |
 | D8 | Kênh có quảng cáo | Quảng cáo từ domain trong blocklist không tải |
 
 ## E. Thủ công — YouTube và giọng nói (Bước 9)

@@ -59,9 +59,15 @@ public partial class MainWindow : Window
     private static readonly Brush NavOn = new SolidColorBrush(Color.FromRgb(0x15, 0x65, 0xC0));
     private static readonly Brush NavOff = new SolidColorBrush(Color.FromRgb(0x2B, 0x2B, 0x3A));
 
+    private static readonly Brush TvBlue = new SolidColorBrush(Color.FromRgb(0x1E, 0x6B, 0xFF));
+    private static readonly Brush YtRed = new SolidColorBrush(Color.FromRgb(0xE6, 0x21, 0x17));
+    private static readonly Brush ModeText = new SolidColorBrush(Color.FromRgb(0x1A, 0x1A, 0x1A));
+    private static readonly Brush ModeBorder = new SolidColorBrush(Color.FromRgb(0xB5, 0xB5, 0xB5));
+
     public MainWindow()
     {
         InitializeComponent();
+        UpdateModeButtons();
 
         _clock.Tick += (_, _) =>
         {
@@ -381,10 +387,25 @@ public partial class MainWindow : Window
     {
         StopPlayer();
         _mode = m;
+        UpdateModeButtons();
         bool tv = m == Mode.Tv;
         Web.Visibility = tv ? Visibility.Collapsed : Visibility.Visible;
         Chooser.Visibility = tv ? Visibility.Visible : Visibility.Collapsed;
         _remote?.SendToPhone("{\"type\":\"mode\",\"mode\":\"" + (tv ? "tv" : "yt") + "\"}");   // điện thoại đổi màu nút Chuyển đổi giao diện
+    }
+
+    /// <summary>Đang ở TV: nút TV xanh dương. Đang ở YouTube: nút YouTube đỏ. Nút còn lại trắng.</summary>
+    private void UpdateModeButtons()
+    {
+        PaintModeButton(BtnTv, _mode == Mode.Tv, TvBlue);
+        PaintModeButton(BtnYt, _mode == Mode.YouTube, YtRed);
+    }
+
+    private static void PaintModeButton(Button b, bool on, Brush onColor)
+    {
+        b.Background = on ? onColor : Brushes.White;
+        b.Foreground = on ? Brushes.White : ModeText;
+        b.BorderBrush = on ? onColor : ModeBorder;
     }
 
     private void ShowGroups(int sel = 0)
@@ -871,9 +892,9 @@ public partial class MainWindow : Window
     private void UpdateClock()
     {
         var now = DateTime.Now;
-        int thu = now.DayOfWeek == DayOfWeek.Sunday ? 8 : (int)now.DayOfWeek + 1;
         var l = LunarCalendar.SolarToLunar(now.Day, now.Month, now.Year);
         string leap = l[3] == 1 ? " nhuận" : "";
-        ClockText.Text = $"{now:HH:mm}   T{thu} {now:dd/MM/yyyy}   ÂL {l[0]}/{l[1]}{leap}";
+        // Thứ nằm bên trái giờ: "Thứ bảy   21:05   07/11/2026   ÂL 28/9"
+        ClockText.Text = $"{LunarCalendar.VietnameseWeekday(now.DayOfWeek)}   {now:HH:mm}   {now:dd/MM/yyyy}   ÂL {l[0]}/{l[1]}{leap}";
     }
 }
