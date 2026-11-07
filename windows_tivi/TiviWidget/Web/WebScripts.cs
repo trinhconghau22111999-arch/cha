@@ -134,8 +134,24 @@ internal static class WebScripts
     public const string YtNav = """
 (function(){
  if(window.__wbNavInit) return; window.__wbNavInit=true;
- var ITEM='ytm-compact-video-renderer,ytm-video-with-context-renderer,ytm-rich-item-renderer,ytm-media-item,ytm-compact-autoplay-renderer,ytd-compact-video-renderer,ytd-video-renderer,ytd-rich-item-renderer,ytm-playlist-panel-video-renderer,ytd-playlist-panel-video-renderer,ytm-rich-grid-media,ytd-grid-video-renderer';
+ var ITEM='ytm-compact-video-renderer,ytm-video-with-context-renderer,ytm-rich-item-renderer,ytm-media-item,ytm-compact-autoplay-renderer,ytd-compact-video-renderer,ytd-video-renderer,ytd-rich-item-renderer,ytm-playlist-panel-video-renderer,ytd-playlist-panel-video-renderer,ytm-rich-grid-media,ytd-grid-video-renderer,yt-lockup-view-model,ytd-compact-playlist-renderer,ytd-playlist-renderer';
  var cur=null;
+ // Viền chọn vẽ quanh TÊN video (không phải khung ảnh): tìm thẻ tiêu đề trong ô video, không có thì dùng cả ô
+ function tgt(el){
+   var t=null;
+   try{ t=el.querySelector('a#video-title,#video-title,h3 a,h3,a.yt-lockup-metadata-view-model-wiz__title,.yt-lockup-metadata-view-model-wiz__title,.media-item-headline,.compact-media-item-headline'); }catch(e){}
+   return t||el;
+ }
+ function paint(el){
+   var t=tgt(el); el.__wbT=t;
+   t.style.outline='4px solid #00e676'; t.style.outlineOffset='3px'; t.style.borderRadius='6px';
+ }
+ function unpaint(el){
+   var t=el.__wbT||el;
+   t.style.outline=''; t.style.outlineOffset=''; t.style.borderRadius='';
+   if(t!==el){ el.style.outline=''; el.style.outlineOffset=''; }
+   el.__wbT=null;
+ }
  function vid(a){try{var u=new URL(a.href,location.href);return u.searchParams.get('v')||u.pathname}catch(e){return a.href}}
  function items(){
    var out=[],seen={};
@@ -173,7 +189,7 @@ internal static class WebScripts
  }
  function markSearch(el){
    cancelPend();
-   if(cur){ cur.style.outline=''; cur.style.outlineOffset=''; cur=null; }
+   if(cur){ unpaint(cur); cur=null; }
    unmarkSearch();
    sEl=el; onSearch=true;
    el.style.outline='4px solid #00e676'; el.style.outlineOffset='-2px';
@@ -190,8 +206,8 @@ internal static class WebScripts
  }
  var anchor=null, followT=0, followLast=0;
  function setOutline(el){
-   if(cur && cur!==el){ cur.style.outline=''; cur.style.outlineOffset=''; }
-   cur=el; el.style.outline='4px solid #00e676'; el.style.outlineOffset='-4px';
+   if(cur && cur!==el){ unpaint(cur); }
+   cur=el; paint(el);
  }
  // Luot 2 ngon: o chon dung yen tren man hinh, video nao truot vao cho do thi o chon chuyen sang video do
  function followNow(){
@@ -237,10 +253,10 @@ internal static class WebScripts
    cancelPend();
    anchor=null;
    unmarkSearch();
-   if(cur && cur!==el){ cur.style.outline=''; cur.style.outlineOffset=''; }
+   if(cur && cur!==el){ unpaint(cur); }
    cur=el;
    if(el){
-     el.style.outline='4px solid #00e676'; el.style.outlineOffset='-4px';
+     paint(el);
      el.scrollIntoView({block:'center',inline:'nearest',behavior:'smooth'});
      if(window.scrollX) window.scrollTo({left:0,top:window.scrollY,behavior:'auto'});
    }
