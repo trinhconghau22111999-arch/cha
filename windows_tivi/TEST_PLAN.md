@@ -63,11 +63,11 @@ Giọng nói cần gói tiếng Việt đã cài (SETUP mục 2). Nhận dạng 
 
 ## F. Thủ công — điều khiển từ điện thoại (Bước 8, 10)
 
-Chuẩn bị: điện thoại có app dktv (DK TV 2), cùng Wi-Fi với PC, mã ghép cặp 123456.
+Chuẩn bị: điện thoại có app DK TV Gộp (android_dktv), cùng Wi-Fi với PC, mã ghép cặp 654321.
 
 | # | Lệnh | Thao tác trên điện thoại | Mong đợi trên PC |
 |---|---|---|---|
-| F1 | Kết nối | Mở dktv, ghép với 123456 | Trạng thái kết nối; không có lỗi trong vài phút |
+| F1 | Kết nối | Mở DK TV Gộp, ghép với 654321 | Trạng thái kết nối; không có lỗi trong vài phút |
 | F2 | move | Vuốt trên màn hình điện thoại | Con trỏ chuột PC di chuyển |
 | F3 | click | Chạm | Click tại con trỏ |
 | F4 | scroll | Vuốt dọc | Cuộn trang đang mở |

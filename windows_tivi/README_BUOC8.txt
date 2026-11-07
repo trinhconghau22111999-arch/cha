@@ -3,7 +3,7 @@ Tivi Desktop Widget — Bước 8: điều khiển từ điện thoại (remote)
 ĐÃ NỐI
 - Trang truyentep.html + vendor/firebase-compat.js chạy trong WebView2 ẩn (RemoteHost), nguyên văn
   từ Android. Tên miền ảo tivi.local, không đổi nội dung trang.
-- Mã ghép cặp cố định 123456 (như bản Android). Điện thoại dùng app dktv (DK TV 2) để điều khiển.
+- Mã ghép cặp cố định 654321 (khớp với app Android android_dktv). Điện thoại dùng app DK TV Gộp để điều khiển.
 - Cầu nối AndroidCam được thay bằng window.chrome.webview (RemoteBridge.cs).
 - Lệnh: move, click, scroll, key (up/down/left/right/ok), back, home, media, volume, screen, voice.
 - textEdit: điện thoại gõ chữ vào ô đang chọn (JS TEXT_EDIT_FN nguyên văn), Enter khi ins = "\n".

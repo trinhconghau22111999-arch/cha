@@ -5,7 +5,7 @@ Gộp 2 app điều khiển từ xa thành 1, giữ toàn bộ chức năng củ
 - **DK TV** (repo `DK_TV`)
 - **DK TV 2** (module `dktv` trong repo `a3`)
 
-Điều khiển bản Windows (`windows_tivi/`) hoặc app TV qua WebRTC + Firebase (mã cố định như hai app gốc).
+Điều khiển bản Windows (`windows_tivi/`) qua WebRTC + Firebase. Mã ghép cặp cố định **654321**, dùng chung với bản Windows (hai app gốc dùng 123456).
 
 ## Chức năng
 - Chuột cảm ứng: trượt = di chuyển (con trỏ có gia tốc), chạm = nhấp, 2 ngón = cuộn (có quán tính).
