@@ -718,12 +718,25 @@ public partial class MainWindow : Window
         ShowStatus(on ? "Điện thoại đang khoá cảm ứng TV" : "Đã mở khoá cảm ứng TV");
     }
 
-    /// <summary>Độ sáng 0..100 như Android. Không đổi độ sáng màn hình hệ thống: làm tối nội dung trang bằng CSS filter.</summary>
+    /// <summary>
+    /// Độ sáng 0..100. Ưu tiên đổi đèn nền thật của laptop qua WMI. Nếu máy không hỗ trợ
+    /// (PC để bàn / màn hình ngoài) thì dự phòng: làm tối nội dung trang bằng CSS filter.
+    /// </summary>
     private void SetBrightness(int level)
     {
-        _brightness = level;
-        ApplyBrightness(Web.CoreWebView2);
-        ApplyBrightness(Player.CoreWebView2);
+        level = Math.Clamp(level, 0, 100);
+        _ = Task.Run(() =>
+        {
+            bool ok = InputInjector.TrySetSystemBrightness(level);
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // Đổi được đèn nền thật thì bỏ filter để không bị tối 2 lần.
+                _brightness = ok ? 100 : level;
+                ApplyBrightness(Web.CoreWebView2);
+                ApplyBrightness(Player.CoreWebView2);
+                if (!ok) ShowStatus("Máy không đổi được đèn nền, đang làm tối nội dung trang");
+            }));
+        });
     }
 
     private void ApplyBrightness(CoreWebView2 core)

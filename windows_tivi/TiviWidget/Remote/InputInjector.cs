@@ -1,11 +1,12 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Management;
 using System.Text;
 using NAudio.CoreAudioApi;
 
 namespace TiviWidget;
 
-/// <summary>Thao tác hệ thống: chuột, phím đa phương tiện, màn hình, âm lượng, giữ màn hình sáng.</summary>
+/// <summary>Thao tác hệ thống: chuột, phím đa phương tiện, màn hình, âm lượng, độ sáng đèn nền (WMI), giữ màn hình sáng.</summary>
 internal static class InputInjector
 {
     [StructLayout(LayoutKind.Sequential)]
@@ -90,6 +91,54 @@ internal static class InputInjector
         using var enumerator = new MMDeviceEnumerator();
         using var device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
         device.AudioEndpointVolume.MasterVolumeLevelScalar = Math.Clamp(scalar, 0f, 1f);
+    }
+
+
+    /// <summary>
+    /// Đổi độ sáng đèn nền thật của màn hình laptop (0..100) qua WMI WmiMonitorBrightnessMethods,
+    /// giống kéo thanh độ sáng trong Cài đặt Windows. Trả về false nếu máy không hỗ trợ
+    /// (PC để bàn, màn hình ngoài HDMI/DisplayPort không có điều khiển WMI) để bên gọi dùng cách dự phòng.
+    /// </summary>
+    public static bool TrySetSystemBrightness(int level)
+    {
+        try
+        {
+            byte b = (byte)Math.Clamp(level, 0, 100);
+            bool any = false;
+            var scope = new ManagementScope(@"\\.\root\WMI");
+            scope.Connect();
+            using var searcher = new ManagementObjectSearcher(scope, new ObjectQuery("SELECT * FROM WmiMonitorBrightnessMethods"));
+            foreach (ManagementObject mo in searcher.Get())
+            {
+                using (mo)
+                {
+                    mo.InvokeMethod("WmiSetBrightness", new object[] { (uint)1, b });   // timeout 1 giây, độ sáng %
+                    any = true;
+                }
+            }
+            return any;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Độ sáng đèn nền hiện tại 0..100, hoặc -1 nếu không đọc được.</summary>
+    public static int GetSystemBrightness()
+    {
+        try
+        {
+            var scope = new ManagementScope(@"\\.\root\WMI");
+            scope.Connect();
+            using var searcher = new ManagementObjectSearcher(scope, new ObjectQuery("SELECT CurrentBrightness FROM WmiMonitorBrightness"));
+            foreach (ManagementObject mo in searcher.Get())
+            {
+                using (mo) return Convert.ToInt32(mo["CurrentBrightness"]);
+            }
+        }
+        catch (Exception) { }
+        return -1;
     }
 
     /// <summary>Giữ máy/màn hình không tự ngủ khi đang có camera hoặc remote cần (keepAwake của bản Android).</summary>
