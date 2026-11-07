@@ -385,11 +385,31 @@ internal static class WebScripts
   }
   function active(){ return document.documentElement.classList.contains(CLS); }
   function poke(){ try { window.dispatchEvent(new Event('resize')); } catch(e){} }
+  var fsEl = null, lastToggle = 0, enteredAt = 0;
+  function playerEl(){ return document.querySelector('#movie_player,.html5-video-player'); }
+  // Giả trạng thái fullscreen để YouTube không thấy lệch trạng thái rồi tự gọi exitFullscreen (làm video mở lên rồi tắt ngay)
+  function fakeEvents(){
+    try { document.dispatchEvent(new Event('fullscreenchange')); } catch(e){}
+    try { document.dispatchEvent(new Event('webkitfullscreenchange')); } catch(e){}
+  }
+  ['fullscreenElement','webkitFullscreenElement','webkitCurrentFullScreenElement'].forEach(function(k){
+    try { Object.defineProperty(document, k, {get:function(){return fsEl;}, configurable:true}); } catch(e){}
+  });
+  try { Object.defineProperty(document, 'webkitIsFullScreen', {get:function(){return !!fsEl;}, configurable:true}); } catch(e){}
   window.__wbFill = function(on){
-    if (on === undefined) on = !active();
+    var now = Date.now();
+    if (on === undefined) {
+      if (now - lastToggle < 600) return active();   // bỏ lần bấm dội 2 lần
+      on = !active();
+    }
+    if (!!on === active()) return active();
     if (on && !document.querySelector('video')) return false;
+    lastToggle = now;
     addStyle();
     document.documentElement.classList.toggle(CLS, !!on);
+    if (on) enteredAt = now;
+    fsEl = on ? playerEl() : null;
+    fakeEvents();
     poke(); setTimeout(poke, 200); setTimeout(poke, 800);
     return !!on;
   };
@@ -399,7 +419,8 @@ internal static class WebScripts
   var req = function(){ window.__wbFill(true); return Promise.resolve(); };
   try { Element.prototype.requestFullscreen = req; } catch(e){}
   try { Element.prototype.webkitRequestFullscreen = req; } catch(e){}
-  var ex = function(){ window.__wbFill(false); return Promise.resolve(); };
+  // YouTube có thể tự gọi exitFullscreen ngay sau khi vào: bỏ qua trong 1,5 s đầu
+  var ex = function(){ if (Date.now() - enteredAt > 1500) window.__wbFill(false); return Promise.resolve(); };
   try { Document.prototype.exitFullscreen = ex; } catch(e){}
   try { Document.prototype.webkitExitFullscreen = ex; } catch(e){}
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && active()) window.__wbFill(false); }, true);
