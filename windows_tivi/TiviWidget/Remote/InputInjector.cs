@@ -23,6 +23,7 @@ internal static class InputInjector
     [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("kernel32.dll")] private static extern uint SetThreadExecutionState(uint flags);
 
+    private const uint MOUSEEVENTF_MOVE = 0x0001;
     private const uint MOUSEEVENTF_LEFTDOWN = 0x0002;
     private const uint MOUSEEVENTF_LEFTUP = 0x0004;
     private const uint MOUSEEVENTF_WHEEL = 0x0800;
@@ -82,8 +83,30 @@ internal static class InputInjector
     /// <summary>Tắt màn hình (monitor power off).</summary>
     public static void ScreenOff() => SendMessage(HwndBroadcast, WM_SYSCOMMAND, new IntPtr(SC_MONITORPOWER), new IntPtr(2));
 
-    /// <summary>Bật lại màn hình.</summary>
-    public static void ScreenOn() => SendMessage(HwndBroadcast, WM_SYSCOMMAND, new IntPtr(SC_MONITORPOWER), new IntPtr(-1));
+    /// <summary>
+    /// Bật lại màn hình. Chỉ gửi SC_MONITORPOWER = -1 thì màn hình sáng lên rồi tắt lại ngay, vì bộ đếm "không hoạt động"
+    /// của Windows đã quá hạn từ lúc tắt. Nên đồng thời: đặt lại bộ đếm (SetThreadExecutionState), giả một cử động chuột
+    /// 1 điểm rồi trả về chỗ cũ, và lặp lại ngay sau đó để chắc chắn.
+    /// </summary>
+    public static void ScreenOn()
+    {
+        WakeOnce();
+        System.Threading.Tasks.Task.Run(async () =>
+        {
+            await System.Threading.Tasks.Task.Delay(400);
+            WakeOnce();
+            await System.Threading.Tasks.Task.Delay(1500);
+            SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);   // đặt lại bộ đếm lần nữa
+        });
+    }
+
+    private static void WakeOnce()
+    {
+        SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);   // không có ES_CONTINUOUS: chỉ đặt lại bộ đếm 1 lần
+        mouse_event(MOUSEEVENTF_MOVE, 1, 0, 0, UIntPtr.Zero);
+        mouse_event(MOUSEEVENTF_MOVE, unchecked((uint)-1), 0, 0, UIntPtr.Zero);
+        SendMessage(HwndBroadcast, WM_SYSCOMMAND, new IntPtr(SC_MONITORPOWER), new IntPtr(-1));
+    }
 
     /// <summary>Âm lượng hệ thống 0..1 (cùng vai trò với setStreamVolume của Android).</summary>
     public static void SetVolume(float scalar)
