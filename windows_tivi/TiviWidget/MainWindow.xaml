@@ -7,56 +7,47 @@
         WindowStyle="None"
         ResizeMode="NoResize"
         ShowInTaskbar="False">
-  <Window.Resources>
-    <!-- Nút chế độ (TV / YouTube): màu nền do code đặt (xanh dương, đỏ, trắng) nên dùng khuôn riêng để hover/nhấn không ghi đè màu -->
-    <Style x:Key="ModeButton" TargetType="Button">
-      <Setter Property="Background" Value="White" />
-      <Setter Property="Foreground" Value="#1A1A1A" />
-      <Setter Property="BorderBrush" Value="#B5B5B5" />
-      <Setter Property="BorderThickness" Value="1" />
-      <Setter Property="Template">
-        <Setter.Value>
-          <ControlTemplate TargetType="Button">
-            <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                    BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="#1A1A1A" />
-              </Trigger>
-              <Trigger Property="IsPressed" Value="True">
-                <Setter TargetName="Bd" Property="Opacity" Value="0.8" />
-              </Trigger>
-              <Trigger Property="IsEnabled" Value="False">
-                <Setter TargetName="Bd" Property="Opacity" Value="0.5" />
-              </Trigger>
-            </ControlTemplate.Triggers>
-          </ControlTemplate>
-        </Setter.Value>
-      </Setter>
-    </Style>
-  </Window.Resources>
   <DockPanel>
-    <!-- Thanh dưới: TV, YouTube, ← (khi xem kênh), trạng thái, đồng hồ + âm lịch.
-         Đặt mọi nút ở đây vì WebView2 là cửa sổ riêng, WPF không vẽ đè lên được. -->
-    <Border DockPanel.Dock="Bottom" Height="40" Background="White">
-      <DockPanel Margin="4,3">
-        <TextBlock x:Name="ClockText" DockPanel.Dock="Right" Margin="12,0"
-                   VerticalAlignment="Center" FontWeight="Bold" Foreground="#1A1A1A" />
-        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
-          <Button x:Name="BtnTv" Content="TV" Width="110" Height="32" Margin="0,0,4,0"
-                  Style="{StaticResource ModeButton}" FontWeight="Bold" Click="BtnTv_Click" />
-          <Button x:Name="BtnYt" Content="YouTube" Width="110" Height="32" Margin="0,0,4,0"
-                  Style="{StaticResource ModeButton}" FontWeight="Bold" Click="BtnYt_Click" />
-          <Button x:Name="BtnBack" Content="←" Width="48" Height="32" Margin="0,0,4,0"
-                  FontSize="16" FontWeight="Bold" Visibility="Collapsed" Click="BtnBack_Click" />
-        </StackPanel>
-        <TextBlock x:Name="VoiceStatus" Visibility="Collapsed" Foreground="#1A1A1A"
-                   Margin="12,0" VerticalAlignment="Center" FontSize="14"
-                   TextTrimming="CharacterEllipsis" />
-      </DockPanel>
+    <!-- Thanh dưới kiểu Gaming: nền tối gradient, đường neon cyan - tím - hồng ở trên, nút vát góc,
+         đồng hồ + âm lịch phát sáng. Đặt mọi nút ở đây vì WebView2 là cửa sổ riêng, WPF không vẽ đè lên được. -->
+    <Border DockPanel.Dock="Bottom" Height="46">
+      <Border.Background>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+          <GradientStop Color="#161C34" Offset="0" />
+          <GradientStop Color="#07080D" Offset="1" />
+        </LinearGradientBrush>
+      </Border.Background>
+      <Grid>
+        <Rectangle Height="2" VerticalAlignment="Top">
+          <Rectangle.Fill>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+              <GradientStop Color="#00E5FF" Offset="0" />
+              <GradientStop Color="#8A5CFF" Offset="0.55" />
+              <GradientStop Color="#FF2D95" Offset="1" />
+            </LinearGradientBrush>
+          </Rectangle.Fill>
+        </Rectangle>
+        <DockPanel Margin="6,6,6,4">
+          <TextBlock x:Name="ClockText" DockPanel.Dock="Right" Margin="12,0"
+                     VerticalAlignment="Center" FontWeight="Bold" FontSize="14" Foreground="#9DF2FF">
+            <TextBlock.Effect>
+              <DropShadowEffect Color="#00E5FF" BlurRadius="8" ShadowDepth="0" Opacity="0.55" />
+            </TextBlock.Effect>
+          </TextBlock>
+          <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+            <Button x:Name="BtnTv" Content="TV" Width="116" Height="34" Margin="0,0,6,0"
+                    Style="{StaticResource GameButton}" Click="BtnTv_Click" />
+            <Button x:Name="BtnYt" Content="YouTube" Width="116" Height="34" Margin="0,0,6,0"
+                    Style="{StaticResource GameButton}" Click="BtnYt_Click" />
+            <Button x:Name="BtnBack" Content="←" Width="52" Height="34" Margin="0,0,6,0"
+                    Style="{StaticResource GameButton}" Foreground="#00E5FF" BorderBrush="#00E5FF"
+                    FontSize="18" Visibility="Collapsed" Click="BtnBack_Click" />
+          </StackPanel>
+          <TextBlock x:Name="VoiceStatus" Visibility="Collapsed" Foreground="#FF7AC0"
+                     Margin="12,0" VerticalAlignment="Center" FontSize="14" FontWeight="SemiBold"
+                     TextTrimming="CharacterEllipsis" />
+        </DockPanel>
+      </Grid>
     </Border>
 
     <Grid>
@@ -64,13 +55,37 @@
       <wv2:WebView2 x:Name="Web" DefaultBackgroundColor="Black" />
 
       <!-- TV: trang chọn đài / chọn kênh -->
-      <Grid x:Name="Chooser" Background="#0E0E14" Visibility="Collapsed">
+      <Grid x:Name="Chooser" Visibility="Collapsed">
+        <Grid.Background>
+          <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#0F1426" Offset="0" />
+            <GradientStop Color="#07080D" Offset="1" />
+          </LinearGradientBrush>
+        </Grid.Background>
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
           <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <TextBlock x:Name="ChooserTitle" Text="Chọn Kênh" Foreground="White"
-                   FontSize="20" FontWeight="Bold" Margin="12,10" />
+        <StackPanel Margin="12,10,12,6">
+          <DockPanel>
+            <Rectangle DockPanel.Dock="Left" Width="5" Height="26" Margin="0,0,10,0" Fill="#FF2D95" />
+            <TextBlock x:Name="ChooserTitle" Text="Chọn Kênh" Foreground="#00E5FF"
+                       FontSize="22" FontWeight="Black" VerticalAlignment="Center">
+              <TextBlock.Effect>
+                <DropShadowEffect Color="#00E5FF" BlurRadius="12" ShadowDepth="0" Opacity="0.55" />
+              </TextBlock.Effect>
+            </TextBlock>
+          </DockPanel>
+          <Rectangle Height="2" Margin="0,8,0,0">
+            <Rectangle.Fill>
+              <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                <GradientStop Color="#00E5FF" Offset="0" />
+                <GradientStop Color="#8A5CFF" Offset="0.55" />
+                <GradientStop Color="#FF2D95" Offset="1" />
+              </LinearGradientBrush>
+            </Rectangle.Fill>
+          </Rectangle>
+        </StackPanel>
         <ScrollViewer x:Name="ChooserScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" />
       </Grid>
 
@@ -78,9 +93,13 @@
       <wv2:WebView2 x:Name="Player" DefaultBackgroundColor="Black" Visibility="Collapsed" />
 
       <!-- Đếm ngược 5-4-3-2-1 che lúc kênh đang tải -->
-      <Border x:Name="CoverBorder" Background="Black" Visibility="Collapsed">
-        <TextBlock x:Name="CoverText" Text="5" Foreground="White" FontSize="96" FontWeight="Bold"
-                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+      <Border x:Name="CoverBorder" Background="#07080D" Visibility="Collapsed">
+        <TextBlock x:Name="CoverText" Text="5" Foreground="#00E5FF" FontSize="120" FontWeight="Black"
+                   HorizontalAlignment="Center" VerticalAlignment="Center">
+          <TextBlock.Effect>
+            <DropShadowEffect Color="#00E5FF" BlurRadius="36" ShadowDepth="0" Opacity="0.8" />
+          </TextBlock.Effect>
+        </TextBlock>
       </Border>
 
       <!-- Kênh điều khiển từ điện thoại (1x1, ẩn, giống WebView 1x1 bên Android) -->

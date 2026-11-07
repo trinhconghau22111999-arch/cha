@@ -56,13 +56,17 @@ public partial class MainWindow : Window
     private readonly RemoteControl _control = new();
     private RemoteBridge _remote;
 
-    private static readonly Brush NavOn = new SolidColorBrush(Color.FromRgb(0x15, 0x65, 0xC0));
-    private static readonly Brush NavOff = new SolidColorBrush(Color.FromRgb(0x2B, 0x2B, 0x3A));
+    private static readonly Brush NavOn = new SolidColorBrush(Color.FromRgb(0x12, 0x30, 0x6B));     // ô đang chọn: xanh đậm, viền cyan phát sáng
+    private static readonly Brush NavOff = new SolidColorBrush(Color.FromRgb(0x13, 0x18, 0x26));    // ô thường: nền tối
+    private static readonly Brush NavEdge = new SolidColorBrush(Color.FromRgb(0x2C, 0x36, 0x58));
+    private static readonly Brush NeonCyan = new SolidColorBrush(Color.FromRgb(0x00, 0xE5, 0xFF));
 
     private static readonly Brush TvBlue = new SolidColorBrush(Color.FromRgb(0x1E, 0x6B, 0xFF));
     private static readonly Brush YtRed = new SolidColorBrush(Color.FromRgb(0xE6, 0x21, 0x17));
     private static readonly Brush ModeText = new SolidColorBrush(Color.FromRgb(0x1A, 0x1A, 0x1A));
-    private static readonly Brush ModeBorder = new SolidColorBrush(Color.FromRgb(0xB5, 0xB5, 0xB5));
+    private static readonly Brush ModeBorder = new SolidColorBrush(Color.FromRgb(0x85, 0x90, 0xB0));
+    private static readonly Brush TvEdge = new SolidColorBrush(Color.FromRgb(0x7F, 0xD0, 0xFF));
+    private static readonly Brush YtEdge = new SolidColorBrush(Color.FromRgb(0xFF, 0x8A, 0x80));
 
     public MainWindow()
     {
@@ -397,15 +401,16 @@ public partial class MainWindow : Window
     /// <summary>Đang ở TV: nút TV xanh dương. Đang ở YouTube: nút YouTube đỏ. Nút còn lại trắng.</summary>
     private void UpdateModeButtons()
     {
-        PaintModeButton(BtnTv, _mode == Mode.Tv, TvBlue);
-        PaintModeButton(BtnYt, _mode == Mode.YouTube, YtRed);
+        PaintModeButton(BtnTv, _mode == Mode.Tv, TvBlue, TvEdge);
+        PaintModeButton(BtnYt, _mode == Mode.YouTube, YtRed, YtEdge);
     }
 
-    private static void PaintModeButton(Button b, bool on, Brush onColor)
+    private static void PaintModeButton(Button b, bool on, Brush onColor, Brush onEdge)
     {
         b.Background = on ? onColor : Brushes.White;
         b.Foreground = on ? Brushes.White : ModeText;
-        b.BorderBrush = on ? onColor : ModeBorder;
+        b.BorderBrush = on ? onEdge : ModeBorder;
+        b.Tag = on ? "on" : null;   // nút đang mở: viền phát sáng
     }
 
     private void ShowGroups(int sel = 0)
@@ -785,8 +790,9 @@ public partial class MainWindow : Window
         {
             bool sel = i == _navSel;
             _nav[i].Background = sel ? NavOn : NavOff;
-            _nav[i].BorderBrush = Brushes.White;
-            _nav[i].BorderThickness = new Thickness(sel ? 3 : 0);
+            _nav[i].BorderBrush = sel ? NeonCyan : NavEdge;
+            _nav[i].BorderThickness = new Thickness(sel ? 2.5 : 1);
+            _nav[i].Tag = sel ? "on" : null;   // ô đang chọn: viền phát sáng
         }
         if (_navSel < _nav.Count) _nav[_navSel].BringIntoView();
     }
@@ -879,12 +885,15 @@ public partial class MainWindow : Window
     {
         Content = text,
         Height = height,
-        Margin = new Thickness(4),
-        FontSize = 16,
+        Margin = new Thickness(5),
+        FontSize = 18,
+        FontWeight = FontWeights.SemiBold,
         Foreground = Brushes.White,
         Background = NavOff,
-        BorderThickness = new Thickness(0),
-        Padding = new Thickness(8, 0, 8, 0)
+        BorderBrush = NavEdge,
+        BorderThickness = new Thickness(1),
+        Padding = new Thickness(10, 0, 10, 0),
+        Style = (Style)Application.Current.FindResource("GameButton")
     };
 
     // ================= Đồng hồ + âm lịch =================

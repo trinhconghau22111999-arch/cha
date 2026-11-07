@@ -38,7 +38,7 @@ Test không mở cửa sổ và không gọi chuột, âm lượng, màn hình.
 
 | # | Thao tác | Mong đợi |
 |---|---|---|
-| D1 | Bấm nút TV | Hiện "Chọn Kênh" với các đài, 3 cột; nút TV xanh dương, nút YouTube trắng |
+| D1 | Bấm nút TV | Hiện "Chọn Kênh" với các đài, 3 cột; nút TV xanh dương, nút YouTube trắng; thanh dưới nền tối có đường neon phía trên, nút vát góc; ô chọn kênh nền tối, ô đang chọn viền cyan phát sáng |
 | D2 | Bấm đài 1 kênh (ví dụ Vĩnh Long) | Phát luôn, không qua danh sách kênh |
 | D3 | Bấm đài nhiều kênh (Việt Nam) | Hiện danh sách kênh; bấm VTV1 thì phát |
 | D4 | Khi phát: đếm 5-4-3-2-1 | Lớp đen đếm ngược, sau đó hình hiện ra |
