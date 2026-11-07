@@ -482,6 +482,7 @@ class PeerConnectionManager(
             val text = String(bytes, Charsets.UTF_8)
             val msg = try { org.json.JSONObject(text) } catch (e: Exception) { return }
             when (msg.optString("type")) {
+                "mode" -> Com.hau.name.RemoteState.onMode(msg.optString("mode"))
                 "file-start" -> {
                     incomingFile = IncomingFile(
                         transferId = msg.optString("transferId"),

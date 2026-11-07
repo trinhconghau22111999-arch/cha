@@ -153,6 +153,17 @@
     };
   }
   var camSlots = []; for (var q = 0; q < MAX_CAM_SLOTS; q++) camSlots.push(makeCamSlot(q));
+  // PC -> điện thoại (vd chế độ TV / YouTube để nút đổi màu): gửi cho mọi kênh đang mở, nhớ tin cuối để gửi ngay khi kênh mới mở
+  var lastPhoneMsg = null;
+  function sendToOpenChannels() {
+    if (!lastPhoneMsg) return;
+    camSlots.forEach(function (sl) {
+      var c = sl.dataChannel;
+      if (c && c.readyState === 'open') { try { c.send(lastPhoneMsg); } catch (e) {} }
+    });
+  }
+  window.__sendToPhone = function (s) { lastPhoneMsg = String(s); sendToOpenChannels(); };
+  setInterval(sendToOpenChannels, 3000);
 
   // ---------- Giao dien ----------
   var slotListEl = document.getElementById('slotList');
@@ -253,6 +264,7 @@
     pc.ondatachannel = function (event) {
       if (slot.pc !== pc) return;
       var ch = event.channel; ch.binaryType = 'arraybuffer'; slot.dataChannel = ch;
+      ch.addEventListener('open', function () { if (lastPhoneMsg) { try { ch.send(lastPhoneMsg); } catch (e) {} } });
       renderCamSlotList();
       ch.onmessage = function (e) {
         if (slot.dataChannel !== ch) return;

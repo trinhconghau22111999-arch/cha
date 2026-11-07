@@ -50,6 +50,14 @@ internal sealed class RemoteBridge
 
     public RemoteBridge(WebView2 host) => _host = host;
 
+    /// <summary>Gửi 1 tin JSON từ máy tính sang điện thoại qua DataChannel (nút điều khiển đổi màu theo chế độ).</summary>
+    public void SendToPhone(string json)
+    {
+        var core = _host.CoreWebView2;
+        if (core == null) return;
+        _ = core.ExecuteScriptAsync("window.__sendToPhone&&window.__sendToPhone(" + JsonSerializer.Serialize(json) + ")");
+    }
+
     public async Task StartAsync()
     {
         await _host.EnsureCoreWebView2Async();

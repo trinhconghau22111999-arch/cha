@@ -179,6 +179,7 @@ public partial class MainWindow : Window
         _remote.KeepAwake += InputInjector.KeepAwake;
         _remote.Toast += ShowStatus;
         await _remote.StartAsync();
+        _remote.SendToPhone("{\"type\":\"mode\",\"mode\":\"" + (_mode == Mode.Tv ? "tv" : "yt") + "\"}");
 
         OpenYouTube();
     }
@@ -383,6 +384,7 @@ public partial class MainWindow : Window
         bool tv = m == Mode.Tv;
         Web.Visibility = tv ? Visibility.Collapsed : Visibility.Visible;
         Chooser.Visibility = tv ? Visibility.Visible : Visibility.Collapsed;
+        _remote?.SendToPhone("{\"type\":\"mode\",\"mode\":\"" + (tv ? "tv" : "yt") + "\"}");   // điện thoại đổi màu nút Chuyển đổi giao diện
     }
 
     private void ShowGroups(int sel = 0)

@@ -364,9 +364,10 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         (powerBox.getChildAt(1) as TextView).text = if (tvScreenOn) "TẮT\nMÀN HÌNH" else "MỞ\nMÀN HÌNH"
     }
 
-    /** Nut man hinh chinh (home): mau xanh duong co dinh. */
+    /** Nut Chuyen doi giao dien: xanh duong = TV, do = YouTube (theo che do TV bao ve). */
     private fun refreshScreenButton() {
-        (btnScreen as IconButton).tint = 0xFF3A7BFF.toInt()
+        (btnScreen as IconButton).tint =
+            if (RemoteState.mode == "yt") 0xFFE5322D.toInt() else 0xFF3A7BFF.toInt()
         (screenBox.getChildAt(1) as TextView).text = "CHUYỂN ĐỔI\nGIAO DIỆN"
     }
 
@@ -584,12 +585,16 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         }
     }
 
+    private val modeListener: (String) -> Unit = { ui.post { refreshScreenButton() } }
+
     override fun onResume() {
         super.onResume()
         ui.post(attachLoop)
+        RemoteState.addListener(modeListener)
     }
 
     override fun onPause() {
+        RemoteState.removeListener(modeListener)
         ui.removeCallbacks(attachLoop)
         attachedService?.removeConnectionStatusListener(this)
         attachedService = null
