@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 using NAudio.CoreAudioApi;
 
 namespace TiviWidget;
@@ -12,6 +13,9 @@ internal static class InputInjector
 
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out POINT p);
     [DllImport("user32.dll")] private static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] private static extern IntPtr WindowFromPoint(POINT p);
+    [DllImport("user32.dll")] private static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassName(IntPtr hwnd, StringBuilder sb, int max);
     [DllImport("user32.dll")] private static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
     [DllImport("user32.dll")] private static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
     [DllImport("user32.dll")] private static extern int GetSystemMetrics(int index);
@@ -40,6 +44,24 @@ internal static class InputInjector
     }
 
     public static void SetCursor(int x, int y) => SetCursorPos(x, y);
+
+    /// <summary>
+    /// true nếu dưới con trỏ là lớp nền desktop (widget nằm sau lớp icon nên chuột hệ thống không tới được widget)
+    /// hoặc chính cửa sổ widget. false nếu có app khác (hoặc taskbar) ở dưới con trỏ: khi đó dùng chuột hệ thống bình thường.
+    /// </summary>
+    public static bool CursorOverDesktop(IntPtr self)
+    {
+        if (!GetCursorPos(out POINT p)) return true;
+        IntPtr h = WindowFromPoint(p);
+        if (h == IntPtr.Zero) return true;
+        IntPtr root = GetAncestor(h, 2);   // GA_ROOT
+        if (root == IntPtr.Zero) root = h;
+        if (self != IntPtr.Zero && root == self) return true;
+        var sb = new StringBuilder(64);
+        GetClassName(root, sb, sb.Capacity);
+        string c = sb.ToString();
+        return c == "Progman" || c == "WorkerW";
+    }
 
     public static void Click()
     {

@@ -92,6 +92,8 @@ public partial class MainWindow : Window
         _control.FullscreenRequested += FullscreenVideo;
         _control.TouchLockChanged += SetTouchLock;
         _control.BrightnessChanged += SetBrightness;
+        _control.ClickRequested += OnRemoteClick;
+        _control.ScrollRequested += OnRemoteScroll;
 
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
         Closed += (_, _) =>
@@ -604,6 +606,94 @@ public partial class MainWindow : Window
             await core.ExecuteScriptAsync(
                 "(function(){var v=document.querySelector('video');if(!v)return;var p=v.closest('#movie_player,.html5-video-player')||v;" +
                 "if(p.requestFullscreen)p.requestFullscreen().catch(function(){});})()");
+        }
+        catch (Exception) { }
+    }
+
+    // ================= Chạm / lướt từ điện thoại =================
+    // Widget nằm sau lớp icon desktop nên chuột hệ thống (mouse_event) không tới được widget:
+    // khi dưới con trỏ là desktop thì đưa chạm / lướt thẳng vào nút WPF hoặc WebView2.
+    // Khi có app khác đè lên thì vẫn dùng chuột hệ thống như cũ.
+
+    private Microsoft.Web.WebView2.Wpf.WebView2 ActiveWebView()
+    {
+        if (_mode == Mode.YouTube) return Web.Visibility == Visibility.Visible ? Web : null;
+        return _level == 2 && Player.Visibility == Visibility.Visible ? Player : null;
+    }
+
+    private static bool Inside(FrameworkElement el, Point p) =>
+        p.X >= 0 && p.Y >= 0 && p.X < el.ActualWidth && p.Y < el.ActualHeight;
+
+    private void OnRemoteClick()
+    {
+        if (!InputInjector.CursorOverDesktop(_hwnd)) { InputInjector.Click(); return; }
+        if (_touchLocked) return;
+        if (!InputInjector.GetCursor(out int sx, out int sy)) return;
+        var screen = new Point(sx, sy);
+        try
+        {
+            // 1) Nút WPF (TV / YouTube / ← / ô chọn kênh)
+            var hit = VisualTreeHelper.HitTest(this, PointFromScreen(screen));
+            DependencyObject d = hit?.VisualHit;
+            while (d != null && d is not ButtonBase)
+                d = d is Visual v ? VisualTreeHelper.GetParent(v) : LogicalTreeHelper.GetParent(d);
+            if (d is ButtonBase btn)
+            {
+                if (btn.IsEnabled) btn.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+                return;
+            }
+
+            // 2) Trang web (YouTube hoặc kênh TV đang phát)
+            var wv = ActiveWebView();
+            if (wv?.CoreWebView2 == null) return;
+            var p = wv.PointFromScreen(screen);
+            if (!Inside(wv, p)) return;
+            ClickWebAt(wv.CoreWebView2, (int)Math.Round(p.X), (int)Math.Round(p.Y));
+        }
+        catch (Exception) { }
+    }
+
+    private static async void ClickWebAt(CoreWebView2 core, int x, int y)
+    {
+        string pos = "\"x\":" + x.ToString(CultureInfo.InvariantCulture) + ",\"y\":" + y.ToString(CultureInfo.InvariantCulture);
+        try
+        {
+            await core.CallDevToolsProtocolMethodAsync("Input.dispatchMouseEvent", "{\"type\":\"mouseMoved\"," + pos + "}");
+            await core.CallDevToolsProtocolMethodAsync("Input.dispatchMouseEvent",
+                "{\"type\":\"mousePressed\"," + pos + ",\"button\":\"left\",\"buttons\":1,\"clickCount\":1}");
+            await core.CallDevToolsProtocolMethodAsync("Input.dispatchMouseEvent",
+                "{\"type\":\"mouseReleased\"," + pos + ",\"button\":\"left\",\"buttons\":0,\"clickCount\":1}");
+        }
+        catch (Exception) { }
+    }
+
+    /// <summary>dy > 0: ngón đi xuống, trang cuộn xuống (cùng chiều với bản cũ). 10 px mỗi đơn vị dy.</summary>
+    private void OnRemoteScroll(int dy)
+    {
+        if (!InputInjector.CursorOverDesktop(_hwnd))
+        {
+            InputInjector.Wheel(unchecked((uint)(-dy * 2 * 6)));
+            return;
+        }
+        if (_touchLocked || dy == 0) return;
+        if (!InputInjector.GetCursor(out int sx, out int sy)) return;
+        var screen = new Point(sx, sy);
+        try
+        {
+            if (Chooser.Visibility == Visibility.Visible && Inside(ChooserScroll, ChooserScroll.PointFromScreen(screen)))
+            {
+                ChooserScroll.ScrollToVerticalOffset(ChooserScroll.VerticalOffset + dy * 10);
+                return;
+            }
+
+            var wv = ActiveWebView();
+            if (wv?.CoreWebView2 == null) return;
+            var p = wv.PointFromScreen(screen);
+            if (!Inside(wv, p)) return;
+            string json = "{\"type\":\"mouseWheel\",\"x\":" + ((int)Math.Round(p.X)).ToString(CultureInfo.InvariantCulture) +
+                          ",\"y\":" + ((int)Math.Round(p.Y)).ToString(CultureInfo.InvariantCulture) +
+                          ",\"deltaX\":0,\"deltaY\":" + (dy * 10).ToString(CultureInfo.InvariantCulture) + "}";
+            _ = wv.CoreWebView2.CallDevToolsProtocolMethodAsync("Input.dispatchMouseEvent", json);
         }
         catch (Exception) { }
     }

@@ -108,3 +108,16 @@ Ghi chú: touchlock không chặn được chạm chuột trực tiếp trong v�
 ## I. Ghi nhận lỗi
 
 Khi có lỗi, ghi: số mục (ví dụ F7), các bước, kết quả thực tế, ảnh hoặc log (`%LOCALAPPDATA%` nếu có), và phiên bản (0.12.0).
+
+## J. Chạm và lướt hai ngón từ điện thoại (touchpad)
+
+Widget nằm sau lớp icon desktop nên chạm và lướt được đưa thẳng vào nút WPF / WebView2 khi dưới con trỏ là desktop.
+
+| # | Thao tác | Mong đợi |
+|---|---|---|
+| J1 | Di con trỏ lên nút "TV" hoặc "YouTube" ở thanh dưới rồi chạm 1 ngón | Nút được bấm |
+| J2 | Ở YouTube, di con trỏ lên một video rồi chạm | Mở video |
+| J3 | Ở YouTube, lướt 2 ngón lên/xuống | Trang cuộn theo |
+| J4 | Ở TV, di con trỏ lên một đài / kênh rồi chạm | Vào đài / kênh |
+| J5 | Ở TV (danh sách kênh dài), lướt 2 ngón | Danh sách cuộn |
+| J6 | Mở một app khác đè lên widget, chạm và lướt trong app đó | Vẫn hoạt động như chuột thường |

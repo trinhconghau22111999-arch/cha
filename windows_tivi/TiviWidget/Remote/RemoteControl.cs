@@ -23,6 +23,8 @@ internal sealed class RemoteControl
     public event Action FullscreenRequested;
     public event Action<bool> TouchLockChanged;
     public event Action<int> BrightnessChanged;     // 0..100
+    public event Action ClickRequested;             // chạm 1 ngón
+    public event Action<int> ScrollRequested;       // lướt 2 ngón (dy > 0: ngón đi xuống)
 
     public void Handle(string json)
     {
@@ -39,10 +41,12 @@ internal sealed class RemoteControl
                     Move(Num(o, "dx"), Num(o, "dy"));
                     break;
                 case "click":
-                    InputInjector.Click();
+                    if (ClickRequested != null) ClickRequested(); else InputInjector.Click();
                     break;
                 case "scroll":
-                    InputInjector.Wheel(unchecked((uint)(-Num(o, "dy") * 2 * WheelPerPx)));
+                    int dy = Num(o, "dy");
+                    if (ScrollRequested != null) ScrollRequested(dy);
+                    else InputInjector.Wheel(unchecked((uint)(-dy * 2 * WheelPerPx)));
                     break;
                 case "key":
                     var k = Str(o, "key");
