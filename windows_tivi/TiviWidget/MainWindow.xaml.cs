@@ -662,7 +662,8 @@ public partial class MainWindow : Window
     private void OnRemoteClick()
     {
         if (!InputInjector.CursorOverDesktop(_hwnd)) { InputInjector.Click(); return; }
-        if (_touchLocked) return;
+        // Khoá cảm ứng chỉ chặn chuột/cảm ứng đặt trực tiếp trên TV (xem OnPreviewMouse*). Chạm từ điện thoại
+        // vẫn phải chọn được đài / kênh, nên ở đây không kiểm tra _touchLocked.
         if (!InputInjector.GetCursor(out int sx, out int sy)) return;
         var screen = new Point(sx, sy);
         try
@@ -710,7 +711,7 @@ public partial class MainWindow : Window
             InputInjector.Wheel(unchecked((uint)(-dy * 2 * 6)));
             return;
         }
-        if (_touchLocked || dy == 0) return;
+        if (dy == 0) return;   // lướt từ điện thoại luôn được nhận, kể cả khi đang khoá cảm ứng TV
         if (!InputInjector.GetCursor(out int sx, out int sy)) return;
         var screen = new Point(sx, sy);
         try
@@ -733,15 +734,38 @@ public partial class MainWindow : Window
         catch (Exception) { }
     }
 
-    /// <summary>Khoá cảm ứng: khoá các nút WPF và bỏ phím tại chỗ. Chạm trong WebView2 vẫn không chặn được (hạn chế của WebView2).</summary>
+    /// <summary>Khoá cảm ứng: bỏ chuột/cảm ứng/phím đặt trực tiếp trên TV, còn lệnh từ điện thoại vẫn chạy bình thường.
+    /// Không đặt IsEnabled = false cho các nút: lệnh chạm từ điện thoại bấm nút bằng RaiseEvent(Click) và sẽ bị bỏ qua
+    /// nếu nút bị vô hiệu (đây là lỗi làm chuột cảm ứng không chọn được kênh). Chạm trong WebView2 vẫn không chặn được (hạn chế của WebView2).</summary>
     private void SetTouchLock(bool on)
     {
         _touchLocked = on;
-        BtnTv.IsEnabled = !on;
-        BtnYt.IsEnabled = !on;
-        BtnBack.IsEnabled = !on;
-        ChooserScroll.IsEnabled = !on;
         ShowStatus(on ? "Điện thoại đang khoá cảm ứng TV" : "Đã mở khoá cảm ứng TV");
+    }
+
+    // Khi khoá: nuốt mọi chuột / cảm ứng thật trên các điều khiển WPF. Chạm từ điện thoại không đi qua các sự kiện này.
+    protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+    {
+        if (_touchLocked) { e.Handled = true; return; }
+        base.OnPreviewMouseDown(e);
+    }
+
+    protected override void OnPreviewMouseUp(MouseButtonEventArgs e)
+    {
+        if (_touchLocked) { e.Handled = true; return; }
+        base.OnPreviewMouseUp(e);
+    }
+
+    protected override void OnPreviewMouseWheel(MouseWheelEventArgs e)
+    {
+        if (_touchLocked) { e.Handled = true; return; }
+        base.OnPreviewMouseWheel(e);
+    }
+
+    protected override void OnPreviewTouchDown(TouchEventArgs e)
+    {
+        if (_touchLocked) { e.Handled = true; return; }
+        base.OnPreviewTouchDown(e);
     }
 
     /// <summary>
