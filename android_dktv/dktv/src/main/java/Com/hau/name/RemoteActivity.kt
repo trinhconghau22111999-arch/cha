@@ -45,7 +45,7 @@ import kotlin.math.roundToInt
  * Moi lenh la 1 tin JSON {"type":"remote","action":...} gui qua DataChannel truyen tep co san
  * (cung ma co dinh 654321, cung ket noi WebRTC/Firebase) toi app TV:
  *   - volume / brightness : level = 0..100 (am luong / do sang man hinh TV)
- *   - quality : q = 360 | 720 (chat luong video YouTube)
+ *   - quality : q = 360 | 480 | 720 (chat luong video YouTube)
  *   - back : nut LUI - lui 1 buoc tren TV (giong nut Back)
  *   - fullscreen : phong to / thu nho video dang phat tren TV
  *   - media : cmd = rew | fwd | playpause | next (tua 10 giay, phat/dung, bai/video ke tiep)
@@ -207,7 +207,8 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         // 5 nut cung co, cach deu, nhan 2 dong cho can doi
         screenBox = labeled(btnScreen, "CHUYỂN ĐỔI\nGIAO DIỆN", 56, true)
         touchBox = labeled(btnTouch, "TẮT CẢM\nỨNG TV", 56, true)
-        for (b in listOf(powerBox, screenBox, touchBox, labeled(btnFull, "PHÓNG TO\nMÀN HÌNH", 56, true), labeled(btnMic, "GIỌNG\nNÓI", 56, true))) {
+        // Nút "Tắt cảm ứng TV" (touchBox) đã được ẩn khỏi giao diện
+        for (b in listOf(powerBox, screenBox, labeled(btnFull, "PHÓNG TO\nMÀN HÌNH", 56, true), labeled(btnMic, "GIỌNG\nNÓI", 56, true))) {
             top.addView(b, LinearLayout.LayoutParams(0, -2, 1f))
         }
         root.addView(top, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(10) })
@@ -277,12 +278,13 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         backNext.addView(btnBack, LinearLayout.LayoutParams(0, dp(50), 1f).also { it.rightMargin = dp(4) })
         backNext.addView(btnNext, LinearLayout.LayoutParams(0, dp(50), 1f).also { it.leftMargin = dp(4) })
         panel.addView(backNext, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(10) })
-        // Chat luong video: nhan ben trai + 2 nut cung 1 hang
+        // Chat luong video: nhan ben trai + 3 nut cung 1 hang (360p | 480p | 720p)
         val q = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        q.addView(caption("CHẤT LƯỢNG").also { it.gravity = Gravity.START }, LinearLayout.LayoutParams(dp(LABEL_W), -2))
-        btnQ360 = qualityButton(360); btnQ720 = qualityButton(720)
-        q.addView(btnQ360, LinearLayout.LayoutParams(0, dp(40), 1f).also { it.rightMargin = dp(4) })
-        q.addView(btnQ720, LinearLayout.LayoutParams(0, dp(40), 1f).also { it.leftMargin = dp(4) })
+        q.addView(caption("CHẤT LƯỢNG\nVIDEO").also { it.gravity = Gravity.START }, LinearLayout.LayoutParams(dp(LABEL_W), -2))
+        btnQ360 = qualityButton(360); btnQ480 = qualityButton(480); btnQ720 = qualityButton(720)
+        q.addView(btnQ360, LinearLayout.LayoutParams(0, dp(40), 1f).also { it.rightMargin = dp(3) })
+        q.addView(btnQ480, LinearLayout.LayoutParams(0, dp(40), 1f).also { it.leftMargin = dp(3); it.rightMargin = dp(3) })
+        q.addView(btnQ720, LinearLayout.LayoutParams(0, dp(40), 1f).also { it.leftMargin = dp(3) })
         panel.addView(q, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(10) })
         // Hang duoi cung: 3 nut vat goc, rong bang nhau: lui 10s, phat/dung, tien 10s
         val media = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
@@ -310,6 +312,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
     )
 
     private lateinit var btnQ360: TextView
+    private lateinit var btnQ480: TextView
     private lateinit var btnQ720: TextView
     private var quality = 0
 
@@ -377,7 +380,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     /** Nut dang chon: nen cyan dac chu den, co vang sang; nut con lai: nen toi vien xam chu sang. */
     private fun refreshQuality() {
-        for ((b, q) in listOf(btnQ360 to 360, btnQ720 to 720)) {
+        for ((b, q) in listOf(btnQ360 to 360, btnQ480 to 480, btnQ720 to 720)) {
             val on = quality == q
             b.background = if (on) neon(Neon.CYAN, Neon.CYAN, 9f, glow = true) else neon(Neon.PANEL, Neon.EDGE_HI, 9f, glow = false)
             b.setTextColor(if (on) Neon.INK else Neon.TEXT)
@@ -647,7 +650,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
     }
 
     companion object {
-        private const val LABEL_W = 70
+        private const val LABEL_W = 84
         private const val MOVE_GAIN_SLOW = 1.1f      // di cham: chinh xac
         private const val MOVE_GAIN_FAST = 3.6f      // vuot nhanh: bay xa
         private const val ACC_V0 = 0.15f             // dp/ms bat dau tang toc

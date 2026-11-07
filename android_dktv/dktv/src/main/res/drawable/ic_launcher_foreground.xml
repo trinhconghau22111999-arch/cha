@@ -1,49 +1,60 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Icon remote dieu khien TV (phong cach Sony): nen trang, than remote den vien mong, nut nguon cam,
-    vong dieu huong 4 mui ten + nut OK o giua, mic o duoi. Nam trong vung an toan 66dp cua Adaptive Icon.
+    Icon Gaming: tay cam choi game vat goc, vien neon gradient cyan -> hong co vang sang, D-pad cyan ben trai,
+    4 nut mau (hong / vang / cyan / xanh la) ben phai. Nam trong vung an toan 66dp cua Adaptive Icon.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Than remote -->
+    <!-- Bong do duoi tay cam -->
     <path
-        android:fillColor="#17171A"
-        android:pathData="M49,24 L59,24 A9,9 0 0,1 68,33 L68,75 A9,9 0 0,1 59,84 L49,84 A9,9 0 0,1 40,75 L40,33 A9,9 0 0,1 49,24 Z" />
+        android:strokeColor="#66FF2D95"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:pathData="M40,78L68,78" />
 
-    <!-- Nut nguon (cam) -->
-    <path
-        android:fillColor="#FF6B00"
-        android:pathData="M50,34 A4,4 0 1,0 58,34 A4,4 0 1,0 50,34 Z" />
-
-    <!-- Vong dieu huong -->
-    <path
-        android:fillColor="#26262B"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="1.2"
-        android:pathData="M42,54 A12,12 0 1,0 66,54 A12,12 0 1,0 42,54 Z" />
-
-    <!-- Nut OK -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M49.5,54 A4.5,4.5 0 1,0 58.5,54 A4.5,4.5 0 1,0 49.5,54 Z" />
-
-    <!-- 4 mui ten -->
-    <path android:fillColor="#FFFFFF" android:pathData="M54,44.8 L56.2,48 L51.8,48 Z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M54,63.2 L56.2,60 L51.8,60 Z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M44.8,54 L48,51.8 L48,56.2 Z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M63.2,54 L60,51.8 L60,56.2 Z" />
-
-    <!-- Mic -->
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M52,73 A2,2 0 0,1 56,73 L56,77 A2,2 0 0,1 52,77 Z" />
+    <!-- Vang sang vien -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="1"
-        android:pathData="M49.5,76 A4.5,4.5 0 0,0 58.5,76" />
+        android:strokeColor="#4400E5FF"
+        android:strokeWidth="5"
+        android:strokeLineJoin="round"
+        android:pathData="M36,40L72,40L78,46L82,64L79,70L73,70L66,62L42,62L35,70L29,70L26,64L30,46Z" />
+
+    <!-- Than tay cam + vien gradient -->
+    <path
+        android:fillColor="#FF131826"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round"
+        android:pathData="M36,40L72,40L78,46L82,64L79,70L73,70L66,62L42,62L35,70L29,70L26,64L30,46Z">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="26"
+                android:startY="40"
+                android:endX="82"
+                android:endY="70">
+                <item android:offset="0" android:color="#FF00E5FF" />
+                <item android:offset="1" android:color="#FFFF2D95" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- D-pad (cyan) -->
+    <path
+        android:fillColor="#FF00E5FF"
+        android:pathData="M38,47L42,47L42,50L45,50L45,54L42,54L42,57L38,57L38,54L35,54L35,50L38,50Z" />
+
+    <!-- 4 nut mau -->
+    <path android:fillColor="#FFFF2D95" android:pathData="M65.8,48a2.2,2.2 0 1,0 4.4,0a2.2,2.2 0 1,0 -4.4,0z" />
+    <path android:fillColor="#FFFFB300" android:pathData="M69.8,52a2.2,2.2 0 1,0 4.4,0a2.2,2.2 0 1,0 -4.4,0z" />
+    <path android:fillColor="#FF00E5FF" android:pathData="M65.8,56a2.2,2.2 0 1,0 4.4,0a2.2,2.2 0 1,0 -4.4,0z" />
+    <path android:fillColor="#FF00E676" android:pathData="M61.8,52a2.2,2.2 0 1,0 4.4,0a2.2,2.2 0 1,0 -4.4,0z" />
+
+    <!-- Hai vach Start / Select -->
+    <path android:fillColor="#FF8590B0" android:pathData="M49,52h3v1.2h-3zM56,52h3v1.2h-3z" />
 </vector>
