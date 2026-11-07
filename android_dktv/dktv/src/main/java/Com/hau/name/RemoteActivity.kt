@@ -9,6 +9,7 @@ import android.graphics.drawable.ClipDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
+import android.graphics.drawable.StateListDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -100,77 +101,99 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     // ---------------------------------------------------------------- UI
 
-    /** Khung chu nhat bo goc: nen [fill], vien [strokeDp] mau den. */
-    private fun box(fill: Int, radiusDp: Int, strokeDp: Float) = GradientDrawable().apply {
-        setColor(fill); cornerRadius = dp(radiusDp).toFloat()
-        setStroke((strokeDp * resources.displayMetrics.density).toInt(), Color.BLACK)
+    /** Khung vat goc vien neon (kieu gaming). */
+    private fun neon(fill: Int, edge: Int, cutDp: Float = 10f, glow: Boolean = true, grid: Boolean = false): Drawable =
+        NeonDrawable(fill, edge, cutDp, glow = glow, grid = grid)
+
+    /** Nut vat goc 2 trang thai: thuong / dang nhan (sang vien). */
+    private fun neonBtn(fill: Int, edge: Int, pressedFill: Int, cutDp: Float = 10f): Drawable = StateListDrawable().apply {
+        addState(intArrayOf(android.R.attr.state_pressed), NeonDrawable(pressedFill, edge, cutDp, glow = true))
+        addState(intArrayOf(), NeonDrawable(fill, edge, cutDp, glow = false))
     }
 
     private fun caption(t: String) = TextView(this).apply {
-        text = t; textSize = 10.5f; setTextColor(Color.BLACK); letterSpacing = 0.12f
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL); gravity = Gravity.CENTER
+        text = t; textSize = 10f; setTextColor(Neon.DIM); letterSpacing = 0.14f
+        typeface = Typeface.create("sans-serif-medium", Typeface.BOLD); gravity = Gravity.CENTER
     }
 
-    private fun labeled(btn: View, label: String, size: Int = 64, compact: Boolean = false) = LinearLayout(this).apply {
+    private fun labeled(btn: View, label: String, size: Int = 56, compact: Boolean = false) = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
         addView(btn, LinearLayout.LayoutParams(dp(size), dp(size)))
-        addView(caption(label).also { if (compact) { it.textSize = 9f; it.letterSpacing = 0.04f } },
-            LinearLayout.LayoutParams(-2, -2).also { it.topMargin = dp(if (compact) 2 else 6) })
+        addView(caption(label).also { if (compact) { it.textSize = 9f; it.letterSpacing = 0.05f } },
+            LinearLayout.LayoutParams(-2, -2).also { it.topMargin = dp(if (compact) 3 else 6) })
     }
 
     @SuppressLint("ClickableViewAccessibility")
     private fun buildUi(): View {
-        // Thanh he thong sang de hop nen trang
-        window.statusBarColor = Color.WHITE
-        window.navigationBarColor = Color.WHITE
+        // Thanh he thong toi de hop nen gaming
+        window.statusBarColor = Neon.BG
+        window.navigationBarColor = Neon.BG
         WindowInsetsControllerCompat(window, window.decorView).apply {
-            isAppearanceLightStatusBars = true
-            isAppearanceLightNavigationBars = true
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
         }
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.WHITE)
-            setPadding(dp(20), dp(10), dp(20), dp(6))
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xFF0F1426.toInt(), Neon.BG))
+            setPadding(dp(16), dp(10), dp(16), dp(8))
         }
 
-        // Dau trang: ten (chu hoa, gian chu) + trang thai ket noi
+        // Dau trang: ten neon + the trang thai ket noi
         val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        head.addView(TextView(this).apply {
-            text = "DK TV"; textSize = 15f; setTextColor(Color.BLACK); letterSpacing = 0.2f
+        val title = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.BOTTOM }
+        title.addView(TextView(this).apply {
+            text = "DK TV"; textSize = 18f; setTextColor(Neon.CYAN); letterSpacing = 0.18f
             typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
-        }, LinearLayout.LayoutParams(0, -2, 1f))
+        })
+        title.addView(TextView(this).apply {
+            text = "REMOTE"; textSize = 10f; setTextColor(Neon.MAGENTA); letterSpacing = 0.3f
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+        }, LinearLayout.LayoutParams(-2, -2).also { it.leftMargin = dp(8); it.bottomMargin = dp(3) })
+        head.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
         statusText = TextView(this).apply {
-            setTextColor(Color.BLACK); textSize = 11.5f; letterSpacing = 0.04f
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            textSize = 10.5f; letterSpacing = 0.1f
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
         }
         statusDot = View(this)
-        head.addView(statusDot, LinearLayout.LayoutParams(dp(11), dp(11)).also { it.rightMargin = dp(8) })
-        head.addView(statusText)
+        val chip = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            background = neon(Neon.PANEL, Neon.EDGE, 8f, glow = false)
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+        }
+        chip.addView(statusDot, LinearLayout.LayoutParams(dp(9), dp(9)).also { it.rightMargin = dp(8) })
+        chip.addView(statusText)
+        head.addView(chip)
         root.addView(head, LinearLayout.LayoutParams(-1, -2))
-        root.addView(View(this).apply { setBackgroundColor(Color.BLACK) },
-            LinearLayout.LayoutParams(-1, dp(2)).also { it.topMargin = dp(8) })
+        // Duong ke gradient neon cyan -> tim -> hong
+        root.addView(View(this).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(Neon.CYAN, Neon.VIOLET, Neon.MAGENTA))
+        }, LinearLayout.LayoutParams(-1, dp(2)).also { it.topMargin = dp(8) })
 
-        // Hang tren: tat/mo man hinh + chuyen doi giao dien + khoa cam ung + phong to + giong noi (cuoi hang, ben phai cung)
+        // Hang tren: tat/mo man hinh + chuyen doi giao dien + khoa cam ung + phong to + giong noi
         btnPower = IconButton(this, IconButton.POWER).also {
+            it.rect = true
             it.setOnClickListener {
                 tvScreenOn = !tvScreenOn
                 send(JSONObject().put("action", "screen").put("on", tvScreenOn))
                 refreshPowerButton()
             }
         }
-        powerBox = labeled(btnPower, "TẮT\nMÀN HÌNH", 52, true)
-        // Nut "Chuyển đổi giao diện" (truoc la "Màn hình chính"): đang ở TV/YouTube/app khác -> về màn hình chính của app; đang ở màn hình chính của app -> về màn hình chính của TV
+        powerBox = labeled(btnPower, "TẮT\nMÀN HÌNH", 56, true)
+        // Nut "Chuyển đổi giao diện": đang ở TV/YouTube/app khác -> về màn hình chính của app; đang ở màn hình chính của app -> về màn hình chính của TV
         btnScreen = IconButton(this, IconButton.HOME).also {
+            it.rect = true
             it.setOnClickListener { send(JSONObject().put("action", "home")) }
         }
         val btnMic = IconButton(this, IconButton.MIC).also {
+            it.rect = true
             it.setOnClickListener {
                 startVoice()
             }
         }
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         btnTouch = IconButton(this, IconButton.TOUCH).also {
+            it.rect = true
             it.setOnClickListener {
                 tvTouchOff = !tvTouchOff
                 send(JSONObject().put("action", "touchlock").put("on", tvTouchOff))
@@ -178,12 +201,13 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
             }
         }
         val btnFull = IconButton(this, IconButton.FULL).also {
+            it.rect = true
             it.setOnClickListener { send(JSONObject().put("action", "fullscreen")) }
         }
         // 5 nut cung co, cach deu, nhan 2 dong cho can doi
-        screenBox = labeled(btnScreen, "CHUYỂN ĐỔI\nGIAO DIỆN", 52, true)
-        touchBox = labeled(btnTouch, "TẮT CẢM\nỨNG TV", 52, true)
-        for (b in listOf(powerBox, screenBox, touchBox, labeled(btnFull, "PHÓNG TO\nMÀN HÌNH", 52, true), labeled(btnMic, "GIỌNG\nNÓI", 52, true))) {
+        screenBox = labeled(btnScreen, "CHUYỂN ĐỔI\nGIAO DIỆN", 56, true)
+        touchBox = labeled(btnTouch, "TẮT CẢM\nỨNG TV", 56, true)
+        for (b in listOf(powerBox, screenBox, touchBox, labeled(btnFull, "PHÓNG TO\nMÀN HÌNH", 56, true), labeled(btnMic, "GIỌNG\nNÓI", 56, true))) {
             top.addView(b, LinearLayout.LayoutParams(0, -2, 1f))
         }
         root.addView(top, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(10) })
@@ -191,8 +215,8 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         refreshScreenButton()
         refreshTouchButton()
 
-        // Chuot cam ung: khung trang vien den
-        val pad = FrameLayout(this).apply { background = box(Color.WHITE, 24, 2.2f) }
+        // Chuot cam ung: khung toi vat goc, vien neon cyan, luoi ke o
+        val pad = FrameLayout(this).apply { background = neon(Neon.PANEL, Neon.CYAN, 24f, glow = true, grid = true) }
         // 5 phim: len / xuong / trai / phai / OK (giua) - nam trong khung chuot, can doi
         fun key(kind: Int, k: String, w: Int, h: Int, gravity: Int, l: Int = 0, t: Int = 0, r: Int = 0, b: Int = 0) {
             val v = DPadButton(this, kind).also { btn ->
@@ -216,51 +240,51 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
                 it.setMargins(dp(l), dp(t), dp(r), dp(b))
             })
         }
-        key(DPadButton.UP, "up", 112, 52, Gravity.TOP or Gravity.CENTER_HORIZONTAL, t = 36)
-        key(DPadButton.DOWN, "down", 112, 52, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, b = 36)
-        key(DPadButton.LEFT, "left", 52, 112, Gravity.START or Gravity.CENTER_VERTICAL, l = 28)
-        key(DPadButton.RIGHT, "right", 52, 112, Gravity.END or Gravity.CENTER_VERTICAL, r = 28)
-        key(DPadButton.OK, "ok", 76, 76, Gravity.CENTER)
+        key(DPadButton.UP, "up", 100, 52, Gravity.TOP or Gravity.CENTER_HORIZONTAL, t = 24)
+        key(DPadButton.DOWN, "down", 100, 52, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, b = 24)
+        key(DPadButton.LEFT, "left", 52, 100, Gravity.START or Gravity.CENTER_VERTICAL, l = 26)
+        key(DPadButton.RIGHT, "right", 52, 100, Gravity.END or Gravity.CENTER_VERTICAL, r = 26)
+        key(DPadButton.OK, "ok", 72, 72, Gravity.CENTER)
         attachTouchpad(pad)
-        root.addView(pad, LinearLayout.LayoutParams(-1, 0, 1f).also { it.topMargin = dp(8); it.bottomMargin = dp(2) })
+        root.addView(pad, LinearLayout.LayoutParams(-1, 0, 1f).also { it.topMargin = dp(10); it.bottomMargin = dp(4) })
         root.addView(TextView(this).apply {
             text = "Trượt: di chuyển  ·  Chạm: nhấp  ·  2 ngón: cuộn  ·  Giữ ▼ 2 giây: xuống thanh dưới"
-            setTextColor(0xFF6B6B6B.toInt()); textSize = 10.5f; gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(-1, -2).also { it.bottomMargin = dp(6) })
+            setTextColor(Neon.DIM); textSize = 10f; gravity = Gravity.CENTER
+        }, LinearLayout.LayoutParams(-1, -2).also { it.bottomMargin = dp(8) })
 
-        // Thay cho vong dieu huong cu: 2 thanh truot ngang (am luong | do sang), LUI + BAI TIEP cung hang, chat luong video 360p / 720p
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        // Hang 1: 2 thanh truot nam ngang (am luong | do sang), nhan nam tren, can giua ngay tren moi thanh
+        // Hang 1: 2 thanh truot nam ngang (am luong | do sang), moi thanh nam trong 1 the toi vat goc
         val sliders = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        sliders.addView(sliderRow("ÂM LƯỢNG", "volume", 50), LinearLayout.LayoutParams(0, -2, 1f).also { it.rightMargin = dp(6) })
-        sliders.addView(sliderRow("ĐỘ SÁNG", "brightness", 70), LinearLayout.LayoutParams(0, -2, 1f).also { it.leftMargin = dp(6) })
+        sliders.addView(sliderRow("ÂM LƯỢNG", "volume", 50, Neon.CYAN, Neon.VIOLET), LinearLayout.LayoutParams(0, -2, 1f).also { it.rightMargin = dp(5) })
+        sliders.addView(sliderRow("ĐỘ SÁNG", "brightness", 70, Neon.AMBER, Neon.MAGENTA), LinearLayout.LayoutParams(0, -2, 1f).also { it.leftMargin = dp(5) })
         panel.addView(sliders, LinearLayout.LayoutParams(-1, -2))
-        // Hang 2: nut LUI (thap hon truoc) + nut BAI TIEP (cao hon truoc) cung 1 hang, cung chieu cao, rong bang nhau
+        // Hang 2: LUI (vien hong) + BAI TIEP (nen cyan dac) cung 1 hang, rong bang nhau
         val btnBack = TextView(this).apply {
-            text = "LÙI"; textSize = 14f; gravity = Gravity.CENTER; letterSpacing = 0.06f
+            text = "LÙI"; textSize = 14f; gravity = Gravity.CENTER; letterSpacing = 0.1f
             typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
-            setTextColor(Color.BLACK); background = box(Color.WHITE, 12, 2.2f)
+            setTextColor(Neon.MAGENTA)
+            background = neonBtn(Neon.PANEL, Neon.MAGENTA, mix2(Neon.PANEL, Neon.MAGENTA))
             setOnClickListener { Haptics.tick(this); send(JSONObject().put("action", "back")) }
         }
         val btnNext = TextView(this).apply {
-            text = "BÀI TIẾP"; textSize = 14f; gravity = Gravity.CENTER; letterSpacing = 0.04f
+            text = "BÀI TIẾP"; textSize = 14f; gravity = Gravity.CENTER; letterSpacing = 0.08f
             typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
-            setTextColor(Color.BLACK); background = box(Color.WHITE, 12, 2.2f)
+            setTextColor(Neon.INK)
+            background = neonBtn(0xFF00C8E0.toInt(), Neon.CYAN, 0xFF0098AD.toInt())
             setOnClickListener { Haptics.tick(this); send(JSONObject().put("action", "media").put("cmd", "next")) }
         }
         val backNext = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        backNext.addView(btnBack, LinearLayout.LayoutParams(0, dp(46), 1f).also { it.rightMargin = dp(4) })
-        backNext.addView(btnNext, LinearLayout.LayoutParams(0, dp(46), 1f).also { it.leftMargin = dp(4) })
+        backNext.addView(btnBack, LinearLayout.LayoutParams(0, dp(50), 1f).also { it.rightMargin = dp(4) })
+        backNext.addView(btnNext, LinearLayout.LayoutParams(0, dp(50), 1f).also { it.leftMargin = dp(4) })
         panel.addView(backNext, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(10) })
         // Chat luong video: nhan ben trai + 2 nut cung 1 hang
         val q = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         q.addView(caption("CHẤT LƯỢNG").also { it.gravity = Gravity.START }, LinearLayout.LayoutParams(dp(LABEL_W), -2))
         btnQ360 = qualityButton(360); btnQ720 = qualityButton(720)
-        // 2 nut cung hang, rong bang nhau: 360p | 720p
-        q.addView(btnQ360, LinearLayout.LayoutParams(0, dp(38), 1f).also { it.rightMargin = dp(4) })
-        q.addView(btnQ720, LinearLayout.LayoutParams(0, dp(38), 1f).also { it.leftMargin = dp(4) })
-        panel.addView(q, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(12) })
-        // Hang duoi cung: 3 nut chu nhat bo goc (khong nhan), rong bang nhau: lui 10s, phat/dung, tien 10s
+        q.addView(btnQ360, LinearLayout.LayoutParams(0, dp(40), 1f).also { it.rightMargin = dp(4) })
+        q.addView(btnQ720, LinearLayout.LayoutParams(0, dp(40), 1f).also { it.leftMargin = dp(4) })
+        panel.addView(q, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(10) })
+        // Hang duoi cung: 3 nut vat goc, rong bang nhau: lui 10s, phat/dung, tien 10s
         val media = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         fun mediaBtn(kind: Int, cmd: String) = IconButton(this, kind).also { b ->
             b.rect = true
@@ -268,46 +292,58 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         }
         val mediaBtns = listOf(mediaBtn(IconButton.REW, "rew"), mediaBtn(IconButton.PLAY, "playpause"), mediaBtn(IconButton.FWD, "fwd"))
         for ((i, b) in mediaBtns.withIndex()) {
-            media.addView(b, LinearLayout.LayoutParams(0, dp(44), 1f).also {
+            media.addView(b, LinearLayout.LayoutParams(0, dp(48), 1f).also {
                 if (i > 0) it.leftMargin = dp(4); if (i < mediaBtns.size - 1) it.rightMargin = dp(4)
             })
         }
-        panel.addView(media, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(12) })
+        panel.addView(media, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(10) })
         root.addView(panel, LinearLayout.LayoutParams(-1, -2))
         refreshQuality()
         return root
     }
 
+    /** Pha 30% mau nhan vao nen panel - dung cho trang thai dang nhan cua nut LUI. */
+    private fun mix2(base: Int, accent: Int): Int = Color.rgb(
+        (Color.red(base) * 0.65f + Color.red(accent) * 0.35f).toInt(),
+        (Color.green(base) * 0.65f + Color.green(accent) * 0.35f).toInt(),
+        (Color.blue(base) * 0.65f + Color.blue(accent) * 0.35f).toInt()
+    )
+
     private lateinit var btnQ360: TextView
     private lateinit var btnQ720: TextView
     private var quality = 0
 
-    /** Thanh truot kieu Sony: duong day (cao 12dp) vien den, phan da keo to den, nut tron cam lon; nhan nam tren, can giua; duoi: thanh | so. */
-    private fun sliderRow(label: String, action: String, initial: Int): View = LinearLayout(this).apply {
+    /** Thanh truot neon: the toi vat goc; tren: nhan + so (mau nhan); duoi: duong day toi, phan keo la gradient [c1] -> [c2], nut tron sang vien. */
+    private fun sliderRow(label: String, action: String, initial: Int, c1: Int, c2: Int): View = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
+        background = neon(Neon.PANEL, Neon.EDGE, 10f, glow = false)
+        setPadding(dp(12), dp(8), dp(10), dp(4))
         val value = TextView(this@RemoteActivity).apply {
-            text = "$initial"; textSize = 12f; setTextColor(Color.BLACK); gravity = Gravity.END
-            typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+            text = "$initial"; textSize = 13f; setTextColor(c1); gravity = Gravity.END
+            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
         }
-        addView(caption(label), LinearLayout.LayoutParams(-1, -2))
-        val bar = LinearLayout(this@RemoteActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        addView(bar, LinearLayout.LayoutParams(-1, dp(30)))
-        val trackH = dp(12)
+        val labelRow = LinearLayout(this@RemoteActivity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        labelRow.addView(caption(label).also { it.gravity = Gravity.START }, LinearLayout.LayoutParams(0, -2, 1f))
+        labelRow.addView(value, LinearLayout.LayoutParams(-2, -2))
+        addView(labelRow, LinearLayout.LayoutParams(-1, -2))
+        val trackH = dp(10)
         val bg = GradientDrawable().apply {
-            setColor(0xFFE6E6E6.toInt()); cornerRadius = trackH / 2f; setStroke(dp(2), Color.BLACK); setSize(-1, trackH)
+            setColor(0xFF05070C.toInt()); cornerRadius = trackH / 2f; setStroke(dp(1), Neon.EDGE_HI); setSize(-1, trackH)
         }
-        val fg = GradientDrawable().apply { setColor(Color.BLACK); cornerRadius = trackH / 2f; setSize(-1, trackH) }
+        val fg = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(c1, c2)).apply {
+            cornerRadius = trackH / 2f; setSize(-1, trackH)
+        }
         val layers = LayerDrawable(arrayOf<Drawable>(bg, ClipDrawable(fg, Gravity.START, ClipDrawable.HORIZONTAL)))
         layers.setId(0, android.R.id.background); layers.setId(1, android.R.id.progress)
         val knob = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL; setColor(0xFFFF6B00.toInt()); setStroke(dp(2), Color.BLACK); setSize(dp(20), dp(20))
+            shape = GradientDrawable.OVAL; setColor(Neon.TEXT); setStroke(dp(3), c2); setSize(dp(22), dp(22))
         }
         val sb = SeekBar(this@RemoteActivity).apply {
             max = 100; progress = initial
             progressDrawable = layers
             thumb = knob
             splitTrack = false
-            setPadding(dp(14), 0, dp(10), 0)
+            setPadding(dp(12), 0, dp(12), 0)
             var last = 0L
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(s: SeekBar, p: Int, fromUser: Boolean) {
@@ -325,12 +361,11 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
                 }
             })
         }
-        bar.addView(sb, LinearLayout.LayoutParams(0, -1, 1f))
-        bar.addView(value, LinearLayout.LayoutParams(dp(28), -2))
+        addView(sb, LinearLayout.LayoutParams(-1, dp(30)))
     }
 
     private fun qualityButton(q: Int) = TextView(this).apply {
-        text = "${q}p"; textSize = 13f; gravity = Gravity.CENTER; letterSpacing = 0.06f
+        text = "${q}p"; textSize = 13f; gravity = Gravity.CENTER; letterSpacing = 0.08f
         typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
         setOnClickListener {
             Haptics.tick(this)
@@ -340,12 +375,12 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         }
     }
 
-    /** Nut dang chon: nen den chu trang; nut con lai: nen trang vien den chu den. */
+    /** Nut dang chon: nen cyan dac chu den, co vang sang; nut con lai: nen toi vien xam chu sang. */
     private fun refreshQuality() {
         for ((b, q) in listOf(btnQ360 to 360, btnQ720 to 720)) {
             val on = quality == q
-            b.background = box(if (on) Color.BLACK else Color.WHITE, 12, 2.2f)
-            b.setTextColor(if (on) Color.WHITE else Color.BLACK)
+            b.background = if (on) neon(Neon.CYAN, Neon.CYAN, 9f, glow = true) else neon(Neon.PANEL, Neon.EDGE_HI, 9f, glow = false)
+            b.setTextColor(if (on) Neon.INK else Neon.TEXT)
         }
     }
 
@@ -362,14 +397,14 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     /** Nut tat man hinh: do khi TV dang sang, xanh khi TV dang tat. */
     private fun refreshPowerButton() {
-        (btnPower as IconButton).tint = if (tvScreenOn) 0xFFE5322D.toInt() else 0xFF2BB673.toInt()
+        (btnPower as IconButton).tint = if (tvScreenOn) Neon.RED else Neon.GREEN
         (powerBox.getChildAt(1) as TextView).text = if (tvScreenOn) "TẮT\nMÀN HÌNH" else "MỞ\nMÀN HÌNH"
     }
 
     /** Nut Chuyen doi giao dien: xanh duong = TV, do = YouTube (theo che do TV bao ve). */
     private fun refreshScreenButton() {
         (btnScreen as IconButton).tint =
-            if (RemoteState.mode == "yt") 0xFFE5322D.toInt() else 0xFF3A7BFF.toInt()
+            if (RemoteState.mode == "yt") Neon.RED else Neon.BLUE
         (screenBox.getChildAt(1) as TextView).text = "CHUYỂN ĐỔI\nGIAO DIỆN"
     }
 
@@ -564,11 +599,13 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     private fun setConnected(on: Boolean) {
         connected = on
+        val c = if (on) Neon.GREEN else Neon.RED
         statusDot.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(if (on) 0xFF2BB673.toInt() else 0xFFE5322D.toInt())
-            setStroke(dp(1), Color.BLACK)
+            setColor(c)
+            setStroke(dp(2), (c and 0x00FFFFFF) or 0x55000000)
         }
+        statusText.setTextColor(c)
         statusText.text = if (on) "ĐÃ KẾT NỐI"
         else "CHƯA KẾT NỐI"
     }
