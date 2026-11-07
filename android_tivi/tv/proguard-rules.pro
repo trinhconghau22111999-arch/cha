@@ -1,2 +1,0 @@
--keepattributes JavascriptInterface,Signature,*Annotation*,InnerClasses,EnclosingMethod
--keepclassmembers class * { @android.webkit.JavascriptInterface <methods>; }

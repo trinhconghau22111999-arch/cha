@@ -9,7 +9,6 @@
 | Inno Setup 6 | Tạo bộ cài `TiviWidget-Setup-x.exe` (không bắt buộc để chạy app) | https://jrsoftware.org/isinfo.php hoặc `choco install innosetup` | `Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"` |
 | Gói nhận dạng giọng nói tiếng Việt | Ctrl+M và lệnh giọng nói | Settings > Time & language > Speech > Speech language: thêm Tiếng Việt | Xem mục 3 |
 | Git (tuỳ chọn) | Quản lý mã nguồn | https://git-scm.com | `git --version` |
-| JDK 17 + Android SDK (chỉ để build APK tại máy) | Build APK Android | Khuyến nghị dùng CI (`ci/android-tv-build.yml`) | `java -version` |
 
 Không cần Visual Studio. NuGet (WebView2, NAudio, xunit) được `dotnet restore` tự tải.
 
@@ -62,5 +61,5 @@ dotnet test TiviWidget.Tests/TiviWidget.Tests.csproj
 
 ## 6. Repo và token
 
-- Không đẩy code vào repo `a3`. Tạo repo mới cho bản Windows và bản Android nếu cần CI.
+- Không đẩy code vào repo `a3`. Tạo repo mới cho bản Windows nếu cần CI.
 - Token GitHub đã dán trong cuộc trò chuyện. Hãy thu hồi và tạo token mới: GitHub > Settings > Developer settings > Personal access tokens.
