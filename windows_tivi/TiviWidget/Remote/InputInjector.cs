@@ -51,6 +51,9 @@ internal static class InputInjector
     /// true nếu dưới con trỏ là lớp nền desktop (widget nằm sau lớp icon nên chuột hệ thống không tới được widget)
     /// hoặc chính cửa sổ widget. false nếu có app khác (hoặc taskbar) ở dưới con trỏ: khi đó dùng chuột hệ thống bình thường.
     /// </summary>
+    /// <summary>Lớp cửa sổ gốc dưới con trỏ ở lần kiểm tra gần nhất (để ghi nhật ký chẩn đoán).</summary>
+    public static string LastRootClass = "";
+
     public static bool CursorOverDesktop(IntPtr self)
     {
         if (!GetCursorPos(out POINT p)) return true;
@@ -62,6 +65,7 @@ internal static class InputInjector
         var sb = new StringBuilder(64);
         GetClassName(root, sb, sb.Capacity);
         string c = sb.ToString();
+        LastRootClass = c;
         return c == "Progman" || c == "WorkerW";
     }
 

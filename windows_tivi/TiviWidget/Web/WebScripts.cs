@@ -464,11 +464,23 @@ internal static class WebScripts
     'html.wb-home ytd-masthead,html.wb-home #masthead-container,html.wb-home ytd-mini-guide-renderer,html.wb-home ytd-guide-renderer,html.wb-home tp-yt-app-drawer,' +
     'html.wb-home #chips-wrapper,html.wb-home ytd-feed-filter-chip-bar-renderer,html.wb-home ytd-rich-grid-renderer #header,' +
     'html.wb-home ytm-mobile-topbar-renderer,html.wb-home .mobile-topbar-header,html.wb-home ytm-chip-cloud-renderer,html.wb-home .chip-cloud{display:none!important}' +
-    'html.wb-home ytd-app{--ytd-persistent-guide-width:0px!important;--ytd-mini-guide-width:0px!important;--ytd-masthead-height:0px!important;--ytd-toolbar-height:0px!important}' +
-    'html.wb-home ytd-page-manager,html.wb-home #page-manager{margin-top:0!important;margin-left:0!important}' +
-    'html.wb-home ytd-browse,html.wb-home ytd-two-column-browse-results-renderer{padding-top:0!important}' +
+    'html.wb-home ytd-app{--ytd-persistent-guide-width:0px!important;--ytd-mini-guide-width:0px!important;--ytd-masthead-height:0px!important;--ytd-toolbar-height:0px!important;--app-drawer-width:0px!important;--ytd-rich-grid-chips-bar-height:0px!important}' +
+    'html.wb-home ytd-page-manager,html.wb-home #page-manager,html.wb-home ytd-app #content.ytd-app{margin-top:0!important;margin-left:0!important;padding-left:0!important;padding-top:0!important}' +
+    'html.wb-home ytd-browse,html.wb-home ytd-two-column-browse-results-renderer{padding-top:0!important;margin-left:0!important}' +
+    'html.wb-home ytd-rich-grid-renderer{margin-top:0!important;margin-left:0!important;padding-top:0!important;width:100%!important;max-width:none!important}' +
+    'html.wb-home ytd-rich-grid-renderer>#contents{margin:0 auto!important;padding-top:12px!important;width:auto!important}' +
     'html.wb-home ytd-app[mini-guide-visible] ytd-page-manager,html.wb-home ytd-app[guide-persistent-and-visible] ytd-page-manager{margin-left:0!important}';
   (document.head || document.documentElement).appendChild(st);
+  // Ẩn Shorts ở mọi trang: dải Shorts, ô video Shorts lẫn trong danh sách, mục Shorts ở menu
+  var sh = document.createElement('style');
+  sh.id = 'wb-shorts-style';
+  sh.textContent =
+    'ytd-reel-shelf-renderer,ytd-rich-shelf-renderer[is-shorts],ytd-rich-section-renderer:has(ytd-rich-shelf-renderer[is-shorts]),ytd-rich-section-renderer:has(ytd-reel-shelf-renderer),' +
+    'ytd-rich-section-renderer:has(a[href^="/shorts/"]),ytd-item-section-renderer:has(ytd-reel-shelf-renderer),ytd-reel-item-renderer,ytm-reel-shelf-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2,' +
+    'ytd-video-renderer:has(a[href^="/shorts/"]),ytd-rich-item-renderer:has(a[href^="/shorts/"]),ytd-compact-video-renderer:has(a[href^="/shorts/"]),yt-lockup-view-model:has(a[href^="/shorts/"]),' +
+    'ytd-grid-video-renderer:has(a[href^="/shorts/"]),ytm-video-with-context-renderer:has(a[href^="/shorts/"]),' +
+    'ytd-guide-entry-renderer:has(a[title="Shorts"]),ytd-mini-guide-entry-renderer[aria-label="Shorts"],ytd-guide-section-renderer:has(a[title="Shorts"]) ytd-guide-entry-renderer:has(a[title="Shorts"]){display:none!important}';
+  (document.head || document.documentElement).appendChild(sh);
   function sync(){
     var home = location.pathname === '/' || location.pathname === '';
     document.documentElement.classList.toggle('wb-home', home);

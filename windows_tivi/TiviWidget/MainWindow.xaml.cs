@@ -418,6 +418,7 @@ public partial class MainWindow : Window
         _level = 0;
         _curGroup = -1;
         StopPlayer();
+        if (_mode == Mode.Tv) Chooser.Visibility = Visibility.Visible;   // Play() đã ẩn danh sách: lùi về phải hiện lại, không thì màn hình đen
         ChooserTitle.Text = "Chọn Kênh";
 
         var grid = new UniformGrid { Columns = 3, Margin = new Thickness(8, 0, 8, 12) };
@@ -442,6 +443,7 @@ public partial class MainWindow : Window
 
         _level = 1;
         StopPlayer();
+        if (_mode == Mode.Tv) Chooser.Visibility = Visibility.Visible;
         ChooserTitle.Text = g.Name;
 
         var panel = new StackPanel { Margin = new Thickness(8, 0, 8, 12) };
@@ -659,21 +661,58 @@ public partial class MainWindow : Window
     private static bool Inside(FrameworkElement el, Point p) =>
         p.X >= 0 && p.Y >= 0 && p.X < el.ActualWidth && p.Y < el.ActualHeight;
 
+    /// <summary>Nhật ký chẩn đoán chạm từ điện thoại: %LOCALAPPDATA%\TiviWidget\click.log (tối đa ~300 dòng mỗi lần chạy).</summary>
+    private int _logLines;
+    private void Log(string s)
+    {
+        if (_logLines++ > 300) return;
+        try
+        {
+            string dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TiviWidget");
+            System.IO.Directory.CreateDirectory(dir);
+            System.IO.File.AppendAllText(System.IO.Path.Combine(dir, "click.log"), DateTime.Now.ToString("HH:mm:ss.fff") + " " + s + Environment.NewLine);
+        }
+        catch (Exception) { }
+    }
+
+    /// <summary>Nút WPF dưới con trỏ. Tính theo toạ độ của chính từng nút (không phụ thuộc hit-test của WPF),
+    /// rồi mới dự phòng bằng hit-test.</summary>
+    private ButtonBase ButtonUnder(Point screen)
+    {
+        var cands = new List<Button>();
+        if (BtnTv.IsVisible) cands.Add(BtnTv);
+        if (BtnYt.IsVisible) cands.Add(BtnYt);
+        if (BtnBack.IsVisible) cands.Add(BtnBack);
+        bool chooserOn = Chooser.IsVisible && Inside(ChooserScroll, ChooserScroll.PointFromScreen(screen));
+        if (chooserOn) cands.AddRange(_nav);
+        foreach (var b in cands)
+        {
+            if (!b.IsVisible || b.ActualWidth <= 0) continue;
+            if (Inside(b, b.PointFromScreen(screen))) return b;
+        }
+        var hit = VisualTreeHelper.HitTest(this, PointFromScreen(screen));
+        DependencyObject d = hit?.VisualHit;
+        while (d != null && d is not ButtonBase)
+            d = d is Visual v ? VisualTreeHelper.GetParent(v) : LogicalTreeHelper.GetParent(d);
+        return d as ButtonBase;
+    }
+
     private void OnRemoteClick()
     {
-        if (!InputInjector.CursorOverDesktop(_hwnd)) { InputInjector.Click(); return; }
-        // Khoá cảm ứng chỉ chặn chuột/cảm ứng đặt trực tiếp trên TV (xem OnPreviewMouse*). Chạm từ điện thoại
-        // vẫn phải chọn được đài / kênh, nên ở đây không kiểm tra _touchLocked.
+        bool overDesktop = InputInjector.CursorOverDesktop(_hwnd);
         if (!InputInjector.GetCursor(out int sx, out int sy)) return;
         var screen = new Point(sx, sy);
+        Log("click overDesktop=" + overDesktop + " root=" + InputInjector.LastRootClass + " at " + sx + "," + sy +
+            " mode=" + _mode + " level=" + _level + " chooser=" + Chooser.Visibility + " nav=" + _nav.Count);
+        if (!overDesktop) { InputInjector.Click(); return; }
+        // Khoá cảm ứng chỉ chặn chuột/cảm ứng đặt trực tiếp trên TV (xem OnPreviewMouse*). Chạm từ điện thoại
+        // vẫn phải chọn được đài / kênh, nên ở đây không kiểm tra _touchLocked.
         try
         {
             // 1) Nút WPF (TV / YouTube / ← / ô chọn kênh)
-            var hit = VisualTreeHelper.HitTest(this, PointFromScreen(screen));
-            DependencyObject d = hit?.VisualHit;
-            while (d != null && d is not ButtonBase)
-                d = d is Visual v ? VisualTreeHelper.GetParent(v) : LogicalTreeHelper.GetParent(d);
-            if (d is ButtonBase btn)
+            var btn = ButtonUnder(screen);
+            Log("  button=" + (btn == null ? "none" : (btn.Content ?? "?").ToString()) + " enabled=" + (btn?.IsEnabled));
+            if (btn != null)
             {
                 if (btn.IsEnabled) btn.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                 return;
@@ -686,7 +725,7 @@ public partial class MainWindow : Window
             if (!Inside(wv, p)) return;
             ClickWebAt(wv.CoreWebView2, (int)Math.Round(p.X), (int)Math.Round(p.Y));
         }
-        catch (Exception) { }
+        catch (Exception ex) { Log("  lỗi: " + ex.Message); }
     }
 
     private static async void ClickWebAt(CoreWebView2 core, int x, int y)
