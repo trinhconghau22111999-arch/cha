@@ -380,7 +380,15 @@ internal static class WebScripts
     st.textContent = 'html.wb-fill,html.wb-fill body{overflow:hidden!important}' +
       'html.wb-fill #movie_player,html.wb-fill .html5-video-player{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;z-index:2147483647!important;background:#000!important;margin:0!important;transform:none!important}' +
       'html.wb-fill .html5-video-container,html.wb-fill video{width:100%!important;height:100%!important;left:0!important;top:0!important;object-fit:contain!important}' +
-      'html.wb-fill ytd-masthead,html.wb-fill #masthead-container,html.wb-fill ytm-mobile-topbar-renderer,html.wb-fill .mobile-topbar-header{display:none!important}';
+      'html.wb-fill ytd-masthead,html.wb-fill #masthead-container,html.wb-fill ytm-mobile-topbar-renderer,html.wb-fill .mobile-topbar-header{display:none!important}' +
+      // Ẩn danh sách đề xuất / bình luận / thông tin bên dưới, lớp ánh sáng nền (cinematics) và lớp phủ cuối video, để không còn gì đè lên video
+      'html.wb-fill #secondary,html.wb-fill #secondary-inner,html.wb-fill #related,html.wb-fill #below,html.wb-fill #comments,html.wb-fill #chat,html.wb-fill #panels,html.wb-fill #playlist,' +
+      'html.wb-fill ytd-watch-next-secondary-results-renderer,html.wb-fill ytd-guide-renderer,html.wb-fill ytd-mini-guide-renderer,html.wb-fill tp-yt-app-drawer,html.wb-fill ytd-miniplayer,' +
+      'html.wb-fill #cinematics,html.wb-fill #cinematics-container,html.wb-fill .ytp-ce-element,html.wb-fill .ytp-endscreen-content,html.wb-fill .ytp-suggested-action,' +
+      'html.wb-fill tp-yt-iron-overlay-backdrop,html.wb-fill ytm-related-chip-cloud-renderer,html.wb-fill .related-items-container{display:none!important}' +
+      // Các thẻ cha của video có transform/contain/filter làm khung fixed + z-index bị nhốt bên trong: bỏ đi để video phủ toàn khung
+      'html.wb-fill ytd-app,html.wb-fill #content,html.wb-fill ytd-page-manager,html.wb-fill ytd-watch-flexy,html.wb-fill #columns,html.wb-fill #primary,html.wb-fill #primary-inner,' +
+      'html.wb-fill #player,html.wb-fill #player-container-outer,html.wb-fill #player-container-inner,html.wb-fill #player-container,html.wb-fill #full-bleed-container,html.wb-fill #player-theater-container,html.wb-fill ytd-player,html.wb-fill .player-container{transform:none!important;contain:none!important;filter:none!important;perspective:none!important;will-change:auto!important;overflow:visible!important;content-visibility:visible!important;opacity:1!important}';
     (document.head || document.documentElement).appendChild(st);
   }
   function active(){ return document.documentElement.classList.contains(CLS); }
