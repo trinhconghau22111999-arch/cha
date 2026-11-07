@@ -53,7 +53,6 @@ public partial class MainWindow : Window
     private int _coverLeft = 0;
 
     private readonly VoiceService _voice = new();
-    private readonly WakeVoiceService _wake = new();
     private readonly RemoteControl _control = new();
     private RemoteBridge _remote;
 
@@ -67,7 +66,6 @@ public partial class MainWindow : Window
         _clock.Tick += (_, _) =>
         {
             UpdateClock();
-            _wake.Tick();
             DesktopHost.UpdateState(_hwnd);   // luôn phóng to tối đa trên desktop
         };
         _clock.Start();
@@ -86,9 +84,6 @@ public partial class MainWindow : Window
 
         _voice.Recognized += text => Dispatcher.BeginInvoke(new Action(() => OnVoiceText(text)));
         _voice.Status += msg => Dispatcher.BeginInvoke(new Action(() => ShowStatus(msg)));
-        _wake.Command += cmd => Dispatcher.BeginInvoke(new Action(() => OnVoiceText(cmd)));
-        _wake.Heard += t => Dispatcher.BeginInvoke(new Action(() => ShowStatus("Nghe được: " + t)));
-        _wake.Status += msg => Dispatcher.BeginInvoke(new Action(() => ShowStatus(msg)));
         _control.KeyPressed += OnRemoteKey;
         _control.BackPressed += OnRemoteBack;
         _control.HomePressed += OnRemoteHome;
@@ -103,16 +98,11 @@ public partial class MainWindow : Window
         {
             SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
             _voice.Dispose();
-            _wake.Dispose();
             InputInjector.KeepAwake(false);
             if (!_exiting) RelaunchSelf();   // cửa sổ bị huỷ ngoài ý muốn
         };
 
-        Loaded += async (_, _) =>
-        {
-            await InitWebAsync();
-            try { await _wake.StartAsync(); } catch (Exception) { }   // mic luôn nghe: "nghe nè ... ok"
-        };
+        Loaded += async (_, _) => await InitWebAsync();
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -688,15 +678,6 @@ public partial class MainWindow : Window
         if (key == Key.Q && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt))
         {
             QuitApp();
-            e.Handled = true;
-            return;
-        }
-
-        // Ctrl+Alt+M: tắt/bật nghe nền "nghe nè ... ok"
-        if (key == Key.M && Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Alt))
-        {
-            if (_wake.Enabled) { _wake.Stop(); VoiceLog.Write("Người dùng tắt nghe nền"); ShowStatus("Đã tắt nghe nền"); }
-            else _ = _wake.StartAsync();
             e.Handled = true;
             return;
         }
