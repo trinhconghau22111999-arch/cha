@@ -172,6 +172,7 @@ internal static class WebScripts
    return fallback;
  }
  function markSearch(el){
+   cancelPend();
    if(cur){ cur.style.outline=''; cur.style.outlineOffset=''; cur=null; }
    unmarkSearch();
    sEl=el; onSearch=true;
@@ -217,7 +218,23 @@ internal static class WebScripts
    if(now-followLast>=80){ if(followT){clearTimeout(followT);followT=0;} followNow(); }
    else if(!followT){ followT=setTimeout(function(){ followT=0; followNow(); }, 80-(now-followLast)); }
  };
+ // Het video o duoi (danh sach de xuat chua tai them): cuon xuong roi CHO video moi hien ra va chon ngay,
+ // khong bat nguoi dung bam lai (truoc day phai doi mot luc o chon moi hien).
+ var pendT=0;
+ function cancelPend(){ if(pendT){ clearInterval(pendT); pendT=0; } }
+ function seek(find){
+   cancelPend();
+   var tries=0;
+   pendT=setInterval(function(){
+     tries++;
+     var el=null;
+     try{ el=find(); }catch(e){}
+     if(el){ cancelPend(); mark(el); }
+     else if(tries>=30){ cancelPend(); }
+   },100);
+ }
  function mark(el){
+   cancelPend();
    anchor=null;
    unmarkSearch();
    if(cur && cur!==el){ cur.style.outline=''; cur.style.outlineOffset=''; }
@@ -241,11 +258,31 @@ internal static class WebScripts
    }
    var n=idx+d;
    if(n<0){ return true; }
-   if(n>=list.length){ window.scrollBy(0, innerHeight*0.6); return true; }
+   if(n>=list.length){
+     var last=list[list.length-1];
+     window.scrollBy(0, innerHeight*0.6);
+     seek(function(){ var l=items(); var i=l.indexOf(last); return (i>=0 && i+1<l.length)?l[i+1]:null; });
+     return true;
+   }
    mark(list[n]); return true;
  };
  // LEN / XUONG: sang video o hang tren / hang duoi (tim theo vi tri tren man hinh, uu tien video thang cot).
  // Khong co video o hang do thi cuon trang len / xuong.
+ // Tim video o hang tren (d<0) / hang duoi (d>0) so voi el, theo vi tri tren man hinh. Tra ve chi so hoac -1.
+ function pickVert(list, el, d){
+   var c=el.getBoundingClientRect(), cx=c.left+c.width/2, cy=c.top+c.height/2;
+   var minDy=Math.max(4, c.height*0.5), best=-1, bestS=Infinity;
+   for(var i=0;i<list.length;i++){
+     if(list[i]===el) continue;
+     var r=list[i].getBoundingClientRect();
+     var x=r.left+r.width/2, y=r.top+r.height/2;
+     var dy=(y-cy)*d;
+     if(dy<minDy) continue;
+     var sc=dy+Math.abs(x-cx)*2;
+     if(sc<bestS){ bestS=sc; best=i; }
+   }
+   return best;
+ }
  window.__wbVert=function(d){
    if(typing()){                        // dang go chu: ▼ thoat o go, chon video; ▲ khong lam gi
      if(d>0){ document.activeElement.blur(); var l0=items(); if(l0.length) mark(firstItem(l0)); }
@@ -260,20 +297,19 @@ internal static class WebScripts
    if(cur && !cur.isConnected) cur=null;
    var idx=cur?list.indexOf(cur):-1;
    if(idx<0){ return window.__wbNav(0); }
-   var c=cur.getBoundingClientRect(), cx=c.left+c.width/2, cy=c.top+c.height/2;
-   var minDy=Math.max(4, c.height*0.5), best=-1, bestS=Infinity;
-   for(var i=0;i<list.length;i++){
-     if(i===idx) continue;
-     var r=list[i].getBoundingClientRect();
-     var x=r.left+r.width/2, y=r.top+r.height/2;
-     var dy=(y-cy)*d;
-     if(dy<minDy) continue;
-     var s=dy+Math.abs(x-cx)*2;
-     if(s<bestS){ bestS=s; best=i; }
-   }
+   var best=pickVert(list, cur, d);
    if(best<0){
      if(d<0){ var sb=searchBtn(); if(sb){ markSearch(sb); return true; } }   // hang tren cung + ▲ = len nut tim kiem
-     window.scrollBy(0, d*innerHeight*0.6); return true;
+     window.scrollBy(0, d*innerHeight*0.6);
+     if(d>0){
+       var base=cur;
+       seek(function(){
+         if(!base.isConnected) return null;
+         var l=items(), b=pickVert(l, base, 1);
+         return b>=0 ? l[b] : null;
+       });
+     }
+     return true;
    }
    mark(list[best]); return true;
  };
