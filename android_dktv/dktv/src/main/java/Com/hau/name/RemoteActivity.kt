@@ -160,7 +160,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
             }
         }
         powerBox = labeled(btnPower, "TẮT\nMÀN HÌNH", 52, true)
-        // Nut "Màn hình chính": đang ở TV/YouTube/app khác -> về màn hình chính của app; đang ở màn hình chính của app -> về màn hình chính của TV
+        // Nut "Chuyển đổi giao diện" (truoc la "Màn hình chính"): đang ở TV/YouTube/app khác -> về màn hình chính của app; đang ở màn hình chính của app -> về màn hình chính của TV
         btnScreen = IconButton(this, IconButton.HOME).also {
             it.setOnClickListener { send(JSONObject().put("action", "home")) }
         }
@@ -181,7 +181,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
             it.setOnClickListener { send(JSONObject().put("action", "fullscreen")) }
         }
         // 5 nut cung co, cach deu, nhan 2 dong cho can doi
-        screenBox = labeled(btnScreen, "MÀN HÌNH\nCHÍNH", 52, true)
+        screenBox = labeled(btnScreen, "CHUYỂN ĐỔI\nGIAO DIỆN", 52, true)
         touchBox = labeled(btnTouch, "TẮT CẢM\nỨNG TV", 52, true)
         for (b in listOf(powerBox, screenBox, labeled(btnMic, "GIỌNG\nNÓI", 52, true), touchBox, labeled(btnFull, "PHÓNG TO\nMÀN HÌNH", 52, true))) {
             top.addView(b, LinearLayout.LayoutParams(0, -2, 1f))
@@ -367,7 +367,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
     /** Nut man hinh chinh (home): mau xanh duong co dinh. */
     private fun refreshScreenButton() {
         (btnScreen as IconButton).tint = 0xFF3A7BFF.toInt()
-        (screenBox.getChildAt(1) as TextView).text = "MÀN HÌNH\nCHÍNH"
+        (screenBox.getChildAt(1) as TextView).text = "CHUYỂN ĐỔI\nGIAO DIỆN"
     }
 
     // ---------------------------------------------------------------- Touchpad

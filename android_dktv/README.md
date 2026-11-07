@@ -10,7 +10,7 @@ Gộp 2 app điều khiển từ xa thành 1, giữ toàn bộ chức năng củ
 ## Chức năng
 - Chuột cảm ứng: trượt = di chuyển (con trỏ có gia tốc), chạm = nhấp, 2 ngón = cuộn (có quán tính).
 - 5 phím ▲ ▼ ◀ ▶ OK trong khung chuột; giữ ▼ 2 giây = nhảy xuống thanh dưới.
-- Nút TẮT/MỞ MÀN HÌNH, MÀN HÌNH CHÍNH, GIỌNG NÓI, TẮT/BẬT CẢM ỨNG TV, PHÓNG TO MÀN HÌNH.
+- Nút TẮT/MỞ MÀN HÌNH, CHUYỂN ĐỔI GIAO DIỆN, GIỌNG NÓI, TẮT/BẬT CẢM ỨNG TV, PHÓNG TO MÀN HÌNH.
 - Thanh ÂM LƯỢNG và ĐỘ SÁNG; chất lượng video 360p/720p; BÀI TIẾP; lùi / phát-dừng / tiến; nút LÙI.
 - Chạy nền bằng dịch vụ, tự chạy lại sau khi khởi động máy.
 

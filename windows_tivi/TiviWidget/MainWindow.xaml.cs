@@ -340,7 +340,7 @@ public partial class MainWindow : Window
         else GoBack();
     }
 
-    /// <summary>Nút Màn hình chính: đầu trang chọn đài -> sang YouTube; còn lại -> về trang chọn đài.</summary>
+    /// <summary>Nút Chuyển đổi giao diện (trước là Màn hình chính): đầu trang chọn đài -> sang YouTube; còn lại -> về trang chọn đài.</summary>
     private void OnRemoteHome()
     {
         if (_mode == Mode.Tv && _level == 0) { SetMode(Mode.YouTube); OpenYouTube(); return; }

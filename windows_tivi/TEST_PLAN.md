@@ -73,7 +73,7 @@ Chuẩn bị: điện thoại có app DK TV Gộp (android_dktv), cùng Wi-Fi v�
 | F4 | scroll | Vuốt dọc | Cuộn trang đang mở |
 | F5 | key ▲▼◀▶ OK | Bấm nút | Chuyển ô chọn (trang chọn đài) hoặc điều khiển YouTube |
 | F6 | back | Bấm ← | Như Esc; ba lần liên tiếp thì về trang chủ |
-| F7 | home | Bấm Màn hình chính | Đầu trang chọn đài: sang YouTube; còn lại: về trang chọn đài |
+| F7 | home | Bấm Chuyển đổi giao diện | Đầu trang chọn đài: sang YouTube; còn lại: về trang chọn đài |
 | F8 | media | play/pause, trước, sau | Phím media Windows gửi đi |
 | F9 | volume | Kéo thanh âm lượng | Âm lượng Windows đổi |
 | F10 | screen off | Tắt màn hình | Màn hình PC tắt; bật lại bằng chuột hoặc phím |
