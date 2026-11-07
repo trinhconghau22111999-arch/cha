@@ -366,6 +366,47 @@ internal static class WebScripts
  })();
 """;
 
+    /// <summary>Phóng video YouTube bằng khung widget (không dùng fullscreen thật vì WebView2 trong widget không hỗ trợ).
+    /// window.__wbFill(true/false/undefined=đảo). Nút fullscreen của YouTube cũng chạy qua đây.</summary>
+    public const string YtFill = """
+(function(){
+  if (window.__wbFillInit) return;
+  window.__wbFillInit = true;
+  var CLS = 'wb-fill';
+  function addStyle(){
+    if (document.getElementById('wb-fill-style')) return;
+    var st = document.createElement('style');
+    st.id = 'wb-fill-style';
+    st.textContent = 'html.wb-fill,html.wb-fill body{overflow:hidden!important}' +
+      'html.wb-fill #movie_player,html.wb-fill .html5-video-player{position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;z-index:2147483647!important;background:#000!important;margin:0!important;transform:none!important}' +
+      'html.wb-fill .html5-video-container,html.wb-fill video{width:100%!important;height:100%!important;left:0!important;top:0!important;object-fit:contain!important}' +
+      'html.wb-fill ytd-masthead,html.wb-fill #masthead-container,html.wb-fill ytm-mobile-topbar-renderer,html.wb-fill .mobile-topbar-header{display:none!important}';
+    (document.head || document.documentElement).appendChild(st);
+  }
+  function active(){ return document.documentElement.classList.contains(CLS); }
+  function poke(){ try { window.dispatchEvent(new Event('resize')); } catch(e){} }
+  window.__wbFill = function(on){
+    if (on === undefined) on = !active();
+    if (on && !document.querySelector('video')) return false;
+    addStyle();
+    document.documentElement.classList.toggle(CLS, !!on);
+    poke(); setTimeout(poke, 200); setTimeout(poke, 800);
+    return !!on;
+  };
+  // Nút phóng to của chính YouTube: báo là hỗ trợ, và chạy chế độ phóng theo khung widget
+  try { Object.defineProperty(document, 'fullscreenEnabled', {get:function(){return true;}, configurable:true}); } catch(e){}
+  try { Object.defineProperty(document, 'webkitFullscreenEnabled', {get:function(){return true;}, configurable:true}); } catch(e){}
+  var req = function(){ window.__wbFill(true); return Promise.resolve(); };
+  try { Element.prototype.requestFullscreen = req; } catch(e){}
+  try { Element.prototype.webkitRequestFullscreen = req; } catch(e){}
+  var ex = function(){ window.__wbFill(false); return Promise.resolve(); };
+  try { Document.prototype.exitFullscreen = ex; } catch(e){}
+  try { Document.prototype.webkitExitFullscreen = ex; } catch(e){}
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && active()) window.__wbFill(false); }, true);
+  window.addEventListener('yt-navigate-start', function(){ if (active()) window.__wbFill(false); });
+})();
+""";
+
     /// <summary>Bản có cờ __wbAdSkip như configureWebView() bên Android.</summary>
     public const string YtOnlyAdWithFlag = "window.__wbAdSkip=true;" + YtOnlyAd;
 
@@ -374,7 +415,7 @@ internal static class WebScripts
 
     /// <summary>Chạy ngay khi document được tạo (trước script của trang), giống shouldInterceptRequest + DOCUMENT_START_SCRIPT bên Android.</summary>
     public const string YtDocStart = "window.__wbAdSkip=true;" + AndroidVoiceShim +
-        "if (/(^|\\.)youtube\\.com$/.test(location.hostname)) {" + YtOnlyAd + HideOpenApp + "}";
+        "if (/(^|\\.)youtube\\.com$/.test(location.hostname)) {" + YtOnlyAd + HideOpenApp + YtFill + "}";
 
     /// <summary>Nhập văn bản từ điện thoại (port TEXT_EDIT_FN). Gọi: (fn)(del, "chuỗi JSON").</summary>
     public const string TextEditFn = """

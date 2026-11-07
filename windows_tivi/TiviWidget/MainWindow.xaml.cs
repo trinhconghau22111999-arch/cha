@@ -206,7 +206,7 @@ public partial class MainWindow : Window
         foreach (var js in new[]
         {
             WebScripts.YtOnlyAdWithFlag, WebScripts.VoiceHook, WebScripts.HideOpenApp,
-            WebScripts.YtNoMute, WebScripts.YtNav, WebScripts.HideShorts
+            WebScripts.YtNoMute, WebScripts.YtNav, WebScripts.HideShorts, WebScripts.YtFill
         })
             _ = core.ExecuteScriptAsync(js);
         ApplyBrightness(core);
@@ -587,25 +587,17 @@ public partial class MainWindow : Window
         catch (Exception) { }
     }
 
-    /// <summary>Port fullscreenVideo: chạm thật vào giữa video (DevTools) rồi mới xin toàn màn hình, vì trình duyệt chỉ chấp nhận khi có thao tác người dùng.</summary>
+    /// <summary>Nút phóng to: WebView2 trong widget không hỗ trợ fullscreen thật, nên phóng video ra bằng đúng khung widget
+    /// (che hết trang YouTube). Bấm lần nữa để thu lại. Kênh TV vốn đã phủ toàn khung nên không cần làm gì.</summary>
     private async void FullscreenVideo()
     {
-        var core = ActiveCore();
+        if (_mode != Mode.YouTube) return;
+        var core = Web.CoreWebView2;
         if (core == null) return;
         try
         {
-            string raw = await core.ExecuteScriptAsync(
-                "(function(){var v=document.querySelector('video');if(!v)return '';var b=v.getBoundingClientRect();" +
-                "return Math.round(b.left+b.width/2)+','+Math.round(b.top+b.height/2);})()");
-            var parts = (JsonSerializer.Deserialize<string>(raw) ?? "").Split(',');
-            if (parts.Length != 2 || !int.TryParse(parts[0], out int x) || !int.TryParse(parts[1], out int y)) return;
-            string pos = "\"x\":" + x.ToString(CultureInfo.InvariantCulture) + ",\"y\":" + y.ToString(CultureInfo.InvariantCulture) +
-                         ",\"button\":\"left\",\"clickCount\":1}";
-            await core.CallDevToolsProtocolMethodAsync("Input.dispatchMouseEvent", "{\"type\":\"mousePressed\"," + pos);
-            await core.CallDevToolsProtocolMethodAsync("Input.dispatchMouseEvent", "{\"type\":\"mouseReleased\"," + pos);
-            await core.ExecuteScriptAsync(
-                "(function(){var v=document.querySelector('video');if(!v)return;var p=v.closest('#movie_player,.html5-video-player')||v;" +
-                "if(p.requestFullscreen)p.requestFullscreen().catch(function(){});})()");
+            await core.ExecuteScriptAsync(WebScripts.YtFill);   // đảm bảo đã nạp (trang chưa chạy script đầu)
+            await core.ExecuteScriptAsync("window.__wbFill&&window.__wbFill()");
         }
         catch (Exception) { }
     }
