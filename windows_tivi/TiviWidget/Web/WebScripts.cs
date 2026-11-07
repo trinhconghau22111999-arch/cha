@@ -267,7 +267,7 @@ internal static class WebScripts
    mark(list[n]); return true;
  };
  // LEN / XUONG: sang video o hang tren / hang duoi (tim theo vi tri tren man hinh, uu tien video thang cot).
- // Khong co video o hang do thi cuon trang len / xuong.
+ // Khong co video o hang do thi cuon trang len / xuong (▲ o hang tren cung KHONG con nhay len o tim kiem).
  // Tim video o hang tren (d<0) / hang duoi (d>0) so voi el, theo vi tri tren man hinh. Tra ve chi so hoac -1.
  function pickVert(list, el, d){
    var c=el.getBoundingClientRect(), cx=c.left+c.width/2, cy=c.top+c.height/2;
@@ -293,13 +293,12 @@ internal static class WebScripts
      if(d>0){ unmarkSearch(); if(list.length) mark(firstItem(list)); }
      return true;
    }
-   if(!list.length){ if(d<0){ var sb0=searchBtn(); if(sb0){ markSearch(sb0); return true; } } return false; }
+   if(!list.length) return false;
    if(cur && !cur.isConnected) cur=null;
    var idx=cur?list.indexOf(cur):-1;
    if(idx<0){ return window.__wbNav(0); }
    var best=pickVert(list, cur, d);
    if(best<0){
-     if(d<0){ var sb=searchBtn(); if(sb){ markSearch(sb); return true; } }   // hang tren cung + ▲ = len nut tim kiem
      window.scrollBy(0, d*innerHeight*0.6);
      if(d>0){
        var base=cur;
