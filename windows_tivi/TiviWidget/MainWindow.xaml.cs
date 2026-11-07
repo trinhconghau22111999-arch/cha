@@ -90,6 +90,7 @@ public partial class MainWindow : Window
         _control.VoiceQuery += OnVoiceText;
         _control.QualityRequested += SetQuality;
         _control.FullscreenRequested += FullscreenVideo;
+        _control.SeekRequested += SeekVideo;
         _control.TouchLockChanged += SetTouchLock;
         _control.BrightnessChanged += SetBrightness;
         _control.ClickRequested += OnRemoteClick;
@@ -583,6 +584,20 @@ public partial class MainWindow : Window
             await core.ExecuteScriptAsync(js);
             await Task.Delay(2500);
             await core.ExecuteScriptAsync(js);
+        }
+        catch (Exception) { }
+    }
+
+    /// <summary>Tua video đang phát ±sec giây (nút « » trên điện thoại), không chuyển sang video khác.</summary>
+    private async void SeekVideo(int sec)
+    {
+        var core = ActiveCore();
+        if (core == null) return;
+        try
+        {
+            await core.ExecuteScriptAsync(
+                "(function(){var v=document.querySelector('video');if(!v)return;var d=" + sec.ToString(CultureInfo.InvariantCulture) + ";" +
+                "var t=v.currentTime+d;if(t<0)t=0;if(v.duration&&isFinite(v.duration)&&t>v.duration-0.1)t=Math.max(0,v.duration-0.1);v.currentTime=t;})()");
         }
         catch (Exception) { }
     }

@@ -21,6 +21,7 @@ internal sealed class RemoteControl
     public event Action<string> VoiceQuery;
     public event Action<int> QualityRequested;      // 360 / 480 / 720
     public event Action FullscreenRequested;
+    public event Action<int> SeekRequested;         // tua video: -10 / +10 giây
     public event Action<bool> TouchLockChanged;
     public event Action<int> BrightnessChanged;     // 0..100
     public event Action ClickRequested;             // chạm 1 ngón
@@ -113,13 +114,19 @@ internal sealed class RemoteControl
         BackPressed?.Invoke();
     }
 
-    /// <summary>Phím media. Windows không có phím tua, nên rew/fwd đổi sang bài trước/sau.</summary>
-    private static void Media(string cmd)
+    /// <summary>Phím media. rew/fwd tua video đang phát ±10 giây (như Android); chỉ khi không có ai nhận thì mới đổi sang bài trước/sau.</summary>
+    private void Media(string cmd)
     {
         switch (cmd)
         {
-            case "rew": case "prev": InputInjector.Key(0xB1); break;   // VK_MEDIA_PREV_TRACK
-            case "fwd": case "next": InputInjector.Key(0xB0); break;   // VK_MEDIA_NEXT_TRACK
+            case "rew":
+                if (SeekRequested != null) SeekRequested(-10); else InputInjector.Key(0xB1);
+                break;
+            case "fwd":
+                if (SeekRequested != null) SeekRequested(10); else InputInjector.Key(0xB0);
+                break;
+            case "prev": InputInjector.Key(0xB1); break;   // VK_MEDIA_PREV_TRACK
+            case "next": InputInjector.Key(0xB0); break;   // VK_MEDIA_NEXT_TRACK
             case "playpause": InputInjector.Key(0xB3); break;          // VK_MEDIA_PLAY_PAUSE
         }
     }
