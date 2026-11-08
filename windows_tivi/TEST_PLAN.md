@@ -82,7 +82,7 @@ Chuẩn bị: điện thoại có app DK TV Gộp (android_dktv), cùng Wi-Fi v�
 | F13 | quality 360/480/720 | Chọn chất lượng | Chất lượng video YouTube đổi sau vài giây |
 | F14 | fullscreen | Bấm toàn màn hình | Video vào chế độ toàn màn hình trong WebView2 |
 | F15 | touchlock | Bật khoá | Các nút trên widget không bấm được; bật lại thì mở |
-| F16 | brightness 0–100 | Kéo độ sáng | Laptop: đèn nền thật đổi, thanh độ sáng trong Cài đặt Windows nhích theo. Màn hình ngoài/PC: nội dung trang tối/sáng theo mức (dự phòng); 100 là bình thường |
+| F16 | brightness 0–100 | Kéo độ sáng | Laptop: đèn nền thật đổi theo (WMI). Máy không hỗ trợ: không đổi gì, không làm tối nội dung trang |
 | F17 | keepAwake | Bật camera hoặc remote | PC không tự ngủ trong lúc đó |
 
 Ghi chú: touchlock không chặn được chạm chuột trực tiếp trong vùng WebView2. Đây là giới hạn đã biết.
