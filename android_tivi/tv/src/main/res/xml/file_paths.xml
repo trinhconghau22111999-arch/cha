@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Tệp nhận/ghi hình nằm trong thư mục riêng của app (Download/TruyenTep, Movies/TruyenTep) -->
+    <external-files-path name="ext" path="." />
+    <files-path name="int" path="." />
+</paths>
