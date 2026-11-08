@@ -1,0 +1,167 @@
+# Mỗi lần chạy: build cả 3 app rồi tạo MỘT release (tag build-<số lần chạy>) chứa 3 file tải xuống cạnh nhau.
+name: Build all apps
+
+on:
+  push:
+    paths:
+      - "android_dktv/**"
+      - "android_tivi/**"
+      - "windows_tivi/**"
+      - ".github/workflows/build-all.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-dktv:
+    name: Build DK TV Gộp (APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      # Firebase (ghép nối WebRTC): secret GOOGLE_SERVICES_JSON_BASE64 phải có trong repo này
+      - name: Tạo google-services.json
+        env:
+          GSJ: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          if [ -n "$GSJ" ]; then
+            echo "$GSJ" | base64 --decode > android_dktv/dktv/google-services.json
+            python3 - <<'PY'
+          import json
+          p = "android_dktv/dktv/google-services.json"
+          d = json.load(open(p))
+          for c in d.get("client", []):
+              c["client_info"]["android_client_info"]["package_name"] = "com.hau.dktvall"
+          json.dump(d, open(p, "w"), indent=2)
+          PY
+          else
+            echo "::warning::Thiếu secret GOOGLE_SERVICES_JSON_BASE64 - app sẽ không kết nối được Firebase"
+          fi
+
+      - name: Build debug APK
+        working-directory: android_dktv
+        run: gradle :dktv:assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dktv-gop-apk
+          path: android_dktv/dktv/build/outputs/apk/debug/dktv-debug.apk
+          if-no-files-found: error
+
+  build-tivi:
+    name: Build Tivi TV (APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Build debug APK
+        working-directory: android_tivi
+        run: gradle :tv:assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tivi-tv-apk
+          path: android_tivi/tv/build/outputs/apk/debug/tv-debug.apk
+          if-no-files-found: error
+
+  build-windows:
+    name: Build Windows widget (installer)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore
+        working-directory: windows_tivi
+        run: dotnet restore TiviWidget/TiviWidget.csproj
+
+      - name: Test (kiểm thử tự động)
+        working-directory: windows_tivi
+        run: dotnet test TiviWidget.Tests/TiviWidget.Tests.csproj --logger "trx;LogFileName=results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: windows_tivi/TiviWidget.Tests/TestResults/results.trx
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Publish + build installer
+        working-directory: windows_tivi
+        shell: pwsh
+        run: ./installer/build.ps1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TiviWidget-Setup
+          path: windows_tivi/installer/Output/*.exe
+          if-no-files-found: error
+
+  release:
+    name: Tạo release gộp 3 app
+    needs: [build-dktv, build-tivi, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dktv-gop-apk
+          path: release-in/dktv
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tivi-tv-apk
+          path: release-in/tivi
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: TiviWidget-Setup
+          path: release-in/windows
+
+      - name: Đặt tên file phát hành
+        run: |
+          mkdir -p release
+          N="${{ github.run_number }}"
+          cp release-in/dktv/dktv-debug.apk "release/DK-TV-Gop-build-$N.apk"
+          cp release-in/tivi/tv-debug.apk "release/Tivi-TV-build-$N.apk"
+          cp release-in/windows/*.exe "release/TiviWidget-Setup-build-$N.exe"
+          ls -la release
+
+      - name: Create Release (1 trang, 3 file)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "Build #${{ github.run_number }} - 3 app"
+          body: |
+            Build #${{ github.run_number }} gồm 3 app:
+
+            - DK-TV-Gop-build-${{ github.run_number }}.apk: app điều khiển từ xa tổng hợp (DK TV + DK TV 2), Android.
+            - Tivi-TV-build-${{ github.run_number }}.apk: app tivi cài trên TV (nhận tệp từ điện thoại, nút Tệp để cài APK), Android.
+            - TiviWidget-Setup-build-${{ github.run_number }}.exe: bộ cài widget Tivi cho Windows.
+          files: release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

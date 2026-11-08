@@ -8,8 +8,6 @@
   - `verify_logic/` — kiểm tra nhanh không cần NuGet (`dotnet run`).
   - `installer/` — `build.ps1` + `TiviWidget.iss` tạo bộ cài.
   - `SETUP_PREREQUISITES.md`, `TEST_PLAN.md`, `VERIFY_LOG.txt`.
-- `.github/workflows/windows-build.yml` — CI: build, test và tạo bộ cài cho Windows.
-- `.github/workflows/android-dktv-build.yml` — CI: build APK app điều khiển DK TV Gộp.
-- `.github/workflows/android-tivi-build.yml` — CI: build APK app tivi cài trên TV.
+- `.github/workflows/build-all.yml` — CI: mỗi lần chạy build cả 3 app và tạo 1 release `build-<số>` có đủ 3 file tải xuống (DK TV Gộp APK, Tivi TV APK, TiviWidget Setup .exe).
 
 Chưa được build và chạy trên Windows thật. Xem `windows_tivi/TEST_PLAN.md`.
