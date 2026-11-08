@@ -101,13 +101,6 @@ jobs:
         working-directory: windows_tivi
         run: dotnet test TiviWidget.Tests/TiviWidget.Tests.csproj --logger "trx;LogFileName=results.trx"
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: windows_tivi/TiviWidget.Tests/TestResults/results.trx
-
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
 
