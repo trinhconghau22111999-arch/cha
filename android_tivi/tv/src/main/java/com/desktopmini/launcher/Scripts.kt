@@ -426,22 +426,27 @@ const val YT_NOMUTE_JS = """
 """
 
 /**
- * YouTube trang chủ: ẩn thanh điều hướng dưới (Trang chủ / Shorts / Bạn) và dải thẻ lọc (Tất cả, Âm nhạc, ...).
- * Chỉ áp dụng khi đang ở trang chủ (đường dẫn "/"), các trang khác giữ nguyên.
+ * YouTube: ẩn thanh điều hướng dưới và dải thẻ lọc ở trang chủ (đường dẫn "/"),
+ * và ẩn danh sách phát bên cạnh khi đang xem video (đường dẫn "/watch").
  * Trang YouTube chuyển mục bằng JS (không tải lại trang) nên theo dõi đổi đường dẫn để bật/tắt đúng lúc.
  */
 const val HIDE_HOME_CHROME_JS = """
 (function(){
  if(window.__wbHomeChrome) return; window.__wbHomeChrome=true;
  var st=document.createElement('style'); st.id='__wbHomeChromeCss';
- st.textContent='html.wb-ytm-home ytm-pivot-bar-renderer,html.wb-ytm-home ytm-pivot-bar-item-renderer,'+
+ st.textContent=
+   'html.wb-ytm-home ytm-pivot-bar-renderer,html.wb-ytm-home ytm-pivot-bar-item-renderer,'+
    'html.wb-ytm-home ytm-chip-cloud-renderer,html.wb-ytm-home .chip-cloud,html.wb-ytm-home ytm-related-chip-cloud-renderer,'+
-   'html.wb-ytm-home ytd-feed-filter-chip-bar-renderer,html.wb-ytm-home #chips-wrapper{display:none!important}';
+   'html.wb-ytm-home ytd-feed-filter-chip-bar-renderer,html.wb-ytm-home #chips-wrapper{display:none!important}'+
+   'html.wb-ytm-watch ytm-playlist-panel-renderer,html.wb-ytm-watch ytd-playlist-panel-renderer,'+
+   'html.wb-ytm-watch ytm-playlist-panel-video-renderer,html.wb-ytm-watch ytd-playlist-panel-video-renderer{display:none!important}';
  (document.head||document.documentElement).appendChild(st);
  function sync(){
    try{
-     var home = location.pathname==='/';
-     var r=document.documentElement; if(r){ if(home) r.classList.add('wb-ytm-home'); else r.classList.remove('wb-ytm-home'); }
+     var p=location.pathname, r=document.documentElement;
+     if(!r) return;
+     r.classList.toggle('wb-ytm-home', p==='/');
+     r.classList.toggle('wb-ytm-watch', p==='/watch');
    }catch(e){}
  }
  var t=null;
