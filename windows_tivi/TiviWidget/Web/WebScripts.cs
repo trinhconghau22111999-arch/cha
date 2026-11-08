@@ -469,7 +469,9 @@ internal static class WebScripts
     'html.wb-home ytd-browse,html.wb-home ytd-two-column-browse-results-renderer{padding-top:0!important;margin-left:0!important}' +
     'html.wb-home ytd-rich-grid-renderer{margin-top:0!important;margin-left:0!important;padding-top:0!important;width:100%!important;max-width:none!important}' +
     'html.wb-home ytd-rich-grid-renderer>#contents{margin:0 auto!important;padding-top:12px!important;width:auto!important}' +
-    'html.wb-home ytd-app[mini-guide-visible] ytd-page-manager,html.wb-home ytd-app[guide-persistent-and-visible] ytd-page-manager{margin-left:0!important}';
+    'html.wb-home ytd-app[mini-guide-visible] ytd-page-manager,html.wb-home ytd-app[guide-persistent-and-visible] ytd-page-manager{margin-left:0!important}' +
+    // Thanh kính mờ trắng cố định của YouTube (nằm sau thanh trên + thanh chọn mục): ẩn 2 thanh đó rồi mà nó còn lại thì che ngang hàng video đầu
+    'html.wb-home #frosted-glass,html.wb-home ytd-app>#frosted-glass,html.wb-home ytd-masthead #background,html.wb-home #chips-wrapper,html.wb-home #chips{display:none!important;height:0!important}';
   (document.head || document.documentElement).appendChild(st);
   // Ẩn Shorts ở mọi trang: dải Shorts, ô video Shorts lẫn trong danh sách, mục Shorts ở menu
   var sh = document.createElement('style');
@@ -481,6 +483,14 @@ internal static class WebScripts
     'ytd-grid-video-renderer:has(a[href^="/shorts/"]),ytm-video-with-context-renderer:has(a[href^="/shorts/"]),' +
     'ytd-guide-entry-renderer:has(a[title="Shorts"]),ytd-mini-guide-entry-renderer[aria-label="Shorts"],ytd-guide-section-renderer:has(a[title="Shorts"]) ytd-guide-entry-renderer:has(a[title="Shorts"]){display:none!important}';
   (document.head || document.documentElement).appendChild(sh);
+  // Ô quảng cáo bị ẩn nhưng khung chứa nó (ô lưới / cả hàng) vẫn chiếm chỗ -> thành "lỗ" trắng ở hàng video đầu: ẩn luôn cả khung
+  var ah = document.createElement('style');
+  ah.id = 'wb-adhole-style';
+  ah.textContent =
+    'ytd-rich-item-renderer:has(ytd-ad-slot-renderer),ytd-rich-item-renderer:has(ytd-in-feed-ad-layout-renderer),ytd-rich-item-renderer:has(ytd-display-ad-renderer),ytd-rich-item-renderer:has(ytd-promoted-sparkles-web-renderer),' +
+    'ytd-rich-section-renderer:has(ytd-ad-slot-renderer),ytd-rich-section-renderer:has(ytd-in-feed-ad-layout-renderer),ytd-rich-section-renderer:has(ytd-display-ad-renderer),ytd-rich-section-renderer:has(ytd-statement-banner-renderer),' +
+    'ytd-rich-grid-row:has(>#contents>ytd-rich-item-renderer>#content>ytd-ad-slot-renderer:only-child){display:none!important}';
+  (document.head || document.documentElement).appendChild(ah);
   function sync(){
     var home = location.pathname === '/' || location.pathname === '';
     document.documentElement.classList.toggle('wb-home', home);
