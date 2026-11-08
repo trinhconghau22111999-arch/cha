@@ -68,9 +68,9 @@ class CameraActivity : AppCompatActivity() {
      */
     private fun generatePairingCodeAndStartService() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-        // Remote TV: LUON dung ma co dinh 654321 (khop TransferHost.CODE ben app TV).
-        // Ghi de ca ma ngau nhien cu da luu tu ban truoc.
-        val code = FIXED_CODE
+        // Dung ma da luu (nguoi dung co the doi bang cach cham vao chu "CHUA KET NOI" tren man remote);
+        // chua doi thi la ma mac dinh 654321.
+        val code = savedCode(this)
         prefs.edit().putString(KEY_FIXED_CODE, code).apply()
         roomCode = code
 
@@ -108,6 +108,15 @@ class CameraActivity : AppCompatActivity() {
     }
 
     companion object {
+        /** Mã hợp lệ: 4–12 chữ số. */
+        fun isValidCode(c: String) = c.length in 4..12 && c.all { it in '0'..'9' }
+
+        /** Mã ghép nối hiện dùng: mã người dùng đã đổi (nếu có), không thì [FIXED_CODE]. */
+        fun savedCode(ctx: android.content.Context): String {
+            val c = ctx.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE).getString(KEY_FIXED_CODE, null)
+            return if (c != null && isValidCode(c)) c else FIXED_CODE
+        }
+
         private const val REQUEST_CODE_PERMISSIONS = 2001
         const val PREFS_NAME = "home_camera"
         /** Ma 6 so mac dinh, co dinh cho remote TV. */

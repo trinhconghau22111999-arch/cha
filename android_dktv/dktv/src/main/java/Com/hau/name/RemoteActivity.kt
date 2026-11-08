@@ -15,10 +15,12 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.speech.RecognizerIntent
+import android.text.InputType
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.SeekBar
@@ -26,6 +28,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -164,6 +167,9 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         }
         chip.addView(statusDot, LinearLayout.LayoutParams(dp(9), dp(9)).also { it.rightMargin = dp(8) })
         chip.addView(statusText)
+        // Chạm vào thẻ trạng thái ("CHƯA KẾT NỐI"/"ĐÃ KẾT NỐI") để đổi mã ghép nối
+        chip.isClickable = true
+        chip.setOnClickListener { showCodeDialog() }
         head.addView(chip)
         root.addView(head, LinearLayout.LayoutParams(-1, -2))
         // Duong ke gradient neon cyan -> tim -> hong
@@ -577,6 +583,60 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         }
     }
 
+    // ---------------------------------------------------------------- Đổi mã ghép nối
+
+    /** Hộp thoại đổi mã (vd 654321 -> 123456). Bấm OK: lưu mã mới và nối lại ngay bằng mã đó. */
+    private fun showCodeDialog() {
+        val current = CameraActivity.savedCode(this)
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setText(current)
+            setSelection(text.length)
+            textSize = 24f
+            gravity = Gravity.CENTER
+            letterSpacing = 0.25f
+            setTextColor(Neon.CYAN)
+            setHintTextColor(Neon.DIM)
+            hint = "123456"
+            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+            filters = arrayOf(android.text.InputFilter.LengthFilter(12))
+        }
+        val box = FrameLayout(this).apply {
+            setPadding(dp(24), dp(12), dp(24), 0)
+            addView(input, FrameLayout.LayoutParams(-1, -2))
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Đổi mã ghép nối")
+            .setMessage("Nhập mã của TV/máy tính cần điều khiển (4–12 chữ số). Mã hiện tại: $current")
+            .setView(box)
+            .setPositiveButton("OK", null)
+            .setNegativeButton("Hủy", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val code = input.text.toString().trim()
+                if (!CameraActivity.isValidCode(code)) {
+                    Toast.makeText(this, "Mã phải gồm 4–12 chữ số", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+                applyNewCode(code)
+                dialog.dismiss()
+            }
+            input.requestFocus()
+            dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        }
+        dialog.show()
+    }
+
+    private fun applyNewCode(code: String) {
+        getSharedPreferences(CameraActivity.PREFS_NAME, MODE_PRIVATE).edit()
+            .putString(CameraActivity.KEY_FIXED_CODE, code).apply()
+        val svc = CameraStreamService.instance
+        if (svc != null) svc.changeRoomCode(code) else ensureService(force = true)
+        setConnected(false)
+        Toast.makeText(this, "Đã đổi mã thành $code — đang kết nối lại…", Toast.LENGTH_SHORT).show()
+    }
+
     // ---------------------------------------------------------------- Gui lenh
 
     private fun send(cmd: JSONObject, warn: Boolean = true) {
@@ -649,7 +709,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         prefs.edit().putBoolean(CameraActivity.KEY_SESSION_ACTIVE, true).apply()
         try {
             ContextCompat.startForegroundService(this, Intent(this, CameraStreamService::class.java)
-                .putExtra(CameraStreamService.EXTRA_ROOM_CODE, CameraActivity.FIXED_CODE))
+                .putExtra(CameraStreamService.EXTRA_ROOM_CODE, CameraActivity.savedCode(this)))
         } catch (e: Exception) {
             Toast.makeText(this, "Không bật được dịch vụ kết nối: ${e.message}", Toast.LENGTH_LONG).show()
         }

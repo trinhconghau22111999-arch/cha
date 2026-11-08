@@ -386,6 +386,39 @@ class CameraStreamService : Service() {
         updateNotification()
     }
 
+    /**
+     * Đổi mã ghép nối ngay khi đang chạy: dọn phòng cũ, mở phòng mới theo [newCode] và chờ máy xem
+     * (TV/PC) vào bằng mã mới. Gọi từ RemoteActivity sau khi người dùng nhập mã mới.
+     */
+    fun changeRoomCode(newCode: String) {
+        handler.post {
+            if (stopping) return@post
+            val old = roomCode
+            if (old == newCode) { reconnectNow(force = true); return@post }
+            viewerConns.values.forEach { c ->
+                c.removed = true
+                c.reconnectRunnable?.let { handler.removeCallbacks(it) }
+                c.peerConnectionManager?.release()
+                c.signalingClient?.release()
+            }
+            viewerConns.clear()
+            viewersChildListener?.let { viewersListenerRef?.removeEventListener(it) }
+            viewersChildListener = null
+            viewersListenerRef = null
+            old?.let {
+                val r = FirebaseDatabase.getInstance().reference.child("rooms").child(it)
+                r.child("status").setValue("ended")
+                r.child("viewers").removeValue()
+            }
+            roomCode = newCode
+            getSharedPreferences(CameraActivity.PREFS_NAME, MODE_PRIVATE).edit()
+                .putString(CameraActivity.KEY_FIXED_CODE, newCode).apply()
+            viewersWatchStarted = false
+            startWatchingViewers(newCode)
+            updateNotification()
+        }
+    }
+
     // ------------------------------------------------------------------ Tự nối lại chủ động
 
     /** Bỏ kênh cũ của 1 máy xem và mở kênh mới NGAY (không chờ backoff). */
