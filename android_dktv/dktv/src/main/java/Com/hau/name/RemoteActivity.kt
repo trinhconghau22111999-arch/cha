@@ -170,6 +170,14 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         // Chạm vào thẻ trạng thái ("CHƯA KẾT NỐI"/"ĐÃ KẾT NỐI") để đổi mã ghép nối
         chip.isClickable = true
         chip.setOnClickListener { showCodeDialog() }
+        // Nút ⚙: mở trang bật/tắt các nút trên màn hình remote
+        val gear = TextView(this).apply {
+            text = "\u2699\uFE0E"; textSize = 18f; gravity = Gravity.CENTER; setTextColor(Neon.CYAN)
+            background = neon(Neon.PANEL, Neon.EDGE, 8f, glow = false)
+            contentDescription = "Bật/tắt nút"
+            setOnClickListener { showButtonsDialog() }
+        }
+        head.addView(gear, LinearLayout.LayoutParams(dp(36), dp(34)).also { it.rightMargin = dp(8) })
         head.addView(chip)
         root.addView(head, LinearLayout.LayoutParams(-1, -2))
         // Duong ke gradient neon cyan -> tim -> hong
@@ -214,10 +222,15 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         // 5 nut cung co, cach deu, nhan 2 dong cho can doi
         screenBox = labeled(btnScreen, "CHUYỂN ĐỔI\nGIAO DIỆN", 56, true)
         touchBox = labeled(btnTouch, "TẮT CẢM\nỨNG TV", 56, true)
-        // Nút "Tắt cảm ứng TV" (touchBox) đã được ẩn khỏi giao diện
-        for (b in listOf(powerBox, screenBox, labeled(btnFull, "PHÓNG TO\nMÀN HÌNH", 56, true), labeled(btnMic, "GIỌNG\nNÓI", 56, true))) {
-            top.addView(b, LinearLayout.LayoutParams(0, -2, 1f))
-        }
+        // 5 nút: tắt màn hình | chuyển đổi giao diện | tắt cảm ứng TV | phóng to | giọng nói.
+        // Mỗi nút có thể ẩn/hiện qua nút ⚙ (mặc định "tắt cảm ứng TV" bị ẩn); nút hiện lại đúng vị trí cũ.
+        val fullBox = labeled(btnFull, "PHÓNG TO\nMÀN HÌNH", 56, true)
+        val micBox = labeled(btnMic, "GIỌNG\nNÓI", 56, true)
+        topBoxes.clear()
+        topBoxes["power"] = powerBox; topBoxes["screen"] = screenBox; topBoxes["touch"] = touchBox
+        topBoxes["full"] = fullBox; topBoxes["mic"] = micBox
+        for (b in topBoxes.values) top.addView(b, LinearLayout.LayoutParams(0, -2, 1f))
+        applyButtonVisibility()
         root.addView(top, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(10) })
         refreshPowerButton()
         refreshScreenButton()
@@ -581,6 +594,65 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         catch (e: ActivityNotFoundException) {
             Toast.makeText(this, "Điện thoại chưa có ứng dụng nhận dạng giọng nói", Toast.LENGTH_LONG).show()
         }
+    }
+
+    // ---------------------------------------------------------------- Bật / tắt nút
+
+    private val topBoxes = LinkedHashMap<String, View>()
+    private val topNames = linkedMapOf(
+        "power" to "Tắt / Mở màn hình",
+        "screen" to "Chuyển đổi giao diện",
+        "touch" to "Tắt cảm ứng TV",
+        "full" to "Phóng to màn hình",
+        "mic" to "Giọng nói"
+    )
+
+    /** Danh sách nút đang ẩn. Lần đầu (chưa lưu gì) mặc định ẩn nút "Tắt cảm ứng TV". */
+    private fun hiddenSet(): MutableSet<String> =
+        getSharedPreferences("remote_ui", MODE_PRIVATE).getStringSet("hidden", null)?.toMutableSet()
+            ?: mutableSetOf("touch")
+
+    private fun applyButtonVisibility() {
+        val hidden = hiddenSet()
+        for ((id, v) in topBoxes) v.visibility = if (id in hidden) View.GONE else View.VISIBLE
+    }
+
+    private fun showButtonsDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("Bật / tắt nút trên thiết bị")
+            .setMessage("TẮT: chọn một nút để ẩn khỏi màn hình.\nBẬT: chọn nút đang ẩn để hiện lại đúng vị trí cũ.")
+            .setPositiveButton("BẬT") { _, _ -> pickButtons(show = true) }
+            .setNegativeButton("TẮT") { _, _ -> pickButtons(show = false) }
+            .setNeutralButton("Đóng", null)
+            .show()
+    }
+
+    private fun pickButtons(show: Boolean) {
+        val hidden = hiddenSet()
+        val ids = topNames.keys.filter { (it in hidden) == show }
+        if (ids.isEmpty()) {
+            Toast.makeText(this, if (show) "Không có nút nào đang ẩn" else "Tất cả nút đã bị ẩn", Toast.LENGTH_SHORT).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(if (show) "Chọn nút để BẬT" else "Chọn nút để TẮT")
+            .setItems(ids.map { topNames[it] ?: it }.toTypedArray()) { _, which -> setButtonHidden(ids[which], hide = !show) }
+            .setNegativeButton("Hủy", null)
+            .show()
+    }
+
+    private fun setButtonHidden(id: String, hide: Boolean) {
+        val hidden = hiddenSet()
+        if (hide) hidden.add(id) else hidden.remove(id)
+        getSharedPreferences("remote_ui", MODE_PRIVATE).edit().putStringSet("hidden", HashSet(hidden)).apply()
+        // Ẩn nút khóa cảm ứng khi TV đang bị khóa -> mở khóa luôn, kẻo không còn nút nào để mở
+        if (hide && id == "touch" && tvTouchOff) {
+            tvTouchOff = false
+            send(JSONObject().put("action", "touchlock").put("on", false))
+            refreshTouchButton()
+        }
+        applyButtonVisibility()
+        Toast.makeText(this, (topNames[id] ?: id) + if (hide) ": đã ẩn" else ": đã hiện", Toast.LENGTH_SHORT).show()
     }
 
     // ---------------------------------------------------------------- Đổi mã ghép nối
