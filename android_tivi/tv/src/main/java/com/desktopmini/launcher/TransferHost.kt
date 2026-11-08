@@ -369,6 +369,6 @@ class TransferHost(context: Context) {
 
     companion object {
         /** Mã 6 số cố định: máy gửi (điện thoại) mở Truyền tệp và dùng đúng mã này. */
-        const val CODE = "123456"
+        const val CODE = "654321"
     }
 }

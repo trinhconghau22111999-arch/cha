@@ -9,6 +9,6 @@ Lấy từ module `tv` của repo a3, đã chỉnh:
 
 Thanh dưới: TV | YouTube | Cài đặt | Tệp | ←.
 applicationId `com.desktopmini.tivi`, ký bằng keystore cố định trong `keystore/` nên cài đè được bản cũ.
-Nhận tệp dùng mã ghép nối cố định 123456 (điện thoại dùng đúng mã này). Android 4.4 cài được (minSdk 19) nhưng WebView cũ nên YouTube và nhận tệp có thể lỗi; nên dùng Android 7.0 trở lên.
+Nhận tệp và điều khiển từ điện thoại dùng mã ghép nối cố định 654321 (trùng với app "điều khiển" trong repo này, điện thoại dùng đúng mã này). Android 4.4 cài được (minSdk 19) nhưng WebView cũ nên YouTube và nhận tệp có thể lỗi; nên dùng Android 7.0 trở lên.
 
 Build: tab Actions → "Android Tivi TV APK" (hoặc đẩy thay đổi trong `android_tivi/`), tải `tv-debug.apk` trong Artifacts hoặc Releases.
