@@ -30,9 +30,6 @@ import org.webrtc.EglBase
 
 private const val TAG = "CameraStreamService"
 
-/** Số máy xem tối đa mà 1 camera phục vụ được cùng lúc. */
-const val MAX_VIEWERS_PER_CAMERA = 4
-
 /** Trạng thái kết nối riêng của từng máy xem đang được camera này phục vụ. */
 private class ViewerConn(val viewerId: String) {
     var signalingClient: SignalingClient? = null
@@ -42,6 +39,8 @@ private class ViewerConn(val viewerId: String) {
     var reconnectRunnable: Runnable? = null
     /** Thời điểm (elapsedRealtime) kênh hiện tại bắt đầu đàm phán — để watchdog phát hiện kênh "treo" lúc đang nối. */
     var startedAt = 0L
+    /** 0 = máy xem đang có mặt ("present" còn trên Firebase); khác 0 = thời điểm (elapsedRealtime) bắt đầu mất "present". */
+    var presentMissingSince = 0L
 }
 
 /**
@@ -54,11 +53,11 @@ private class ViewerConn(val viewerId: String) {
  *    người dùng tắt màn hình, kết nối vẫn sẵn sàng để gửi tệp/ảnh bất cứ lúc nào.
  * 3. Theo dõi danh sách máy xem (rooms/{code}/viewers) trên Firebase — mỗi máy xem mới xuất
  *    hiện sẽ được cấp 1 PeerConnection RIÊNG (chỉ có DataChannel để truyền tệp/ảnh, KHÔNG có
- *    video track) để phục vụ độc lập, tối đa [MAX_VIEWERS_PER_CAMERA] máy cùng lúc.
+ *    video track) để phục vụ độc lập, không giới hạn số máy.
  * 4. KHÔNG có kênh nhận lệnh điều khiển nào từ máy tính — chỉ truyền tệp/ảnh 1 chiều theo yêu cầu.
  * 5. Khi 1 máy xem mất kết nối, CHỈ kênh của máy đó tự kết nối lại (backoff) — không ảnh hưởng
- *    các máy xem khác đang xem bình thường. Khi máy xem chủ động rời hẳn, slot của nó được
- *    giải phóng cho máy xem khác.
+ *    các máy xem khác đang xem bình thường. Máy xem mất "present" quá [STALE_VIEWER_MS]
+ *    (tắt widget, tắt máy...) bị gỡ khỏi danh sách và xoá nhánh Firebase của nó.
  */
 class CameraStreamService : Service() {
 
@@ -66,7 +65,7 @@ class CameraStreamService : Service() {
      *  (PhotoCaptureActivity) hien ro o goc tren-trai, cap nhat REAL-TIME moi khi co thay
      *  doi (may xem moi ket noi xong, mat ket noi, roi han...) - khong can polling. */
     interface ConnectionStatusListener {
-        fun onConnectionStatusChanged(connectedCount: Int, maxViewers: Int)
+        fun onConnectionStatusChanged(connectedCount: Int)
     }
     private val statusListeners = java.util.concurrent.CopyOnWriteArrayList<ConnectionStatusListener>()
 
@@ -74,7 +73,7 @@ class CameraStreamService : Service() {
      *  de UI khong bi "trang" cho toi khi co thay doi tiep theo. */
     fun addConnectionStatusListener(listener: ConnectionStatusListener) {
         statusListeners.add(listener)
-        listener.onConnectionStatusChanged(connectedViewerCount(), MAX_VIEWERS_PER_CAMERA)
+        listener.onConnectionStatusChanged(connectedViewerCount())
     }
 
     fun removeConnectionStatusListener(listener: ConnectionStatusListener) {
@@ -86,7 +85,7 @@ class CameraStreamService : Service() {
 
     private fun notifyStatusListeners() {
         val count = connectedViewerCount()
-        handler.post { statusListeners.forEach { it.onConnectionStatusChanged(count, MAX_VIEWERS_PER_CAMERA) } }
+        handler.post { statusListeners.forEach { it.onConnectionStatusChanged(count) } }
     }
 
     private val viewerConns = LinkedHashMap<String, ViewerConn>()
@@ -216,15 +215,19 @@ class CameraStreamService : Service() {
 
     /**
      * Theo dõi danh sách máy xem trên Firebase (rooms/{code}/viewers). Mỗi máy xem MỚI xuất
-     * hiện lần đầu (onChildAdded) được cấp 1 kênh kết nối riêng, tối đa [MAX_VIEWERS_PER_CAMERA].
-     * Máy xem rời hẳn (onChildRemoved — do chủ động ngắt) được dọn dẹp, giải phóng slot.
+     * hiện lần đầu (onChildAdded) được cấp 1 kênh kết nối riêng (không giới hạn số lượng).
+     * Máy xem rời hẳn (onChildRemoved — do chủ động ngắt) được dọn dẹp.
      *
      * DỌN "VIEWER MA": nếu máy xem bị tắt đột ngột (mất pin, force-close, rớt mạng vĩnh viễn),
      * Firebase chỉ tự xoá field "present" (qua onDisconnect()) — KHÔNG xoá cả node viewerId,
      * để lại dữ liệu rác (gen/, hostGeneration). Khi camera khởi động lại, Firebase bắn
      * onChildAdded cho MỌI child hiện có, kể cả node rác này. Máy xem thật LUÔN ghi "present"
      * TRƯỚC khi camera kịp thấy node được tạo (xem SignalingClient.start()), nên node nào
-     * KHÔNG có "present" chắc chắn là rác — xoá ngay, không cấp slot cho nó.
+     * KHÔNG có "present" chắc chắn là rác — xoá ngay, không cấp kênh cho nó.
+     *
+     * Máy xem ĐANG có kênh mà mất "present" (tắt widget Windows...) thì được đánh dấu thời điểm mất
+     * (onChildChanged); watchdog gỡ hẳn + xoá nhánh nếu quá [STALE_VIEWER_MS] mà chưa quay lại.
+     * Nếu quay lại sớm hơn thì nối lại NGAY (không chờ backoff).
      */
     private fun watchViewers(code: String) {
         val ref = FirebaseDatabase.getInstance().reference.child("rooms").child(code).child("viewers")
@@ -236,10 +239,6 @@ class CameraStreamService : Service() {
                 if (!snapshot.hasChild("present")) {
                     Log.d(TAG, "Dọn viewer rác (không có 'present'): $viewerId")
                     snapshot.ref.removeValue()
-                    return
-                }
-                if (viewerConns.size >= MAX_VIEWERS_PER_CAMERA) {
-                    Log.w(TAG, "Đã đủ $MAX_VIEWERS_PER_CAMERA máy xem, bỏ qua máy xem mới: $viewerId")
                     return
                 }
                 val conn = ViewerConn(viewerId)
@@ -254,10 +253,22 @@ class CameraStreamService : Service() {
                 conn.reconnectRunnable?.let { handler.removeCallbacks(it) }
                 conn.peerConnectionManager?.release()
                 conn.signalingClient?.release()
-                Log.d(TAG, "Máy xem $viewerId đã rời hẳn, giải phóng slot")
+                Log.d(TAG, "Máy xem $viewerId đã rời hẳn")
                 updateNotification()
             }
-            override fun onChildChanged(snapshot: DataSnapshot, prevKey: String?) {}
+            override fun onChildChanged(snapshot: DataSnapshot, prevKey: String?) {
+                val viewerId = snapshot.key ?: return
+                val conn = viewerConns[viewerId] ?: return
+                if (snapshot.hasChild("present")) {
+                    if (conn.presentMissingSince != 0L) {
+                        conn.presentMissingSince = 0L
+                        // Máy xem vừa quay lại (vd mở lại widget): nối lại ngay nếu kênh chưa sẵn sàng.
+                        if (conn.peerConnectionManager?.isReadyToSendFile() != true) restartViewerNow(code, conn)
+                    }
+                } else if (conn.presentMissingSince == 0L) {
+                    conn.presentMissingSince = SystemClock.elapsedRealtime()
+                }
+            }
             override fun onChildMoved(snapshot: DataSnapshot, prevKey: String?) {}
             override fun onCancelled(error: DatabaseError) {
                 // Trước đây bỏ trống hoàn toàn - nếu Firebase Rules chặn quyền đọc (permission
@@ -408,7 +419,6 @@ class CameraStreamService : Service() {
             old?.let {
                 val r = FirebaseDatabase.getInstance().reference.child("rooms").child(it)
                 r.child("status").setValue("ended")
-                r.child("viewers").removeValue()
             }
             roomCode = newCode
             getSharedPreferences(CameraActivity.PREFS_NAME, MODE_PRIVATE).edit()
@@ -453,7 +463,22 @@ class CameraStreamService : Service() {
         }
     }
 
-    /** Chạy mỗi vài giây: kênh nào kẹt ở trạng thái "đang nối" quá lâu thì dựng lại. */
+    /** Gỡ máy xem "ma" (mất present quá lâu): đóng kênh, bỏ khỏi danh sách và xoá nhánh trên Firebase. */
+    private fun dropStaleViewer(code: String, conn: ViewerConn) {
+        Log.d(TAG, "Gỡ máy xem ma ${conn.viewerId} (mất 'present' > ${STALE_VIEWER_MS}ms)")
+        conn.removed = true
+        conn.reconnectRunnable?.let { handler.removeCallbacks(it) }
+        conn.peerConnectionManager?.release()
+        conn.peerConnectionManager = null
+        conn.signalingClient?.release()
+        conn.signalingClient = null
+        viewerConns.remove(conn.viewerId)
+        FirebaseDatabase.getInstance().reference
+            .child("rooms").child(code).child("viewers").child(conn.viewerId).removeValue()
+        updateNotification()
+    }
+
+    /** Chạy mỗi vài giây: kênh nào kẹt ở trạng thái "đang nối" quá lâu thì dựng lại; gỡ máy xem ma. */
     private val watchdog = object : Runnable {
         override fun run() {
             if (stopping) return
@@ -462,6 +487,10 @@ class CameraStreamService : Service() {
             if (code != null && peerFactory != null) {
                 for (conn in viewerConns.values.toList()) {
                     if (conn.removed) continue
+                    if (conn.presentMissingSince != 0L && now - conn.presentMissingSince > STALE_VIEWER_MS) {
+                        dropStaleViewer(code, conn)
+                        continue
+                    }
                     val pcm = conn.peerConnectionManager ?: continue     // đang chờ backoff: để runnable lo
                     if (pcm.isReadyToSendFile()) continue
                     if (now - conn.startedAt > STUCK_CONNECT_MS) {
@@ -507,13 +536,13 @@ class CameraStreamService : Service() {
     }
 
     /** Chỉ đánh dấu phòng đã đóng — mã cố định KHÔNG bị xoá, giữ lại dùng cho lần sau.
-     *  Gọi từ CẢ 2 đường dừng camera (nút "Kết thúc" trên notification VÀ nút trong app) để
-     *  luôn dọn sạch danh sách máy xem trên Firebase như nhau, không để rác lại tuỳ đường dừng. */
+     *  Gọi từ CẢ 2 đường dừng camera (nút "Kết thúc" trên notification VÀ nút trong app).
+     *  KHÔNG xoá nhánh "viewers": dấu "present" của máy xem (Windows đang chờ) phải được giữ lại để
+     *  lần sau mở app là nối được ngay; nhánh rác (không present) sẽ được dọn khi service chạy lại. */
     private fun markRoomEnded() {
         roomCode?.let { code ->
             val roomRef = FirebaseDatabase.getInstance().reference.child("rooms").child(code)
             roomRef.child("status").setValue("ended")
-            roomRef.child("viewers").removeValue()
         }
     }
 
@@ -534,10 +563,11 @@ class CameraStreamService : Service() {
             Intent(this, CameraStreamService::class.java).apply { action = ACTION_STOP_SHARING },
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        val connectedCount = viewerConns.values.count { it.peerConnectionManager != null && it.reconnectAttempt == 0 }
+        val connectedCount = connectedViewerCount()
+        val statusText = if (connectedCount > 0) "Đã kết nối" else "Đang chờ kết nối"
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle(getString(R.string.notif_title))
-            .setContentText("$connectedCount/$MAX_VIEWERS_PER_CAMERA máy đang xem. Chạm để kết thúc.")
+            .setContentText("$statusText. Chạm để kết thúc.")
             .setSmallIcon(android.R.drawable.ic_menu_camera)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -618,6 +648,8 @@ class CameraStreamService : Service() {
         private const val WATCHDOG_MS = 5_000L
         /** Quá thời gian này mà chưa nối xong (WebRTC thường nối < 3s trong LAN) thì dựng lại kênh. */
         private const val STUCK_CONNECT_MS = 20_000L
+        /** Máy xem mất "present" quá thời gian này thì coi là đã rời hẳn: gỡ khỏi danh sách + xoá nhánh. */
+        private const val STALE_VIEWER_MS = 60_000L
 
         /** Tham chieu toi service dang chay (null neu chua bat/da dung) - de
          *  RemoteActivity dung de gui lenh. */

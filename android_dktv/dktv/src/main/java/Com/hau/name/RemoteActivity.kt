@@ -727,7 +727,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     // ---------------------------------------------------------------- Trang thai ket noi
 
-    override fun onConnectionStatusChanged(connectedCount: Int, maxViewers: Int) {
+    override fun onConnectionStatusChanged(connectedCount: Int) {
         setConnected(connectedCount > 0)
     }
 

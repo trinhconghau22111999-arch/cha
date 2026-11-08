@@ -149,7 +149,8 @@
       fbHostGenListener: null, fbIceListener: null, fbOfferListener: null, generation: -1,
       connected: false, signalLost: false, reconnecting: false, lastConnectedAt: 0,
       signalLostTimer: null, reconnectTimer: null, disconnectGraceTimer: null, permissionError: false,
-      dataChannel: null, lastPingAt: 0, incomingTransfer: null
+      dataChannel: null, lastPingAt: 0, incomingTransfer: null,
+      fbPresentRef: null, fbPresentListener: null, fbConnListener: null
     };
   }
   var camSlots = []; for (var q = 0; q < MAX_CAM_SLOTS; q++) camSlots.push(makeCamSlot(q));
@@ -228,13 +229,32 @@
   renderCamSlotList();
 
   // ---------- Ket noi ----------
+  // Mã máy xem CỐ ĐỊNH, lưu sẵn trong máy: mở lại widget vẫn dùng đúng chỗ cũ trên điện thoại
+  // (không sinh mã mới mỗi lần mở -> không để lại máy xem "ma").
+  function getFixedViewerId() {
+    var id = null;
+    try { id = localStorage.getItem('cam-viewer-id'); } catch (e) {}
+    if (!id || !/^pc_[a-z0-9_]+$/.test(id)) {
+      id = 'pc_' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+      try { localStorage.setItem('cam-viewer-id', id); } catch (e) {}
+    }
+    return id;
+  }
+
+  // Gỡ các listener giữ "present" (dùng khi dựng lại kết nối hoặc ngắt hẳn).
+  function _detachPresent(slot) {
+    if (slot.fbPresentRef && slot.fbPresentListener) slot.fbPresentRef.off('value', slot.fbPresentListener);
+    if (slot.fbConnListener && db) db.ref('.info/connected').off('value', slot.fbConnListener);
+    slot.fbPresentRef = null; slot.fbPresentListener = null; slot.fbConnListener = null;
+  }
+
   function connectSlot(i, code) {
     if (!code || code.length < 4) { toast('Nhập mã 6 số của điện thoại'); return; }
     if (!db) { toast('Firebase chưa sẵn sàng'); return; }
     disconnectSlot(i, true, true);
     var slot = camSlots[i];
     slot.roomCode = code;
-    slot.viewerId = 'pc_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    slot.viewerId = getFixedViewerId();
     slot.permissionError = false;
     renderCamSlotList();
     var codes = loadJson('cam-room-codes', ['']).slice();
@@ -321,8 +341,24 @@
 
     var fbRoot = firebase.database().ref('rooms').child(slot.roomCode).child('viewers').child(slot.viewerId);
     slot.fbViewerRef = fbRoot;
-    fbRoot.child('present').set(true);
-    fbRoot.child('present').onDisconnect().remove();
+    // Luôn giữ dấu "present": đăng ký lúc mở, đăng ký lại khi Firebase nối lại hoặc khi bị xoá
+    // (điện thoại dọn nhánh, rớt mạng...) - không phụ thuộc đã từng kết nối được hay chưa.
+    _detachPresent(slot);
+    var presRef = fbRoot.child('present');
+    var armPresent = function () {
+      if (slot.fbViewerRef !== fbRoot || !slot.roomCode) return;
+      presRef.onDisconnect().remove();
+      presRef.set(true).catch(function () {});
+    };
+    slot.fbPresentRef = presRef;
+    slot.fbPresentListener = presRef.on('value', function (snap) {
+      if (slot.fbViewerRef !== fbRoot || !slot.roomCode) return;
+      if (snap.val() === null) armPresent();
+    }, function () {});
+    slot.fbConnListener = db.ref('.info/connected').on('value', function (snap) {
+      if (snap.val() === true) armPresent();
+    });
+    armPresent();
 
     slot.fbHostGenListener = fbRoot.child('hostGeneration').on('value', function (snap) {
       var gen = snap.val();
@@ -404,6 +440,7 @@
     if (slot.fbOfferListener && slot.fbGenRef) slot.fbGenRef.child('offer').off('value', slot.fbOfferListener);
     if (slot.fbIceListener && slot.fbGenRef) slot.fbGenRef.child('iceCandidatesHost').off('value', slot.fbIceListener);
     if (slot.fbHostGenListener && slot.fbViewerRef) slot.fbViewerRef.child('hostGeneration').off('value', slot.fbHostGenListener);
+    _detachPresent(slot);
     if (slot.fbViewerRef) { slot.fbViewerRef.child('present').onDisconnect().cancel(); slot.fbViewerRef.remove().catch(function () {}); }
     if (slot.pc) { try { slot.pc.close(); } catch (e) {} }
     var fresh = makeCamSlot(i);
