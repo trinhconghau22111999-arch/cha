@@ -262,7 +262,10 @@ class MainActivity : Activity(), FullscreenHost {
         btnYt = barBtn("YouTube").apply { setOnClickListener { onModeButton(2) } }
         val btnSettings = barBtn("Cài đặt").apply { setOnClickListener { openTvSettings() } }
         btnFiles = barBtn("Tệp").apply { setOnClickListener { onModeButton(3) } }
-        val btnBack = barBtn("←").apply { textSize = 22f; contentDescription = "Thoát"; setOnClickListener { goBack() } }
+        val btnBack = barBtn("").apply {
+            contentDescription = "Thoát"; setOnClickListener { goBack() }
+            setCompoundDrawablesWithIntrinsicBounds(ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat()), null, null, null)
+        }
         // 5 nút bằng nhau: TV | YouTube | Cài đặt | Tệp | ← (Thoát)
         val group = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         listOf(btnTv, btnYt, btnSettings, btnFiles, btnBack).forEachIndexed { i, b ->
@@ -301,7 +304,8 @@ class MainActivity : Activity(), FullscreenHost {
         val lp = FrameLayout.LayoutParams(-1, -1); lp.bottomMargin = barH
         root.addView(fullLayer, lp)
         floatBack = TextView(this).apply {
-            text = "←"; contentDescription = "Thoát"; textSize = 22f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            text = ""; contentDescription = "Thoát"; gravity = Gravity.CENTER
+            setCompoundDrawablesWithIntrinsicBounds(ArrowLeftDrawable(dp(26), Color.WHITE, dp(4).toFloat()), null, null, null)
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(0xCC0A0D16.toInt()); setStroke(dp(2), NEON_CYAN) }; setPadding(dp(14), dp(6), dp(14), dp(6))
             visibility = View.GONE
