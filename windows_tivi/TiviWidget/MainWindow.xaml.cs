@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private bool _relaunching;
     private bool _playerActive;
     private bool _touchLocked;
+    private int _brightness = 100;
 
     private readonly List<ChannelGroup> _groups = ChannelRepository.Load();
     private Mode _mode = Mode.YouTube;   // Android mở vào thẳng YouTube
@@ -178,6 +179,7 @@ public partial class MainWindow : Window
         Player.CoreWebView2.NavigationCompleted += (_, _) =>
         {
             _ = Player.CoreWebView2.ExecuteScriptAsync(TvScripts.TvFull);
+            ApplyBrightness(Player.CoreWebView2);
         };
 
         // Điều khiển từ điện thoại: trang truyentep.html chạy ẩn (Firebase + WebRTC, như Android)
@@ -219,6 +221,7 @@ public partial class MainWindow : Window
             WebScripts.YtNoMute, WebScripts.YtNav, WebScripts.HideShorts, WebScripts.YtFill, WebScripts.YtHomeClean
         })
             _ = core.ExecuteScriptAsync(js);
+        ApplyBrightness(core);
     }
 
     private void OpenYouTube()
@@ -805,13 +808,33 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Thanh độ sáng trên điện thoại: chỉ đổi đèn nền THẬT của máy qua WMI (laptop). Máy không hỗ trợ WMI
-    /// (PC nối màn hình ngoài/TV) thì không chỉnh gì cả, không dùng cách dự phòng nào khác.
+    /// Độ sáng 0..100. Ưu tiên đổi đèn nền thật của laptop qua WMI. Nếu máy không hỗ trợ
+    /// (PC để bàn / màn hình ngoài) thì dự phòng: làm tối nội dung trang bằng CSS filter.
     /// </summary>
     private void SetBrightness(int level)
     {
         level = Math.Clamp(level, 0, 100);
-        _ = Task.Run(() => InputInjector.TrySetSystemBrightness(level));
+        _ = Task.Run(() =>
+        {
+            bool ok = InputInjector.TrySetSystemBrightness(level);
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                // Đổi được đèn nền thật thì bỏ filter để không bị tối 2 lần.
+                _brightness = ok ? 100 : level;
+                ApplyBrightness(Web.CoreWebView2);
+                ApplyBrightness(Player.CoreWebView2);
+                if (!ok) ShowStatus("Máy không đổi được đèn nền, đang làm tối nội dung trang");
+            }));
+        });
+    }
+
+    private void ApplyBrightness(CoreWebView2 core)
+    {
+        if (core == null) return;
+        string filter = _brightness >= 100
+            ? "none"
+            : "brightness(" + Math.Max(0.02, _brightness / 100.0).ToString(CultureInfo.InvariantCulture) + ")";
+        _ = core.ExecuteScriptAsync("(function(){document.documentElement.style.filter='" + filter + "';})();");
     }
 
     // ================= Phím / chuột =================

@@ -4,7 +4,7 @@ Tivi Desktop Widget — 0.11.0: bổ sung điều khiển từ điện thoại
 - quality (360/480/720): lưu chất lượng YouTube và ép player, lặp ở 1,5 s và 4 s như Android.
 - fullscreen: chạm thật vào giữa video qua DevTools rồi xin toàn màn hình (cùng cách Android).
 - touchlock: khoá các nút WPF và bỏ phím tại chỗ. Hiện trạng thái ở thanh dưới.
-- brightness: đổi độ sáng thật của màn hình qua WMI (chỉ cách này; máy không hỗ trợ thì không chỉnh).
+- brightness: làm tối nội dung trang bằng CSS filter (Windows không cho đổi độ sáng ứng dụng).
 
 ĐÃ SỬA LỖI
 - Nút ← và dòng trạng thái giọng nói nằm chồng lên WebView2, WPF không vẽ được. Đã chuyển xuống thanh dưới.
@@ -16,6 +16,6 @@ Tivi Desktop Widget — 0.11.0: bổ sung điều khiển từ điện thoại
 
 GIỚI HẠN
 - touchlock không chặn được chạm chuột trực tiếp vào vùng WebView2 (hạn chế của WebView2).
-- brightness chỉ chạy với màn hình hỗ trợ WMI (thường là laptop); PC nối màn hình ngoài/TV thường không chỉnh được.
+- brightness làm tối nội dung trang, không tối toàn màn hình như độ sáng hệ thống.
 - fullscreen dùng DevTools Input để giả thao tác người dùng. Cần kiểm thử trên Windows.
 - Chưa biên dịch và chưa chạy trên Windows.
