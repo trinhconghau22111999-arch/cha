@@ -7,11 +7,14 @@ import android.app.Service
 import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
+import android.net.Network
 import android.os.Build
 import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.os.PowerManager
 import android.provider.MediaStore
 import android.util.Log
@@ -37,6 +40,8 @@ private class ViewerConn(val viewerId: String) {
     var reconnectAttempt = 0
     var removed = false
     var reconnectRunnable: Runnable? = null
+    /** Thời điểm (elapsedRealtime) kênh hiện tại bắt đầu đàm phán — để watchdog phát hiện kênh "treo" lúc đang nối. */
+    var startedAt = 0L
 }
 
 /**
@@ -147,19 +152,33 @@ class CameraStreamService : Service() {
             return START_NOT_STICKY
         }
 
+        // Khi hệ thống tự khởi động lại service (START_STICKY sau khi tiến trình bị kill ở nền)
+        // thì intent = null -> trước đây roomCode = null và service TỰ DỪNG, remote mất kết nối
+        // vĩnh viễn. Giờ lấy lại mã đã lưu (hoặc mã cố định) để tự chạy tiếp.
+        val prefs = getSharedPreferences(CameraActivity.PREFS_NAME, MODE_PRIVATE)
         roomCode = intent?.getStringExtra(EXTRA_ROOM_CODE) ?: roomCode
+            ?: prefs.getString(CameraActivity.KEY_FIXED_CODE, null)
+            ?: CameraActivity.FIXED_CODE
+        prefs.edit().putBoolean(CameraActivity.KEY_SESSION_ACTIVE, true).apply()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIF_ID, buildNotification(),
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(NOTIF_ID, buildNotification())
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIF_ID, buildNotification(),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            } else {
+                startForeground(NOTIF_ID, buildNotification())
+            }
+        } catch (e: Exception) {
+            // Android 12+ có thể từ chối bật foreground từ nền: không để văng app, RemoteActivity sẽ bật lại khi mở.
+            Log.e(TAG, "startForeground thất bại: ${e.message}", e)
         }
 
         // Thong bao hien 1 giay (co bieu tuong tren thanh trang thai) roi tu an: van nam trong man hinh keo xuong, khong bi xoa.
         if (!notifQuiet) handler.postDelayed({ notifQuiet = true; updateNotification() }, 1000)
 
         acquireWakeLock()
+        registerNetworkWatch()
+        handler.removeCallbacks(watchdog); handler.postDelayed(watchdog, WATCHDOG_MS)
 
         val code = roomCode
         if (code != null && !viewersWatchStarted) {
@@ -188,7 +207,9 @@ class CameraStreamService : Service() {
         peerFactory = peerFactory ?: PeerConnectionManager.createFactory(this, eglBase)
 
         com.google.firebase.database.FirebaseDatabase.getInstance().reference
-            .child("rooms").child(code).child("consentGivenAt").setValue(System.currentTimeMillis())
+            .child("rooms").child(code).updateChildren(
+                mapOf("status" to "waiting", "consentGivenAt" to System.currentTimeMillis())
+            )
 
         watchViewers(code)
     }
@@ -257,6 +278,7 @@ class CameraStreamService : Service() {
     private fun connectViewer(code: String, conn: ViewerConn) {
         if (stopping || conn.removed) return
         val factory = peerFactory ?: return
+        conn.startedAt = SystemClock.elapsedRealtime()
 
         // Chi xu ly su kien cua DUNG kenh hien tai - su kien tre tu kenh CU (da release)
         // khong duoc kich hoat reconnect lan nua, nhat la huy mat kenh MOI vua dung xong.
@@ -364,6 +386,93 @@ class CameraStreamService : Service() {
         updateNotification()
     }
 
+    // ------------------------------------------------------------------ Tự nối lại chủ động
+
+    /** Bỏ kênh cũ của 1 máy xem và mở kênh mới NGAY (không chờ backoff). */
+    private fun restartViewerNow(code: String, conn: ViewerConn) {
+        if (stopping || conn.removed) return
+        conn.reconnectRunnable?.let { handler.removeCallbacks(it) }
+        conn.peerConnectionManager?.release()
+        conn.peerConnectionManager = null
+        conn.signalingClient?.release()
+        conn.signalingClient = null
+        conn.reconnectAttempt = 1          // để giao diện báo "chưa kết nối" cho tới khi onConnected
+        connectViewer(code, conn)
+    }
+
+    /**
+     * Nối lại ngay. [force] = false: chỉ máy xem nào đang KHÔNG sẵn sàng; true: nối lại tất cả
+     * (dùng khi đổi/mất-rồi-có mạng hoặc khi quay lại app sau một lúc ở nền — lúc đó đường truyền
+     * có thể đã "chết ngầm" dù WebRTC vẫn báo CONNECTED).
+     */
+    fun reconnectNow(force: Boolean) {
+        handler.post {
+            if (stopping) return@post
+            val code = roomCode ?: return@post
+            if (peerFactory == null) return@post
+            for (conn in viewerConns.values.toList()) {
+                if (conn.removed) continue
+                val ready = conn.peerConnectionManager?.isReadyToSendFile() == true
+                if (ready && !force) continue
+                restartViewerNow(code, conn)
+            }
+            updateNotification()
+        }
+    }
+
+    /** Chạy mỗi vài giây: kênh nào kẹt ở trạng thái "đang nối" quá lâu thì dựng lại. */
+    private val watchdog = object : Runnable {
+        override fun run() {
+            if (stopping) return
+            val code = roomCode
+            val now = SystemClock.elapsedRealtime()
+            if (code != null && peerFactory != null) {
+                for (conn in viewerConns.values.toList()) {
+                    if (conn.removed) continue
+                    val pcm = conn.peerConnectionManager ?: continue     // đang chờ backoff: để runnable lo
+                    if (pcm.isReadyToSendFile()) continue
+                    if (now - conn.startedAt > STUCK_CONNECT_MS) {
+                        Log.d(TAG, "Kênh ${conn.viewerId} kẹt khi nối > ${STUCK_CONNECT_MS}ms — dựng lại")
+                        restartViewerNow(code, conn)
+                    }
+                }
+            }
+            handler.postDelayed(this, WATCHDOG_MS)
+        }
+    }
+
+    private var netCallback: ConnectivityManager.NetworkCallback? = null
+    private var netSettled = false
+    private val netChanged = Runnable { reconnectNow(force = true) }
+
+    /** Mạng (Wi-Fi) mất rồi có lại / đổi mạng -> IP đổi, kênh LAN cũ không sống lại được: nối lại ngay. */
+    private fun registerNetworkWatch() {
+        if (netCallback != null) return
+        try {
+            val cm = getSystemService(ConnectivityManager::class.java) ?: return
+            val cb = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    if (!netSettled) { netSettled = true; return }      // lần gọi đầu = trạng thái hiện tại
+                    handler.post {
+                        handler.removeCallbacks(netChanged)
+                        handler.postDelayed(netChanged, 1500)           // đợi mạng ổn định + gộp nhiều sự kiện
+                    }
+                }
+            }
+            cm.registerDefaultNetworkCallback(cb)
+            netCallback = cb
+        } catch (e: Exception) {
+            Log.e(TAG, "registerNetworkWatch lỗi: ${e.message}", e)
+        }
+    }
+
+    private fun unregisterNetworkWatch() {
+        val cb = netCallback ?: return
+        netCallback = null
+        netSettled = false
+        try { getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(cb) } catch (e: Exception) { }
+    }
+
     /** Chỉ đánh dấu phòng đã đóng — mã cố định KHÔNG bị xoá, giữ lại dùng cho lần sau.
      *  Gọi từ CẢ 2 đường dừng camera (nút "Kết thúc" trên notification VÀ nút trong app) để
      *  luôn dọn sạch danh sách máy xem trên Firebase như nhau, không để rác lại tuỳ đường dừng. */
@@ -418,6 +527,9 @@ class CameraStreamService : Service() {
     private fun cleanupSession() {
         if (sessionCleanedUp) return
         sessionCleanedUp = true
+        handler.removeCallbacks(watchdog)
+        handler.removeCallbacks(netChanged)
+        unregisterNetworkWatch()
         viewerConns.values.forEach { conn ->
             conn.removed = true
             conn.reconnectRunnable?.let { handler.removeCallbacks(it) }
@@ -470,6 +582,9 @@ class CameraStreamService : Service() {
 
         private const val BASE_RECONNECT_DELAY_MS = 2000L
         private const val MAX_RECONNECT_DELAY_MS = 30_000L
+        private const val WATCHDOG_MS = 5_000L
+        /** Quá thời gian này mà chưa nối xong (WebRTC thường nối < 3s trong LAN) thì dựng lại kênh. */
+        private const val STUCK_CONNECT_MS = 20_000L
 
         /** Tham chieu toi service dang chay (null neu chua bat/da dung) - de
          *  RemoteActivity dung de gui lenh. */

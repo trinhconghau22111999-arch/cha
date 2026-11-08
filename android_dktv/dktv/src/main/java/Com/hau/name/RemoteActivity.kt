@@ -27,6 +27,7 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import org.json.JSONObject
 import java.util.Locale
@@ -615,6 +616,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
     private val attachLoop = object : Runnable {
         override fun run() {
             val svc = CameraStreamService.instance
+            if (svc == null) ensureService(force = false)     // service bị hệ thống kill ở nền -> tự bật lại
             if (svc !== attachedService) {
                 attachedService?.removeConnectionStatusListener(this@RemoteActivity)
                 attachedService = svc
@@ -627,13 +629,45 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     private val modeListener: (String) -> Unit = { ui.post { refreshScreenButton() } }
 
+    /** Mốc lúc app xuống nền (elapsedRealtime) — để biết đã vắng mặt bao lâu khi quay lại. */
+    private var pausedAt = 0L
+    private var lastEnsureAt = 0L
+
+    /**
+     * Bật lại CameraStreamService nếu nó không còn chạy. Khi app nằm nền lâu, hệ thống (đặc biệt
+     * Xiaomi/Oppo/Vivo/Samsung tiết kiệm pin) có thể kill tiến trình; lúc quay lại, Android chỉ dựng
+     * lại RemoteActivity (giao diện "y nguyên") chứ KHÔNG chạy CameraActivity nên không ai bật service
+     * -> thanh trạng thái mãi "CHƯA KẾT NỐI". Trước đây phải vuốt bỏ app rồi mở lại từ icon mới bật được.
+     */
+    private fun ensureService(force: Boolean) {
+        if (CameraStreamService.instance != null) return
+        val prefs = getSharedPreferences(CameraActivity.PREFS_NAME, MODE_PRIVATE)
+        if (!force && !prefs.getBoolean(CameraActivity.KEY_SESSION_ACTIVE, false)) return
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastEnsureAt < 4000) return        // service cần ~1s để lên: đừng bật dồn dập
+        lastEnsureAt = now
+        prefs.edit().putBoolean(CameraActivity.KEY_SESSION_ACTIVE, true).apply()
+        try {
+            ContextCompat.startForegroundService(this, Intent(this, CameraStreamService::class.java)
+                .putExtra(CameraStreamService.EXTRA_ROOM_CODE, CameraActivity.FIXED_CODE))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Không bật được dịch vụ kết nối: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onResume() {
         super.onResume()
+        if (pausedAt != 0L) ensureService(force = true)    // quay lại từ nền (lần mở đầu do CameraActivity đã bật service)
+        // Quay lại sau > 20 giây: đường truyền có thể đã "chết ngầm" (WebRTC vẫn báo CONNECTED) -> nối lại tất cả.
+        // Ngắn hơn: chỉ nối lại những kênh đang không sẵn sàng.
+        val away = if (pausedAt == 0L) 0L else SystemClock.elapsedRealtime() - pausedAt
+        CameraStreamService.instance?.reconnectNow(force = away > 20_000L)
         ui.post(attachLoop)
         RemoteState.addListener(modeListener)
     }
 
     override fun onPause() {
+        pausedAt = SystemClock.elapsedRealtime()
         RemoteState.removeListener(modeListener)
         ui.removeCallbacks(attachLoop)
         attachedService?.removeConnectionStatusListener(this)
