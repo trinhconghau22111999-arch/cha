@@ -35,6 +35,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import com.desktopmini.launcher.aikara.AiKaraPane
 import org.json.JSONObject
 import java.util.Calendar
 import java.util.Locale
@@ -52,6 +53,9 @@ class MainActivity : Activity(), FullscreenHost {
     private var barH = 0
     private lateinit var fullLayer: FrameLayout
     private lateinit var hidden: FrameLayout
+    private lateinit var btnMenu: TextView
+    private lateinit var btnAi: TextView
+    private lateinit var menuLayer: FrameLayout
     private lateinit var btnTv: TextView
     private lateinit var btnYt: TextView
     private lateinit var btnFiles: TextView
@@ -61,12 +65,13 @@ class MainActivity : Activity(), FullscreenHost {
     private lateinit var remote: RemoteController
     private var connWake: PowerManager.WakeLock? = null
 
-    private var mode = 0                  // 0 = trang trống, 1 = TV, 2 = YouTube, 3 = Tệp
+    private var mode = 0                  // 0 = trang trống, 1 = TV, 2 = YouTube, 3 = Tệp, 4 = Ái Kara
     private var tv: TvPane? = null
     private var yt: YouTubePane? = null
     private var files: FilesPane? = null
+    private var aikara: AiKaraPane? = null
     private val barItems = ArrayList<TextView>()
-    private var barFocus = -1                // ô chọn trên thanh dưới: 0 TV,1 YouTube,2 Cài đặt,3 Tệp,4 ←; -1 = đang điều khiển trang. Mở app: nằm sẵn ở YouTube
+    private var barFocus = -1                // ô chọn trên thanh dưới: 0 Menu,1 TV,2 YouTube,3 Ái Kara,4 Cài đặt,5 Tệp,6 Home,7 Cập nhật,8 ←; -1 = đang điều khiển trang. Mở app: nằm sẵn ở YouTube
     private var fullView: View? = null
     private var fullCb: WebChromeClient.CustomViewCallback? = null
     private var fileCb: ValueCallback<Array<Uri>>? = null
@@ -94,7 +99,7 @@ class MainActivity : Activity(), FullscreenHost {
         buildUi()
         hideSystemBars()
         setMode(2)                      // mở app lên là vào thẳng YouTube
-        if (intent?.getBooleanExtra(RemoteHub.EXTRA_HOME, false) == true) { setMode(0) }   // được gọi từ nút "Màn hình chính" khi app đã bị tắt
+        if (intent?.getBooleanExtra(RemoteHub.EXTRA_HOME, false) == true) { hideMenu(); setMode(0) }   // được gọi từ nút "Màn hình chính" khi app đã bị tắt
 
         refreshStatus()
         ui.postDelayed(tick, 15000)
@@ -251,15 +256,16 @@ class MainActivity : Activity(), FullscreenHost {
     private fun barBtn(text: String): TextView = TextView(this).apply {
         this.text = text
         setTextColor(BAR_TEXT)
-        textSize = 14f
+        textSize = 12f
+        maxLines = 1
         typeface = android.graphics.Typeface.DEFAULT_BOLD
         gravity = Gravity.CENTER
         setBackgroundColor(BAR_BTN_BG)
         isAllCaps = true
         if (Build.VERSION.SDK_INT >= 21) letterSpacing = 0.06f
         isFocusable = false; isFocusableInTouchMode = false      // ô chọn do app tự vẽ (barFocus); để View nhận focus thì Enter bấm nhầm nút trên thanh
-        minWidth = dp(48)
-        setPadding(dp(10), 0, dp(10), 0)
+        minWidth = dp(40)
+        setPadding(dp(4), 0, dp(4), 0)
     }
 
     private fun small(t: String, sp: Float = 11f, bold: Boolean = false) = TextView(this).apply {
@@ -283,21 +289,25 @@ class MainActivity : Activity(), FullscreenHost {
                 android.graphics.drawable.ColorDrawable(BAR_BG), strip)).also { it.setLayerInset(1, 0, 0, 0, barH - dp(2)) }
             setPadding(dp(4), dp(3), dp(6), dp(3))
         }
-        btnTv = barBtn("TV").apply { setOnClickListener { onModeButton(1) } }
-        btnYt = barBtn("YouTube").apply { setOnClickListener { onModeButton(2) } }
-        val btnSettings = barBtn("Cài đặt").apply { setOnClickListener { openTvSettings() } }
-        btnFiles = barBtn("Tệp").apply { setOnClickListener { onModeButton(3) } }
+        btnMenu = barBtn("Menu").apply { setOnClickListener { toggleMenu() } }
+        btnTv = barBtn("TV").apply { setOnClickListener { hideMenu(); onModeButton(1) } }
+        btnYt = barBtn("YouTube").apply { setOnClickListener { hideMenu(); onModeButton(2) } }
+        btnAi = barBtn("Ái Kara").apply { setOnClickListener { hideMenu(); onModeButton(4) } }
+        val btnSettings = barBtn("Cài đặt").apply { setOnClickListener { hideMenu(); openTvSettings() } }
+        btnFiles = barBtn("Tệp").apply { setOnClickListener { hideMenu(); onModeButton(3) } }
+        val btnHome = barBtn("Home").apply { setOnClickListener { hideMenu(); goTvHome() } }
+        val btnUpdate = barBtn("Cập nhật").apply { setOnClickListener { hideMenu(); Updater.start(this@MainActivity) } }
         val btnBack = barBtn("").apply {
-            contentDescription = "Thoát"; setOnClickListener { goBack() }
+            contentDescription = "Thoát"; setOnClickListener { hideMenu(); goBack() }
             setCompoundDrawablesWithIntrinsicBounds(ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat()), null, null, null)
         }
-        // 5 nút bằng nhau: TV | YouTube | Cài đặt | Tệp | ← (Thoát)
+        // 9 nút bằng nhau: Menu | TV | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát)
         val group = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf(btnTv, btnYt, btnSettings, btnFiles, btnBack).forEachIndexed { i, b ->
+        listOf(btnMenu, btnTv, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack).forEachIndexed { i, b ->
             group.addView(b, LinearLayout.LayoutParams(0, -1, 1f).also { if (i > 0) it.leftMargin = dp(4) })
         }
         bar.addView(group, LinearLayout.LayoutParams(0, -1, 1f))
-        barItems.clear(); barItems.addAll(listOf(btnTv, btnYt, btnSettings, btnFiles, btnBack))
+        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack))
 
         // Góc phải: giờ, ngày, âm lịch (cùng cỡ chữ 13sp, đậm), rồi nút X gỡ app
         val cluster = 13f
@@ -310,7 +320,7 @@ class MainActivity : Activity(), FullscreenHost {
         val btnKill = barBtn("X").apply {
             background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFD50000.toInt()); setStroke(dp(1), 0xFFFF8A80.toInt()) }
             setTextColor(Color.WHITE)
-            setOnClickListener { confirmSelfRemove() }
+            setOnClickListener { hideMenu(); confirmSelfRemove() }
         }
         bar.addView(btnKill, LinearLayout.LayoutParams(dp(44), -1).also { it.leftMargin = dp(10) })
 
@@ -328,6 +338,9 @@ class MainActivity : Activity(), FullscreenHost {
         fullLayer = FrameLayout(this).apply { visibility = View.GONE; setBackgroundColor(Color.BLACK) }
         val lp = FrameLayout.LayoutParams(-1, -1); lp.bottomMargin = barH
         root.addView(fullLayer, lp)
+        menuLayer = FrameLayout(this).apply { visibility = View.GONE; setBackgroundColor(0xF0101018.toInt()); isClickable = true }
+        val mlp = FrameLayout.LayoutParams(-1, -1); mlp.bottomMargin = barH
+        root.addView(menuLayer, mlp)
         floatBack = TextView(this).apply {
             text = ""; contentDescription = "Thoát"; gravity = Gravity.CENTER
             setCompoundDrawablesWithIntrinsicBounds(ArrowLeftDrawable(dp(26), Color.WHITE, dp(4).toFloat()), null, null, null)
@@ -337,7 +350,7 @@ class MainActivity : Activity(), FullscreenHost {
             setOnClickListener { goBack() }
         }
         root.addView(floatBack, FrameLayout.LayoutParams(-2, -2).also { it.leftMargin = dp(8); it.topMargin = dp(8) })
-        remote = RemoteController(this, root, { if (mode == 1) tv?.activeWeb else if (mode == 2) yt?.web else null }, { remoteVoice(it) })
+        remote = RemoteController(this, root, { if (mode == 1) tv?.activeWeb else if (mode == 2) yt?.web else if (mode == 4) aikara?.web else null }, { remoteVoice(it) })
         remote.onNext = { mode == 1 && (tv?.nextChannel() == true) }
         remote.onBack = { goBack() }
         remote.onScroll = { d -> mode == 1 && tv?.scrollList(d) == true }
@@ -363,10 +376,12 @@ class MainActivity : Activity(), FullscreenHost {
     }
 
     private fun updateButtons() {
+        activeBtn(btnMenu, menuOpen(), 0xFF3A7BFF.toInt())
         activeBtn(btnTv, mode == 1, 0xFF00ACC1.toInt())
         activeBtn(btnYt, mode == 2, 0xFFFF1744.toInt())
+        activeBtn(btnAi, mode == 4, 0xFF8E44AD.toInt())
         activeBtn(btnFiles, mode == 3, 0xFF00B85C.toInt())
-        for (b in barItems) if (b !== btnTv && b !== btnYt && b !== btnFiles) activeBtn(b, false, 0)
+        for (b in barItems) if (b !== btnMenu && b !== btnTv && b !== btnYt && b !== btnAi && b !== btnFiles) activeBtn(b, false, 0)
     }
 
     // ---------------- Phím ▲▼◀▶ OK từ remote: thanh dưới cùng / trang đang mở ----------------
@@ -374,10 +389,10 @@ class MainActivity : Activity(), FullscreenHost {
     /** Thanh dưới có ô chọn: ◀▶ đi qua TV...← (dừng trước đồng hồ), OK bấm nút, ▲ lên trang đang mở. */
     private fun handleRemoteKey(k: String): Boolean {
         if (k == "bar") {                               // giữ ▼ trên remote: nhảy xuống thanh dưới
-            if (barFocus < 0) barFocus = when (mode) { 1 -> 0; 2 -> 1; 3 -> 3; else -> 0 }
+            if (barFocus < 0) barFocus = if (menuOpen()) 0 else barIndexForMode(mode)
             armBarRelease(); updateButtons(); return true
         }
-        if (barFocus < 0 && mode == 0) { barFocus = 1; updateButtons(); return true }   // trang trống: phím đầu tiên đưa ô chọn xuống thanh dưới
+        if (barFocus < 0 && mode == 0 && !menuOpen()) { barFocus = 2; updateButtons(); return true }   // trang trống: phím đầu tiên đưa ô chọn xuống thanh dưới
         if (barFocus >= 0) {
             armBarRelease()
             when (k) {
@@ -394,8 +409,13 @@ class MainActivity : Activity(), FullscreenHost {
             }
             updateButtons(); return true
         }
+        if (menuOpen()) return menuKey(k)
         return when (mode) { 1 -> tv?.onKey(k) == true; 2 -> yt?.onKey(k) == true; 3 -> files?.onKey(k) == true; else -> false }
     }
+
+    private fun menuOpen() = ::menuLayer.isInitialized && menuLayer.visibility == View.VISIBLE
+    /** Ô trên thanh dưới tương ứng với chế độ đang mở. */
+    private fun barIndexForMode(m: Int) = when (m) { 1 -> 1; 2 -> 2; 3 -> 5; 4 -> 3; else -> 0 }
 
     // Ô chọn thanh dưới tự nhả sau 8 giây không bấm phím (mode 0 giữ nguyên) -> không bao giờ bị "kẹt" ở nút Cài đặt
     private val barRelease = Runnable { if (mode != 0 && barFocus >= 0) { barFocus = -1; updateButtons() } }
@@ -426,6 +446,28 @@ class MainActivity : Activity(), FullscreenHost {
             if (barFocus >= 0 && mode != 0) { ui.removeCallbacks(barRelease); barFocus = -1; updateButtons() }
         }
         lastPtrAt = now
+        return true
+    }
+
+    private fun menuKey(k: String): Boolean {
+        val grid = menuLayer.getChildAt(0) as? android.widget.GridView ?: return true
+        val code = when (k) {
+            "up" -> KeyEvent.KEYCODE_DPAD_UP; "down" -> KeyEvent.KEYCODE_DPAD_DOWN
+            "left" -> KeyEvent.KEYCODE_DPAD_LEFT; "right" -> KeyEvent.KEYCODE_DPAD_RIGHT
+            "ok" -> -1; else -> return false
+        }
+        if (grid.count == 0) return true
+        if (!grid.hasFocus()) { grid.isFocusableInTouchMode = true; grid.requestFocus() }
+        if (grid.selectedItemPosition < 0) { grid.setSelection(0); return true }
+        if (code == -1) {
+            val pos = grid.selectedItemPosition
+            grid.performItemClick(grid.getChildAt(pos - grid.firstVisiblePosition), pos, grid.getItemIdAtPosition(pos))
+            return true
+        }
+        val before = grid.selectedItemPosition
+        grid.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, code))
+        grid.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, code))
+        if (k == "down" && grid.selectedItemPosition == before) { barFocus = 0; updateButtons() }   // hết hàng cuối: xuống thanh dưới
         return true
     }
 
@@ -462,7 +504,7 @@ class MainActivity : Activity(), FullscreenHost {
         val k = keyName(keyCode)
         if (k != null && !allowKeyInput()) return true       // đang dùng chuột: tạm bỏ phím
         if (k != null) {
-            val inBarOrMenu = barFocus >= 0
+            val inBarOrMenu = barFocus >= 0 || menuOpen()
             val isEnter = keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
             // Trang đang mở (YouTube / chọn đài-kênh TV): ▲ ◀ ▶ OK đi qua đúng bộ xử lý như remote điện thoại.
             // Các trang khác: Enter của bàn phím chữ giữ nguyên cho trang.
@@ -503,13 +545,13 @@ class MainActivity : Activity(), FullscreenHost {
 
     private fun onModeButton(m: Int) {
         if (mode == m) {                      // bấm lại nút đang mở: về trang chủ của chế độ đó
-            when (m) { 1 -> tv?.home(); 2 -> yt?.home(); 3 -> files?.home() }
+            when (m) { 1 -> tv?.home(); 2 -> yt?.home(); 3 -> files?.home(); 4 -> aikara?.home() }
             return
         }
         hideFull()
         setMode(m)
         // Chuyen qua lai TV <-> YouTube: khong giu dai/video cu, luon ve menu chon dai (TV) hoac trang chu (YouTube)
-        when (m) { 1 -> tv?.home(); 2 -> yt?.home(); 3 -> files?.home() }
+        when (m) { 1 -> tv?.home(); 2 -> yt?.home(); 3 -> files?.home(); 4 -> aikara?.home() }
     }
 
     override fun setBarVisible(v: Boolean) {
@@ -527,6 +569,8 @@ class MainActivity : Activity(), FullscreenHost {
         tv?.let { content.removeView(it.view); it.onPause() }
         yt?.let { content.removeView(it.view); it.onPause() }
         files?.let { content.removeView(it.view); it.onPause() }
+        aikara?.let { content.removeView(it.view); it.onPause() }
+        hideMenu()
         mode = m
         when (m) {
             1 -> {
@@ -539,9 +583,13 @@ class MainActivity : Activity(), FullscreenHost {
             }
             3 -> {
                 val p = files ?: FilesPane(this) { RemoteHub.host?.recentFiles() ?: emptyList() }.also { fp ->
-                    fp.onExitDown = { barFocus = 3; updateButtons() }      // ▼ ở dòng cuối: xuống thanh dưới
+                    fp.onExitDown = { barFocus = 5; updateButtons() }      // ▼ ở dòng cuối: xuống thanh dưới
                     files = fp
                 }
+                content.addView(p.view, FrameLayout.LayoutParams(-1, -1)); p.onResume()
+            }
+            4 -> {
+                val p = aikara ?: AiKaraPane(this).also { aikara = it }
                 content.addView(p.view, FrameLayout.LayoutParams(-1, -1)); p.onResume()
             }
         }
@@ -554,6 +602,7 @@ class MainActivity : Activity(), FullscreenHost {
             1 -> { if (fullView != null) hideFull(); tv?.home() }
             2 -> { if (fullView != null) { hideFull(); return }; yt?.back() }
             3 -> setMode(2)                        // Tệp -> quay lại YouTube
+            4 -> aikara?.home()
         }
     }
 
@@ -564,7 +613,7 @@ class MainActivity : Activity(), FullscreenHost {
     }
 
     @Deprecated("Deprecated in Java")
-    override fun onBackPressed() { goBack() }     // luôn ở lại màn hình chính, không thoát app
+    override fun onBackPressed() { if (menuOpen()) hideMenu() else goBack() }     // luôn ở lại màn hình chính, không thoát app
 
     // ---------------- Điều khiển app bên ngoài (qua dịch vụ Trợ năng) ----------------
 
@@ -608,7 +657,7 @@ class MainActivity : Activity(), FullscreenHost {
     /** Nút "Màn hình chính" trên remote điện thoại: đang ở TV / YouTube / app khác -> về màn hình chính của app;
      *  đã ở màn hình chính của app -> về màn hình chính của TV (launcher hệ thống). */
     private fun remoteHome() {
-        val atAppHome = resumed && !isFinishing && mode == 0 && fullView == null
+        val atAppHome = resumed && !isFinishing && mode == 0 && !menuOpen() && fullView == null
         if (atAppHome) goTvHome() else goAppHome()
     }
 
@@ -657,6 +706,138 @@ class MainActivity : Activity(), FullscreenHost {
 
     // ---------------- Cài đặt, về màn hình chính TV, tự gỡ ----------------
 
+    private fun hideMenu() { if (::menuLayer.isInitialized) menuLayer.visibility = View.GONE; updateButtons() }
+
+    private fun toggleMenu() {
+        if (menuLayer.visibility == View.VISIBLE) { hideMenu(); return }
+        hideFull()
+        showAppMenu()
+    }
+
+    private class AppEntry(val label: String, val icon: android.graphics.drawable.Drawable?, val pkg: String, val cls: String)
+    private var appCache: List<AppEntry>? = null
+    private var menuLoading = false
+
+    // Gói hệ thống/nền không đưa vào menu. Khớp theo tiền tố tên gói.
+    private val HIDDEN_PKG_PREFIXES = listOf(
+        "com.android.", "com.google.android.gms", "com.google.android.gsf", "com.google.android.setupwizard",
+        "com.google.android.partnersetup", "com.google.android.feedback", "com.google.android.tungsten",
+        "com.google.android.backuptransport", "com.google.android.onetimeinitializer",
+        "com.google.android.apps.restore", "com.google.android.ext", "com.google.android.networkstack",
+        "com.google.android.inputmethod", "com.google.android.marvin", "com.google.android.tts",
+        "com.google.android.as", "com.google.android.printservice", "com.google.android.tvrecommendations",
+        "com.google.android.leanbacklauncher", "com.google.android.overlay",
+        "com.qualcomm.", "com.mediatek.", "com.amlogic.", "com.rockchip.", "com.realtek.", "com.droidlogic.", "com.mstar."
+    )
+    // Ứng dụng hệ thống vẫn giữ dù khớp tiền tố ở trên (người dùng thường cần)
+    private val KEPT_SYSTEM_PKGS = setOf(
+        "com.android.chrome", "com.android.vending", "com.google.android.youtube", "com.google.android.youtube.tv"
+    )
+
+    private fun shouldShowOnTv(pkg: String, ai: android.content.pm.ApplicationInfo, isTvApp: Boolean): Boolean {
+        if (pkg in KEPT_SYSTEM_PKGS) return true
+        if (HIDDEN_PKG_PREFIXES.any { pkg.startsWith(it) }) return false
+        val isSystem = (ai.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+        val isUpdatedSystem = (ai.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+        // App hệ thống gốc (không phải bản cập nhật): chỉ giữ nếu được thiết kế cho TV, ví dụ Netflix, YouTube TV.
+        // App hệ thống chỉ có biểu tượng điện thoại (lịch, máy tính, tệp...) bị bỏ.
+        if (isSystem && !isUpdatedSystem && !isTvApp) return false
+        return true
+    }
+
+    /** App có icon mở được trên TV, đã lọc app hệ thống/nền, trừ chính app này. Chạy ở luồng nền (TV Android 8 yếu). */
+    private fun loadApps(): List<AppEntry> {
+        val pm = packageManager
+        fun query(cat: String): List<android.content.pm.ResolveInfo> =
+            try { pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(cat), 0) } catch (e: Exception) { emptyList() }
+        val tvResolves = query(Intent.CATEGORY_LEANBACK_LAUNCHER)
+        val tvPkgs = tvResolves.map { it.activityInfo.packageName }.toHashSet()
+        val all = tvResolves + query(Intent.CATEGORY_LAUNCHER)
+        val seen = HashSet<String>()
+        val out = ArrayList<AppEntry>()
+        for (ri in all) {
+            val pkg = ri.activityInfo.packageName
+            if (pkg == packageName || pkg in seen) continue
+            if (!shouldShowOnTv(pkg, ri.activityInfo.applicationInfo, pkg in tvPkgs)) continue
+            seen.add(pkg)
+            val label = try { ri.loadLabel(pm).toString() } catch (e: Exception) { pkg }
+            val icon = try { ri.loadIcon(pm) } catch (e: Exception) { null }
+            out.add(AppEntry(label, icon, pkg, ri.activityInfo.name))
+        }
+        return out.sortedBy { it.label.lowercase() }
+    }
+
+    private fun showAppMenu() {
+        menuLayer.visibility = View.VISIBLE
+        updateButtons()
+        val cached = appCache
+        if (cached != null) renderApps(cached) else {
+            menuLayer.removeAllViews()
+            menuLayer.addView(TextView(this).apply {
+                text = "Đang tải ứng dụng..."; setTextColor(Color.WHITE); textSize = 18f; gravity = Gravity.CENTER
+            }, FrameLayout.LayoutParams(-1, -1))
+        }
+        if (menuLoading) return
+        menuLoading = true
+        Thread {
+            val list = try { loadApps() } catch (e: Exception) { emptyList() }
+            runOnUiThread {
+                menuLoading = false
+                if (isFinishing) return@runOnUiThread
+                val changed = appCache?.map { it.pkg } != list.map { it.pkg }
+                appCache = list
+                if (menuLayer.visibility == View.VISIBLE && (cached == null || changed)) renderApps(list)
+            }
+        }.start()
+    }
+
+    private fun renderApps(apps: List<AppEntry>) {
+        menuLayer.removeAllViews()
+        if (apps.isEmpty()) {
+            menuLayer.addView(TextView(this).apply {
+                text = "Không tìm thấy ứng dụng nào"; setTextColor(Color.WHITE); textSize = 18f; gravity = Gravity.CENTER
+            }, FrameLayout.LayoutParams(-1, -1))
+            return
+        }
+        val grid = android.widget.GridView(this).apply {
+            numColumns = android.widget.GridView.AUTO_FIT
+            columnWidth = dp(120)
+            stretchMode = android.widget.GridView.STRETCH_COLUMN_WIDTH
+            verticalSpacing = dp(8); horizontalSpacing = dp(8)
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            clipToPadding = false
+            selector = android.graphics.drawable.ColorDrawable(0x553A7BFF)
+            adapter = object : android.widget.BaseAdapter() {
+                override fun getCount() = apps.size
+                override fun getItem(i: Int) = apps[i]
+                override fun getItemId(i: Int) = i.toLong()
+                override fun getView(i: Int, cv: View?, parent: ViewGroup?): View {
+                    val e = apps[i]
+                    val cell = (cv as? LinearLayout) ?: LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+                        setPadding(dp(4), dp(8), dp(4), dp(8))
+                        addView(android.widget.ImageView(this@MainActivity), LinearLayout.LayoutParams(dp(56), dp(56)))
+                        addView(TextView(this@MainActivity).apply {
+                            setTextColor(Color.WHITE); textSize = 12f
+                            gravity = Gravity.CENTER; maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
+                        }, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(4) })
+                    }
+                    (cell.getChildAt(0) as android.widget.ImageView).setImageDrawable(e.icon)
+                    (cell.getChildAt(1) as TextView).text = e.label
+                    return cell
+                }
+            }
+            setOnItemClickListener { _, _, pos, _ ->
+                val e = apps[pos]
+                val intent = Intent(Intent.ACTION_MAIN).setClassName(e.pkg, e.cls)
+                    .addCategory(Intent.CATEGORY_LAUNCHER).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                try { hideMenu(); startActivity(intent) }
+                catch (ex: Exception) { Toast.makeText(this@MainActivity, "Không mở được ứng dụng này", Toast.LENGTH_SHORT).show() }
+            }
+        }
+        menuLayer.addView(grid, FrameLayout.LayoutParams(-1, -1))
+    }
+
     private fun openTvSettings() {
         val tries = listOf(
             Intent(android.provider.Settings.ACTION_SETTINGS),
@@ -681,7 +862,7 @@ class MainActivity : Activity(), FullscreenHost {
             }
         } catch (e: Exception) { }
         // Không có launcher nào khác: về trang chủ của chính app (hình nền, không mở TV/YouTube)
-        hideFull(); setMode(0)
+        hideMenu(); hideFull(); setMode(0)
         Toast.makeText(this, "TV không có màn hình chính nào khác", Toast.LENGTH_SHORT).show()
     }
 
@@ -839,7 +1020,7 @@ class MainActivity : Activity(), FullscreenHost {
 
     // Điện thoại gửi {del, ins}: xoá `del` ký tự trước con trỏ rồi chèn `ins` vào ô nhập đang chọn của TV/YouTube.
     private fun applyTextEdit(delRaw: Int, ins: String) {
-        val wv: WebView = (if (mode == 1) tv?.activeWeb else if (mode == 2) yt?.web else null) ?: return
+        val wv: WebView = (if (mode == 1) tv?.activeWeb else if (mode == 2) yt?.web else if (mode == 4) aikara?.web else null) ?: return
         val del = delRaw.coerceIn(0, 1000000)
         if (del == 0 && ins.isEmpty()) return
         if (ins == "\n" && del == 0) {
@@ -883,7 +1064,7 @@ class MainActivity : Activity(), FullscreenHost {
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent?.getBooleanExtra(RemoteHub.EXTRA_HOME, false) == true) { hideFull(); setMode(0) }
+        if (intent?.getBooleanExtra(RemoteHub.EXTRA_HOME, false) == true) { hideMenu(); hideFull(); setMode(0) }
     }
 
     // Giao diện xuống nền: gỡ WebView nhận lệnh khỏi cửa sổ (WebView nằm trong cửa sổ ẩn bị hệ thống đóng băng -> điện thoại hết điều khiển được)
@@ -898,15 +1079,15 @@ class MainActivity : Activity(), FullscreenHost {
     override fun onStart() { super.onStart(); RemoteHub.host?.attach(hidden) }
     override fun onStop() { super.onStop(); RemoteHub.host?.detach() }
 
-    override fun onResume() { super.onResume(); resumed = true; RemoteHub.appVisible = true; RemoteAccessibilityService.instance?.hideCursor(); if (accPendingHome) { accPendingHome = false; ui.postDelayed({ maybeAskDefaultHome() }, 500) }; hideSystemBars(); refreshStatus(); if (mode == 1) tv?.onResume() else if (mode == 2) yt?.onResume() else if (mode == 3) files?.onResume(); consumePendingFile() }
-    override fun onPause() { super.onPause(); resumed = false; RemoteHub.appVisible = false; tv?.onPause(); yt?.onPause(); files?.onPause() }
+    override fun onResume() { super.onResume(); resumed = true; RemoteHub.appVisible = true; RemoteAccessibilityService.instance?.hideCursor(); if (accPendingHome) { accPendingHome = false; ui.postDelayed({ maybeAskDefaultHome() }, 500) }; hideSystemBars(); refreshStatus(); if (mode == 1) tv?.onResume() else if (mode == 2) yt?.onResume() else if (mode == 3) files?.onResume() else if (mode == 4) aikara?.onResume(); consumePendingFile() }
+    override fun onPause() { super.onPause(); resumed = false; RemoteHub.appVisible = false; tv?.onPause(); yt?.onPause(); files?.onPause(); aikara?.onPause() }
 
     override fun onDestroy() {
         ui.removeCallbacksAndMessages(null)
         RemoteHub.setActivity(null)
         RemoteHub.host?.let { it.onTextEdit = { _, _ -> }; it.pickFile = { cb, _ -> cb?.onReceiveValue(null); true }; it.detach() }
         try { connWake?.let { if (it.isHeld) it.release() } } catch (e: Exception) { }
-        tv?.destroy(); yt?.destroy(); files?.destroy()
+        tv?.destroy(); yt?.destroy(); files?.destroy(); aikara?.destroy()
         super.onDestroy()
     }
 }

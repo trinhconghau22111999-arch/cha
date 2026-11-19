@@ -4,6 +4,8 @@
     <!-- Hạ minSdk xuống 19 (Android 4.4): androidx.webkit khai báo minSdk 21 nhưng mọi chỗ gọi đều đã chặn bằng SDK_INT >= 21 -->
     <uses-sdk tools:overrideLibrary="androidx.webkit" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
