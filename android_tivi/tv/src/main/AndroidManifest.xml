@@ -2,8 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
     <!-- Hạ minSdk xuống 19 (Android 4.4): androidx.webkit khai báo minSdk 21 nhưng mọi chỗ gọi đều đã chặn bằng SDK_INT >= 21 -->
-    <!-- security-crypto (mã hoá mật khẩu trình duyệt) khai báo minSdk 23: app vẫn chạy trên 4.4, chỗ dùng đã bọc try/catch -->
-    <uses-sdk tools:overrideLibrary="androidx.webkit,androidx.security.crypto" />
+    <uses-sdk tools:overrideLibrary="androidx.webkit" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />

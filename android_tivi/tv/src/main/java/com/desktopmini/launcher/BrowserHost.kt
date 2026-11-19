@@ -54,8 +54,6 @@ import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.ScriptHandler
 import androidx.webkit.WebSettingsCompat
@@ -2237,19 +2235,8 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
     }
 
-    // Luu ma hoa bang Android Keystore (EncryptedSharedPreferences).
-    private val securePrefs: SharedPreferences? by lazy {
-        try {
-            val key = MasterKey.Builder(this).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-            EncryptedSharedPreferences.create(
-                this, "webandr_secure", key,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        } catch (e: Throwable) {
-            null
-        }
-    }
+    // Mat khau: luu trong prefs rieng cua app (khong ma hoa: app TV can chay tren Android 4.4, thu vien ma hoa can 6.0+).
+    private val securePrefs: SharedPreferences? by lazy { getSharedPreferences("webandr_secure", Context.MODE_PRIVATE) }
 
     private fun loadPw(): MutableList<JSONObject> {
         val out = mutableListOf<JSONObject>()
