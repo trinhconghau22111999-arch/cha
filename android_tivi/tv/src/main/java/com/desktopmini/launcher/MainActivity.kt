@@ -60,6 +60,8 @@ class MainActivity : Activity(), FullscreenHost {
     private lateinit var btnYt: TextView
     private lateinit var btnFiles: TextView
     private lateinit var tvTime: TextView
+    private lateinit var tvBatt: TextView
+    private var battReceiver: BroadcastReceiver? = null
     private lateinit var tvDate: TextView
     private lateinit var tvLunar: TextView
     private lateinit var remote: RemoteController
@@ -103,6 +105,8 @@ class MainActivity : Activity(), FullscreenHost {
 
         refreshStatus()
         ui.postDelayed(tick, 15000)
+        battReceiver = object : BroadcastReceiver() { override fun onReceive(c: Context?, i: Intent?) { refreshBattery() } }
+        try { registerReceiver(battReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) } catch (e: Exception) { battReceiver = null }
 
         if (Build.VERSION.SDK_INT in 23..28 &&
             checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
@@ -311,6 +315,9 @@ class MainActivity : Activity(), FullscreenHost {
 
         // Góc phải: giờ, ngày, âm lịch (cùng cỡ chữ 13sp, đậm), rồi nút X gỡ app
         val cluster = 13f
+        // Pin nằm bên trái giờ: "pin 25%"; đang sạc thì "10W pin 25%"
+        tvBatt = small("", cluster, true).apply { setTextColor(0xFF69F0AE.toInt()); setPadding(dp(14), 0, 0, 0) }
+        bar.addView(tvBatt, LinearLayout.LayoutParams(-2, -1))
         tvTime = small("--:--", cluster, true).apply { setTextColor(NEON_CYAN); setPadding(dp(14), 0, dp(12), 0) }
         bar.addView(tvTime, LinearLayout.LayoutParams(-2, -1))
         tvDate = small("", cluster, true).apply { setTextColor(0xFFB0BEC5.toInt()); setPadding(0, 0, dp(12), 0) }
@@ -1051,7 +1058,36 @@ class MainActivity : Activity(), FullscreenHost {
 
     // ---------------- Thanh trạng thái ----------------
 
+    /** Pin: phần trăm; đang sạc thì thêm công suất nhận vào (W) = dòng sạc x điện áp. Máy không báo dòng thì chỉ hiện "sạc". */
+    private fun refreshBattery() {
+        try {
+            val i = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return
+            val level = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale = i.getIntExtra(BatteryManager.EXTRA_SCALE, 100)
+            if (level < 0 || scale <= 0) { tvBatt.text = ""; return }
+            val pct = level * 100 / scale
+            val status = i.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+            val plugged = i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
+            val charging = plugged != 0 || status == BatteryManager.BATTERY_STATUS_CHARGING
+            var txt = "pin $pct%"
+            if (charging) {
+                var w = -1.0
+                try {
+                    val bm = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+                    val cur = Math.abs(bm.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW).toDouble())   // thường là µA, vài máy là mA
+                    var mv = i.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0).toDouble()
+                    if (mv in 1.0..100.0) mv *= 1000.0                      // vài máy báo điện áp theo V
+                    val ma = if (cur >= 20000.0) cur / 1000.0 else cur
+                    if (ma > 0 && mv > 0) w = ma * mv / 1_000_000.0
+                } catch (e: Exception) { }
+                txt = if (w >= 0.05) String.format(Locale.US, "%.0fW ", w) + txt else "sạc $txt"
+            }
+            tvBatt.text = txt
+        } catch (e: Exception) { }
+    }
+
     private fun refreshStatus() {
+        refreshBattery()
         val cal = Calendar.getInstance()
         tvTime.text = String.format(Locale.US, "%02d:%02d", cal.get(Calendar.HOUR_OF_DAY), cal.get(Calendar.MINUTE))
         val dow = when (cal.get(Calendar.DAY_OF_WEEK)) { Calendar.SUNDAY -> "CN"; else -> "T" + cal.get(Calendar.DAY_OF_WEEK) }
@@ -1084,6 +1120,7 @@ class MainActivity : Activity(), FullscreenHost {
 
     override fun onDestroy() {
         ui.removeCallbacksAndMessages(null)
+        try { battReceiver?.let { unregisterReceiver(it) } } catch (e: Exception) { }
         RemoteHub.setActivity(null)
         RemoteHub.host?.let { it.onTextEdit = { _, _ -> }; it.pickFile = { cb, _ -> cb?.onReceiveValue(null); true }; it.detach() }
         try { connWake?.let { if (it.isHeld) it.release() } } catch (e: Exception) { }
