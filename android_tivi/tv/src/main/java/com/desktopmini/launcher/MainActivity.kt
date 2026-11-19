@@ -57,6 +57,7 @@ class MainActivity : Activity(), FullscreenHost {
     private lateinit var btnAi: TextView
     private lateinit var menuLayer: FrameLayout
     private lateinit var btnTv: TextView
+    private lateinit var btnBrowser: TextView
     private lateinit var btnYt: TextView
     private lateinit var btnFiles: TextView
     private lateinit var tvTime: TextView
@@ -67,11 +68,12 @@ class MainActivity : Activity(), FullscreenHost {
     private lateinit var remote: RemoteController
     private var connWake: PowerManager.WakeLock? = null
 
-    private var mode = 0                  // 0 = trang trống, 1 = TV, 2 = YouTube, 3 = Tệp, 4 = Ái Kara
+    private var mode = 0                  // 0 = trang trống, 1 = TV, 2 = YouTube, 3 = Tệp, 4 = Ái Kara, 5 = Trình duyệt
     private var tv: TvPane? = null
     private var yt: YouTubePane? = null
     private var files: FilesPane? = null
     private var aikara: AiKaraPane? = null
+    private var browser: BrowserHost? = null   // Trình duyệt (mode 5), tạo khi mở lần đầu
     private val barItems = ArrayList<TextView>()
     private var barFocus = -1                // ô chọn trên thanh dưới: 0 Menu,1 TV,2 YouTube,3 Ái Kara,4 Cài đặt,5 Tệp,6 Home,7 Cập nhật,8 ←; -1 = đang điều khiển trang. Mở app: nằm sẵn ở YouTube
     private var fullView: View? = null
@@ -296,6 +298,7 @@ class MainActivity : Activity(), FullscreenHost {
         }
         btnMenu = barBtn("Menu").apply { setOnClickListener { toggleMenu() } }
         btnTv = barBtn("TV").apply { setOnClickListener { hideMenu(); onModeButton(1) } }
+        btnBrowser = barBtn("Trình duyệt").apply { setOnClickListener { hideMenu(); onModeButton(5) } }
         btnYt = barBtn("YouTube").apply { setOnClickListener { hideMenu(); onModeButton(2) } }
         btnAi = barBtn("Ái Kara").apply { setOnClickListener { hideMenu(); onModeButton(4) } }
         val btnSettings = barBtn("Cài đặt").apply { setOnClickListener { hideMenu(); openTvSettings() } }
@@ -306,13 +309,13 @@ class MainActivity : Activity(), FullscreenHost {
             contentDescription = "Thoát"; setOnClickListener { hideMenu(); goBack() }
             setCompoundDrawablesWithIntrinsicBounds(ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat()), null, null, null)
         }
-        // 9 nút bằng nhau: Menu | TV | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát)
+        // 10 nút bằng nhau: Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát)
         val group = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf(btnMenu, btnTv, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack).forEachIndexed { i, b ->
+        listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack).forEachIndexed { i, b ->
             group.addView(b, LinearLayout.LayoutParams(0, -1, 1f).also { if (i > 0) it.leftMargin = dp(4) })
         }
         bar.addView(group, LinearLayout.LayoutParams(0, -1, 1f))
-        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack))
+        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack))
 
         // Góc phải: giờ, ngày, âm lịch (cùng cỡ chữ 13sp, đậm), rồi nút X gỡ app
         val cluster = 13f
@@ -368,7 +371,7 @@ class MainActivity : Activity(), FullscreenHost {
             setOnClickListener { goBack() }
         }
         root.addView(floatBack, FrameLayout.LayoutParams(-2, -2).also { it.leftMargin = dp(8); it.topMargin = dp(8) })
-        remote = RemoteController(this, root, { if (mode == 1) tv?.activeWeb else if (mode == 2) yt?.web else if (mode == 4) aikara?.web else null }, { remoteVoice(it) })
+        remote = RemoteController(this, root, { if (mode == 1) tv?.activeWeb else if (mode == 2) yt?.web else if (mode == 4) aikara?.web else if (mode == 5) browser?.currentWebView else null }, { remoteVoice(it) })
         remote.onNext = { mode == 1 && (tv?.nextChannel() == true) }
         remote.onBack = { goBack() }
         remote.onScroll = { d -> mode == 1 && tv?.scrollList(d) == true }
@@ -399,7 +402,8 @@ class MainActivity : Activity(), FullscreenHost {
         activeBtn(btnYt, mode == 2, 0xFFFF1744.toInt())
         activeBtn(btnAi, mode == 4, 0xFF8E44AD.toInt())
         activeBtn(btnFiles, mode == 3, 0xFF00B85C.toInt())
-        for (b in barItems) if (b !== btnMenu && b !== btnTv && b !== btnYt && b !== btnAi && b !== btnFiles) activeBtn(b, false, 0)
+        activeBtn(btnBrowser, mode == 5, 0xFF1E88E5.toInt())
+        for (b in barItems) if (b !== btnMenu && b !== btnTv && b !== btnYt && b !== btnAi && b !== btnFiles && b !== btnBrowser) activeBtn(b, false, 0)
     }
 
     // ---------------- Phím ▲▼◀▶ OK từ remote: thanh dưới cùng / trang đang mở ----------------
@@ -410,7 +414,7 @@ class MainActivity : Activity(), FullscreenHost {
             if (barFocus < 0) barFocus = if (menuOpen()) 0 else barIndexForMode(mode)
             armBarRelease(); updateButtons(); return true
         }
-        if (barFocus < 0 && mode == 0 && !menuOpen()) { barFocus = 2; updateButtons(); return true }   // trang trống: phím đầu tiên đưa ô chọn xuống thanh dưới
+        if (barFocus < 0 && mode == 0 && !menuOpen()) { barFocus = 3; updateButtons(); return true }   // trang trống: phím đầu tiên đưa ô chọn xuống thanh dưới
         if (barFocus >= 0) {
             armBarRelease()
             if (barItems.getOrNull(barFocus)?.visibility == View.GONE) {     // ô chọn đang trỏ vào nút đã ẩn: dời sang nút hiện gần nhất
@@ -438,7 +442,7 @@ class MainActivity : Activity(), FullscreenHost {
 
     private fun menuOpen() = ::menuLayer.isInitialized && menuLayer.visibility == View.VISIBLE
     /** Ô trên thanh dưới tương ứng với chế độ đang mở. */
-    private fun barIndexForMode(m: Int) = when (m) { 1 -> 1; 2 -> 2; 3 -> 5; 4 -> 3; else -> 0 }
+    private fun barIndexForMode(m: Int) = when (m) { 1 -> 1; 5 -> 2; 2 -> 3; 4 -> 4; 3 -> 6; else -> 0 }
 
     // Ô chọn thanh dưới tự nhả sau 8 giây không bấm phím (mode 0 giữ nguyên) -> không bao giờ bị "kẹt" ở nút Cài đặt
     private val barRelease = Runnable { if (mode != 0 && barFocus >= 0) { barFocus = -1; updateButtons() } }
@@ -593,6 +597,7 @@ class MainActivity : Activity(), FullscreenHost {
         yt?.let { content.removeView(it.view); it.onPause() }
         files?.let { content.removeView(it.view); it.onPause() }
         aikara?.let { content.removeView(it.view); it.onPause() }
+        browser?.let { content.removeView(it.root); it.onPause() }
         hideMenu()
         mode = m
         when (m) {
@@ -606,7 +611,7 @@ class MainActivity : Activity(), FullscreenHost {
             }
             3 -> {
                 val p = files ?: FilesPane(this) { RemoteHub.host?.recentFiles() ?: emptyList() }.also { fp ->
-                    fp.onExitDown = { barFocus = 5; updateButtons() }      // ▼ ở dòng cuối: xuống thanh dưới
+                    fp.onExitDown = { barFocus = 6; updateButtons() }      // ▼ ở dòng cuối: xuống thanh dưới
                     files = fp
                 }
                 content.addView(p.view, FrameLayout.LayoutParams(-1, -1)); p.onResume()
@@ -614,6 +619,15 @@ class MainActivity : Activity(), FullscreenHost {
             4 -> {
                 val p = aikara ?: AiKaraPane(this).also { aikara = it }
                 content.addView(p.view, FrameLayout.LayoutParams(-1, -1)); p.onResume()
+            }
+            5 -> {
+                if (browser == null) {
+                    // máy không dựng được giao diện trình duyệt (vd Android cũ): không làm sập app
+                    try { browser = BrowserHost(this) { setMode(0) }.also { it.start(null) } } catch (e: Exception) { browser = null }
+                }
+                val b = browser
+                if (b == null) { Toast.makeText(this, "Máy này chưa mở được trình duyệt", Toast.LENGTH_SHORT).show(); mode = 0 }
+                else content.addView(b.root, FrameLayout.LayoutParams(-1, -1))
             }
         }
         updateButtons()
@@ -626,6 +640,7 @@ class MainActivity : Activity(), FullscreenHost {
             2 -> { if (fullView != null) { hideFull(); return }; yt?.back() }
             3 -> setMode(2)                        // Tệp -> quay lại YouTube
             4 -> aikara?.home()
+            5 -> if (browser?.back() != true) setMode(0)     // trình duyệt: lùi trang/đóng thẻ trước, hết thì về trang chủ
         }
     }
 
@@ -1123,6 +1138,7 @@ class MainActivity : Activity(), FullscreenHost {
 
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (browser?.handleActivityResult(requestCode, resultCode, data) == true) return   // kết quả chọn tệp của trình duyệt
         when (requestCode) {
             REQ_FILE -> { fileCb?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data)); fileCb = null }
             REQ_VOICE -> if (resultCode == RESULT_OK) {
@@ -1135,6 +1151,7 @@ class MainActivity : Activity(), FullscreenHost {
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (browser?.handlePermissionsResult(requestCode, permissions, grantResults) == true) return
         if (requestCode == REQ_VOICE_PERM && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) launchVoice()
     }
 
@@ -1198,7 +1215,7 @@ class MainActivity : Activity(), FullscreenHost {
     override fun onStop() { super.onStop(); RemoteHub.host?.detach() }
 
     override fun onResume() { super.onResume(); resumed = true; RemoteHub.appVisible = true; RemoteAccessibilityService.instance?.hideCursor(); if (accPendingHome) { accPendingHome = false; ui.postDelayed({ maybeAskDefaultHome() }, 500) }; hideSystemBars(); refreshStatus(); if (mode == 1) tv?.onResume() else if (mode == 2) yt?.onResume() else if (mode == 3) files?.onResume() else if (mode == 4) aikara?.onResume(); consumePendingFile() }
-    override fun onPause() { super.onPause(); resumed = false; RemoteHub.appVisible = false; tv?.onPause(); yt?.onPause(); files?.onPause(); aikara?.onPause() }
+    override fun onPause() { super.onPause(); resumed = false; RemoteHub.appVisible = false; tv?.onPause(); yt?.onPause(); files?.onPause(); aikara?.onPause(); browser?.onPause() }
 
     override fun onDestroy() {
         ui.removeCallbacksAndMessages(null)
@@ -1206,7 +1223,7 @@ class MainActivity : Activity(), FullscreenHost {
         RemoteHub.setActivity(null)
         RemoteHub.host?.let { it.onTextEdit = { _, _ -> }; it.pickFile = { cb, _ -> cb?.onReceiveValue(null); true }; it.detach() }
         try { connWake?.let { if (it.isHeld) it.release() } } catch (e: Exception) { }
-        tv?.destroy(); yt?.destroy(); files?.destroy(); aikara?.destroy()
+        tv?.destroy(); yt?.destroy(); files?.destroy(); aikara?.destroy(); browser?.destroy()
         super.onDestroy()
     }
 }
