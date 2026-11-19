@@ -339,7 +339,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         topBarRow = bar
         col.addView(bar, LinearLayout.LayoutParams(MATCH, WRAP))
 
-        progress = ProgressBar(this, null, android.android.R.attr.progressBarStyleHorizontal).apply {
+        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
             visibility = View.GONE
         }
@@ -1483,7 +1483,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
                 setSingleLine(true)
                 ellipsize = TextUtils.TruncateAt.MIDDLE
             })
-            val bar = ProgressBar(this, null, android.android.R.attr.progressBarStyleHorizontal).apply { max = 100 }
+            val bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 100 }
             left.addView(bar, LinearLayout.LayoutParams(MATCH, dp(10)).apply { topMargin = dp(6) })
             val status = TextView(this).apply {
                 text = "Đang chờ…"
