@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chiếu màn hình</title>
+<style>
+  html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:none}
+  video{width:100vw;height:100vh;object-fit:contain;background:#000}
+  #s{position:fixed;left:0;right:0;top:45%;text-align:center;color:#fff;font:28px sans-serif}
+</style>
+</head>
+<body>
+<video id="v" autoplay muted playsinline disablepictureinpicture></video>
+<div id="s">Đang kết nối...</div>
+<script>
+const v = document.getElementById('v'), s = document.getElementById('s');
+let pc = null, timer = null, wd = null;
+
+function say(t) { s.textContent = t; s.style.display = t ? 'block' : 'none'; }
+// Nếu đã có hình nhưng ngừng nhận khung hình > 8 giây (điện thoại đổi mạng / service khởi động lại)
+// thì tự kết nối lại, không cần thoát app trên điện thoại.
+function watch(p) {
+  clearInterval(wd);
+  let last = -1, since = Date.now();
+  wd = setInterval(async () => {
+    if (p !== pc) { clearInterval(wd); return; }
+    try {
+      const st = await p.getStats();
+      let n = -1;
+      st.forEach(r => { if (r.type === 'inbound-rtp' && (r.kind === 'video' || r.mediaType === 'video')) n = r.packetsReceived; });
+      if (n !== last) { last = n; since = Date.now(); }
+      else if (last > 0 && Date.now() - since > 8000) { clearInterval(wd); retry('Mất kết nối, đang thử lại...'); }
+    } catch (e) {}
+  }, 2000);
+}
+function retry(t) { say(t); clearTimeout(timer); timer = setTimeout(start, 2000); }
+
+async function start() {
+  clearTimeout(timer);
+  if (pc) { try { pc.close(); } catch (e) {} pc = null; }
+  say('Đang kết nối...');
+  const p = new RTCPeerConnection({ iceServers: [] });
+  pc = p;
+  let tr = null;
+  try { tr = p.addTransceiver('video', { direction: 'recvonly' }); } catch (e) { tr = null; }
+  if (tr) try {
+    const caps = RTCRtpReceiver.getCapabilities('video').codecs;
+    const h264 = caps.filter(c => c.mimeType === 'video/H264');
+    const rest = caps.filter(c => c.mimeType !== 'video/H264');
+    if (h264.length) tr.setCodecPreferences([...h264, ...rest]);
+  } catch (e) {}
+  // Đệm ~300 ms để hình mượt, không giật. Muốn trễ thấp hơn thì giảm số này (0 = trễ tối thiểu nhưng dễ giật)
+  if (tr) try { tr.receiver.playoutDelayHint = 0.3; } catch (e) {}
+  if (tr) try { tr.receiver.jitterBufferTarget = 300; } catch (e) {}
+
+  p.ontrack = e => {
+    v.srcObject = (e.streams && e.streams[0]) || new MediaStream([e.track]);
+    v.play().catch(() => {});
+    say('');
+  };
+  p.onaddstream = e => { if (!v.srcObject) { v.srcObject = e.stream; v.play().catch(() => {}); say(''); } };
+  p.onconnectionstatechange = () => {
+    if (p !== pc) return;
+    const st = p.connectionState;
+    if (st === 'failed' || st === 'closed') retry('Mất kết nối, đang thử lại...');
+    else if (st === 'disconnected') setTimeout(() => {
+      if (p === pc && p.connectionState === 'disconnected') retry('Mất kết nối, đang thử lại...');
+    }, 4000);
+  };
+
+  try {
+    await p.setLocalDescription(await p.createOffer(tr ? undefined : { offerToReceiveVideo: true }));
+    await new Promise(r => {
+      if (p.iceGatheringState === 'complete') return r();
+      p.onicegatheringstatechange = () => { if (p.iceGatheringState === 'complete') r(); };
+      setTimeout(r, 2000);
+    });
+    const res = await fetch('/offer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: p.localDescription.sdp
+    });
+    if (!res.ok) throw new Error('http ' + res.status);
+    await p.setRemoteDescription({ type: 'answer', sdp: await res.text() });
+    watch(p);
+  } catch (e) {
+    if (p === pc) retry('Chưa kết nối được, hãy kiểm tra app trên điện thoại...');
+  }
+}
+
+document.addEventListener('click', () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+});
+start();
+</script>
+</body>
+</html>
