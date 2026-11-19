@@ -190,6 +190,7 @@ class YouTubePane(private val act: Activity, private val full: FullscreenHost) {
                     view?.evaluateJavascript(YT_NAV_JS, null)
                     view?.evaluateJavascript(HIDE_SHORTS_JS, null)
                     view?.evaluateJavascript(HIDE_HOME_CHROME_JS, null)
+                    view?.evaluateJavascript(YT_PROFILE_HOLD_JS, null)
                 }
             }
         }

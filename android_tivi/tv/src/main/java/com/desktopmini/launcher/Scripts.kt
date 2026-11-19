@@ -457,3 +457,43 @@ const val HIDE_HOME_CHROME_JS = """
  try{ new MutationObserver(later).observe(document.documentElement,{childList:true,subtree:true}); }catch(e){}
 })();
 """
+
+/**
+ * YouTube: nhấn giữ chữ/biểu tượng "YouTube" ở góc trái trên cùng 2 giây thì mở trang cá nhân ("Bạn": /feed/you).
+ * Nhấn thường vẫn về trang chủ như cũ (nhả tay trước 2 giây); sau khi giữ đủ 2 giây thì bỏ cú chạm để không bị về trang chủ.
+ */
+const val YT_PROFILE_HOLD_JS = """
+(function(){
+ if(window.__wbProfileHold) return; window.__wbProfileHold=true;
+ var SEL='ytm-home-logo,.mobile-topbar-logo,ytm-mobile-topbar-renderer a[href="/"],ytm-mobile-topbar-renderer #home-icon,ytd-masthead #logo,ytd-masthead a#logo,#logo-icon,a[aria-label="YouTube Home"],a[title="YouTube"]';
+ var timer=null, fired=false, sx=0, sy=0;
+ function onLogo(e){ try{ return e.target&&e.target.closest&&e.target.closest(SEL); }catch(x){ return null; } }
+ function clear(){ if(timer){ clearTimeout(timer); timer=null; } }
+ function go(){
+   timer=null; fired=true;
+   try{ if(navigator.vibrate) navigator.vibrate(40); }catch(e){}
+   location.href='/feed/you';
+ }
+ function start(e){
+   if(!onLogo(e)) return;
+   fired=false; clear();
+   var p=(e.touches&&e.touches[0])||e; sx=p.clientX; sy=p.clientY;
+   timer=setTimeout(go,2000);
+ }
+ function move(e){
+   if(!timer) return;
+   var p=(e.touches&&e.touches[0])||e;
+   if(Math.abs(p.clientX-sx)>20||Math.abs(p.clientY-sy)>20) clear();
+ }
+ document.addEventListener('touchstart',start,true);
+ document.addEventListener('touchmove',move,true);
+ document.addEventListener('touchend',clear,true);
+ document.addEventListener('touchcancel',clear,true);
+ document.addEventListener('mousedown',start,true);
+ document.addEventListener('mouseup',clear,true);
+ // giữ đủ 2 giây thì chặn cú nhấp sinh ra khi nhả tay (khỏi nhảy về trang chủ)
+ document.addEventListener('click',function(e){ if(fired&&onLogo(e)){ e.preventDefault(); e.stopPropagation(); fired=false; } },true);
+ // chặn menu giữ-lâu của hệ thống trên logo
+ document.addEventListener('contextmenu',function(e){ if(onLogo(e)) e.preventDefault(); },true);
+})();
+"""
