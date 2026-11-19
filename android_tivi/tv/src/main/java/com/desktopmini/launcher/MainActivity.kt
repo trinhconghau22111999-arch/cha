@@ -99,6 +99,7 @@ class MainActivity : Activity(), FullscreenHost {
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "tv:connection").also { it.setReferenceCounted(false); it.acquire() }
         } catch (e: Exception) { }
         buildUi()
+        applyBarVisibility()
         hideSystemBars()
         setMode(2)                      // mở app lên là vào thẳng YouTube
         if (intent?.getBooleanExtra(RemoteHub.EXTRA_HOME, false) == true) { hideMenu(); setMode(0) }   // được gọi từ nút "Màn hình chính" khi app đã bị tắt
@@ -328,6 +329,16 @@ class MainActivity : Activity(), FullscreenHost {
             background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFD50000.toInt()); setStroke(dp(1), 0xFFFF8A80.toInt()) }
             setTextColor(Color.WHITE)
             setOnClickListener { hideMenu(); confirmSelfRemove() }
+            // Nhấn giữ 2 giây: bảng Ẩn/hiện nút (nhấn thường vẫn hỏi gỡ app như cũ)
+            var held = false
+            val fire = Runnable { held = true; hideMenu(); showBarToggleDialog() }
+            setOnTouchListener { _, ev ->
+                when (ev.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> { held = false; ui.removeCallbacks(fire); ui.postDelayed(fire, 2000); false }
+                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> { ui.removeCallbacks(fire); val h = held; held = false; h }
+                    else -> held
+                }
+            }
         }
         bar.addView(btnKill, LinearLayout.LayoutParams(dp(44), -1).also { it.leftMargin = dp(10) })
 
@@ -402,9 +413,14 @@ class MainActivity : Activity(), FullscreenHost {
         if (barFocus < 0 && mode == 0 && !menuOpen()) { barFocus = 2; updateButtons(); return true }   // trang trống: phím đầu tiên đưa ô chọn xuống thanh dưới
         if (barFocus >= 0) {
             armBarRelease()
+            if (barItems.getOrNull(barFocus)?.visibility == View.GONE) {     // ô chọn đang trỏ vào nút đã ẩn: dời sang nút hiện gần nhất
+                val v = barItems.indices.filter { barItems[it].visibility == View.VISIBLE }
+                barFocus = v.firstOrNull { it > barFocus } ?: v.lastOrNull() ?: -1
+                if (barFocus < 0) { updateButtons(); return true }
+            }
             when (k) {
-                "left" -> if (barFocus > 0) barFocus--
-                "right" -> if (barFocus < barItems.lastIndex) barFocus++
+                "left" -> { var j = barFocus - 1; while (j >= 0 && barItems[j].visibility != View.VISIBLE) j--; if (j >= 0) barFocus = j }
+                "right" -> { var j = barFocus + 1; while (j <= barItems.lastIndex && barItems[j].visibility != View.VISIBLE) j++; if (j <= barItems.lastIndex) barFocus = j }
                 "up" -> barFocus = -1                   // rời thanh dưới: lên trang đang mở
                 "down" -> { }
                 "ok" -> {                               // bấm xong là rời thanh dưới: Enter/OK lần sau chọn ô trên trang, không bấm lại nút này
@@ -871,6 +887,65 @@ class MainActivity : Activity(), FullscreenHost {
         // Không có launcher nào khác: về trang chủ của chính app (hình nền, không mở TV/YouTube)
         hideMenu(); hideFull(); setMode(0)
         Toast.makeText(this, "TV không có màn hình chính nào khác", Toast.LENGTH_SHORT).show()
+    }
+
+    // ---------------- Ẩn/hiện nút trên thanh dưới ----------------
+
+    private val barNames = listOf("Menu", "TV", "YouTube", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)")
+    private val rightNames = listOf("Pin", "Giờ", "Ngày dương", "Âm lịch")
+    private fun rightViews() = listOf(tvBatt, tvTime, tvDate, tvLunar)
+
+    private fun hiddenSet(): MutableSet<String> =
+        (getSharedPreferences("tv", MODE_PRIVATE).getString("hiddenBar", "") ?: "").split("|").filter { it.isNotEmpty() }.toMutableSet()
+
+    private fun saveHidden(h: Set<String>) { getSharedPreferences("tv", MODE_PRIVATE).edit().putString("hiddenBar", h.joinToString("|")).apply() }
+
+    /** Áp trạng thái ẩn/hiện đã lưu lên thanh dưới (nút X luôn hiện để còn mở được bảng này). */
+    private fun applyBarVisibility() {
+        val h = hiddenSet()
+        barItems.forEachIndexed { i, b -> b.visibility = if (barNames[i] in h) View.GONE else View.VISIBLE }
+        rightViews().forEachIndexed { i, v -> v.visibility = if (rightNames[i] in h) View.GONE else View.VISIBLE }
+        if (barFocus >= 0 && barItems.getOrNull(barFocus)?.visibility == View.GONE) { barFocus = -1 }
+        updateButtons()
+    }
+
+    /** Bảng "Ẩn/hiện nút": 2 cột (trái / phải của thanh dưới). Bấm một dòng: đang hiện thì ẩn, đang ẩn thì hiện. */
+    private fun showBarToggleDialog() {
+        val h = hiddenSet()
+        fun column(title: String, names: List<String>): LinearLayout {
+            val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            col.addView(TextView(this).apply {
+                text = title; textSize = 14f; setTextColor(0xFF90A4AE.toInt()); typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setPadding(dp(8), dp(4), dp(8), dp(6))
+            })
+            for (n in names) {
+                val row = TextView(this).apply {
+                    textSize = 16f; setPadding(dp(10), dp(10), dp(10), dp(10)); isFocusable = true; isClickable = true
+                    setBackgroundResource(android.R.drawable.list_selector_background)
+                }
+                fun paint() { val on = n !in h; row.text = (if (on) "●  " else "○  ") + n + (if (on) "" else "  (ẩn)"); row.setTextColor(if (on) 0xFF212121.toInt() else 0xFF9E9E9E.toInt()) }
+                paint()
+                row.setOnClickListener {
+                    if (n in h) h.remove(n) else h.add(n)
+                    saveHidden(h); applyBarVisibility(); paint()
+                }
+                col.addView(row, LinearLayout.LayoutParams(-1, -2))
+            }
+            return col
+        }
+        val two = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(12), dp(8), dp(12), 0)
+            addView(column("BÊN TRÁI", barNames), LinearLayout.LayoutParams(0, -2, 1f))
+            addView(column("BÊN PHẢI", rightNames), LinearLayout.LayoutParams(0, -2, 1f))
+        }
+        val scroll = android.widget.ScrollView(this).apply { addView(two) }
+        AlertDialog.Builder(this)
+            .setTitle("Ẩn/hiện nút")
+            .setView(scroll)
+            .setPositiveButton("Xong", null)
+            .setNeutralButton("Hiện tất cả") { _, _ -> saveHidden(emptySet()); applyBarVisibility() }
+            .show()
     }
 
     private fun confirmSelfRemove() {
