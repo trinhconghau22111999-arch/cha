@@ -368,7 +368,7 @@ class TransferHost(context: Context) {
     }
 
     companion object {
-        /** Mã 6 số cố định: máy gửi (điện thoại) mở Truyền tệp và dùng đúng mã này. */
-        const val CODE = "654321"
+        /** Mã 6 số kết nối TV với điều khiển (mặc định 221199): máy gửi (điện thoại) dùng đúng mã này. */
+        const val CODE = "221199"
     }
 }

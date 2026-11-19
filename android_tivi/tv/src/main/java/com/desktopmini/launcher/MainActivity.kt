@@ -939,7 +939,14 @@ class MainActivity : Activity(), FullscreenHost {
             addView(column("BÊN TRÁI", barNames), LinearLayout.LayoutParams(0, -2, 1f))
             addView(column("BÊN PHẢI", rightNames), LinearLayout.LayoutParams(0, -2, 1f))
         }
-        val scroll = android.widget.ScrollView(this).apply { addView(two) }
+        val codeLine = TextView(this).apply {
+            text = "Mã kết nối TV - Điều khiển: ${TransferHost.CODE}"
+            textSize = 28f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(0xFF4A148C.toInt()); gravity = android.view.Gravity.CENTER
+            setPadding(dp(12), dp(14), dp(12), dp(8))
+        }
+        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; addView(codeLine); addView(two) }
+        val scroll = android.widget.ScrollView(this).apply { addView(body) }
         AlertDialog.Builder(this)
             .setTitle("Ẩn/hiện nút")
             .setView(scroll)

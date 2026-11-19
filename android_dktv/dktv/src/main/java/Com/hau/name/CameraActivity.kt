@@ -69,7 +69,7 @@ class CameraActivity : AppCompatActivity() {
     private fun generatePairingCodeAndStartService() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         // Dung ma da luu (nguoi dung co the doi bang cach cham vao chu "CHUA KET NOI" tren man remote);
-        // chua doi thi la ma mac dinh 654321.
+        // chua doi thi la ma mac dinh 221199.
         val code = savedCode(this)
         prefs.edit().putString(KEY_FIXED_CODE, code).apply()
         roomCode = code
@@ -120,7 +120,7 @@ class CameraActivity : AppCompatActivity() {
         private const val REQUEST_CODE_PERMISSIONS = 2001
         const val PREFS_NAME = "home_camera"
         /** Ma 6 so mac dinh, co dinh cho remote TV. */
-        const val FIXED_CODE = "654321"
+        const val FIXED_CODE = "221199"
         /** Mã ghép nối cố định của máy này — sinh 1 lần, dùng mãi mãi. */
         const val KEY_FIXED_CODE = "fixed_room_code"
         /** true khi phiên THỰC SỰ đang chạy — dùng bởi BootReceiver để tự khởi

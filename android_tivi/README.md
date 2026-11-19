@@ -12,6 +12,6 @@ https://github.com/trinhconghau22111999-arch/cha/releases/latest/download/Tivi-T
 
 Thanh dưới: Menu | TV | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ←.
 applicationId `com.desktopmini.tivi`, ký bằng keystore cố định trong `keystore/` nên cài đè được bản cũ.
-Nhận tệp và điều khiển từ điện thoại dùng mã ghép nối cố định 654321 (trùng với app "điều khiển" trong repo này, điện thoại dùng đúng mã này). Android 4.4 cài được (minSdk 19) nhưng WebView cũ nên YouTube và nhận tệp có thể lỗi; nên dùng Android 7.0 trở lên.
+Nhận tệp và điều khiển từ điện thoại dùng mã ghép nối cố định 221199 (trùng với app "điều khiển" trong repo này, điện thoại dùng đúng mã này). Android 4.4 cài được (minSdk 19) nhưng WebView cũ nên YouTube và nhận tệp có thể lỗi; nên dùng Android 7.0 trở lên.
 
 Build: tab Actions → "Android Tivi TV APK" (hoặc đẩy thay đổi trong `android_tivi/`), tải `tv-debug.apk` trong Artifacts hoặc Releases.

@@ -47,7 +47,7 @@ import kotlin.math.roundToInt
  * code nhung khong con duoc mo).
  *
  * Moi lenh la 1 tin JSON {"type":"remote","action":...} gui qua DataChannel truyen tep co san
- * (cung ma co dinh 654321, cung ket noi WebRTC/Firebase) toi app TV:
+ * (cung ma co dinh 221199, cung ket noi WebRTC/Firebase) toi app TV:
  *   - volume / brightness : level = 0..100 (am luong / do sang man hinh TV)
  *   - quality : q = 360 | 480 | 720 (chat luong video YouTube)
  *   - back : nut LUI - lui 1 buoc tren TV (giong nut Back)
@@ -657,7 +657,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     // ---------------------------------------------------------------- Đổi mã ghép nối
 
-    /** Hộp thoại đổi mã (vd 654321 -> 123456). Bấm OK: lưu mã mới và nối lại ngay bằng mã đó. */
+    /** Hộp thoại đổi mã (vd 221199 -> 123456). Bấm OK: lưu mã mới và nối lại ngay bằng mã đó. */
     private fun showCodeDialog() {
         val current = CameraActivity.savedCode(this)
         val input = EditText(this).apply {
