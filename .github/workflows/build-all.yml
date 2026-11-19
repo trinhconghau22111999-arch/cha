@@ -76,7 +76,13 @@ jobs:
 
       - name: Build debug APK
         working-directory: android_tivi
-        run: gradle :tv:assembleDebug --no-daemon
+        run: |
+          set -o pipefail
+          gradle :tv:assembleDebug --no-daemon 2>&1 | tee /tmp/build.log || {
+            grep -E "^e: |^w: .*error|error:|What went wrong|Manifest merger|Could not|> Could|FAILURE|Caused by" /tmp/build.log | head -40 | while IFS= read -r l; do echo "::error::${l}"; done
+            grep -A4 "What went wrong" /tmp/build.log | head -20 | while IFS= read -r l; do echo "::error::${l}"; done
+            exit 1
+          }
 
       - uses: actions/upload-artifact@v4
         with:
