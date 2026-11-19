@@ -1,13 +1,12 @@
-# cha — Tivi (Windows widget) + DK TV Gộp + Tivi TV (Android)
+# cha — DK TV Gộp + Tivi TV (Android)
 
 - `android_dktv/` — app điều khiển từ xa Android tổng hợp (gộp DK_TV và dktv của a3). Xem `android_dktv/README.md`.
 - `android_tivi/` — app "tivi" cài trên TV (nhận tệp từ điện thoại, nút Tệp cài APK). Xem `android_tivi/README.md`.
-- `windows_tivi/` — widget Windows 0.12.0 (WPF + WebView2, C# .NET 8).
-  - `TiviWidget/` — mã nguồn app.
-  - `TiviWidget.Tests/` — kiểm thử xUnit (`dotnet test`).
-  - `verify_logic/` — kiểm tra nhanh không cần NuGet (`dotnet run`).
-  - `installer/` — `build.ps1` + `TiviWidget.iss` tạo bộ cài.
-  - `SETUP_PREREQUISITES.md`, `TEST_PLAN.md`, `VERIFY_LOG.txt`.
-- `.github/workflows/build-all.yml` — CI: mỗi lần chạy build cả 3 app và tạo 1 release `build-<số>` có đủ 3 file tải xuống (DK TV Gộp APK, Tivi TV APK, TiviWidget Setup .exe).
+- `.github/workflows/build-all.yml` — CI: mỗi lần chạy build 2 app Android và tạo 1 release `build-<số>` có 2 file APK.
 
-Chưa được build và chạy trên Windows thật. Xem `windows_tivi/TEST_PLAN.md`.
+## Link tải APK (cố định, luôn là bản mới nhất)
+
+- DK TV Gộp (điện thoại): https://github.com/trinhconghau22111999-arch/cha/releases/latest/download/DK-TV-Gop.apk
+- Tivi TV (cài trên TV): https://github.com/trinhconghau22111999-arch/cha/releases/latest/download/Tivi-TV.apk
+
+Bấm link là tự tải về. Lần đầu mở app, app sẽ hỏi bật "Cho phép cài ứng dụng từ nguồn không xác định" (Android 8+).

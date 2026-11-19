@@ -114,8 +114,33 @@ class MainActivity : Activity(), FullscreenHost {
             h.attach(hidden)
         }, 2500)
         ui.postDelayed({ nextAfterAdmin() }, 600)
+        ui.postDelayed({ if (!isFinishing) maybeAskInstallUnknown() }, 3000)
         ui.postDelayed({ if (!isFinishing) maybeAskIgnoreBattery() }, 9000)
         ui.postDelayed({ if (!isFinishing) maybeAskOverlay() }, 16000)
+    }
+
+    // Android 8+: sau khi cài xong, hỏi bật "Cho phép cài ứng dụng từ nguồn không xác định" cho chính app này
+    // (hỏi mỗi lần mở app cho tới khi được bật hoặc bấm "Không hỏi lại")
+    private var askedInstallThisRun = false
+    private fun maybeAskInstallUnknown() {
+        if (Build.VERSION.SDK_INT < 26 || askedInstallThisRun) return
+        val sp = getSharedPreferences("tv", MODE_PRIVATE)
+        if (sp.getBoolean("noAskInstall", false)) return
+        try {
+            if (packageManager.canRequestPackageInstalls()) return
+            askedInstallThisRun = true
+            AlertDialog.Builder(this)
+                .setTitle("Cho phép cài ứng dụng từ nguồn không xác định?")
+                .setMessage("Để cài tệp APK (cập nhật app, cài app từ tệp nhận được), hãy bật \"Cho phép từ nguồn này\" cho app.")
+                .setPositiveButton("Cho phép") { _, _ ->
+                    try {
+                        startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + packageName)))
+                    } catch (e: Exception) { }
+                }
+                .setNegativeButton("Để sau", null)
+                .setNeutralButton("Không hỏi lại") { _, _ -> sp.edit().putBoolean("noAskInstall", true).apply() }
+                .show()
+        } catch (e: Exception) { }
     }
 
     // Xin bỏ giới hạn pin cho app (một lần) để hệ thống TV ít giết dịch vụ nhận lệnh chạy nền
