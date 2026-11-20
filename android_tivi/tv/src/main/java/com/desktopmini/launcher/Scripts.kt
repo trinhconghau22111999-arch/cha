@@ -459,8 +459,8 @@ const val HIDE_HOME_CHROME_JS = """
 """
 
 /**
- * YouTube: nhấn giữ chữ/biểu tượng "YouTube" ở góc trái trên cùng 2 giây thì mở trang cá nhân ("Bạn": /feed/you).
- * Nhấn thường vẫn về trang chủ như cũ (nhả tay trước 2 giây); sau khi giữ đủ 2 giây thì bỏ cú chạm để không bị về trang chủ.
+ * YouTube: nhấn giữ chữ/biểu tượng "YouTube" ở góc trái trên cùng 1,2 giây thì mở trang cá nhân ("Bạn": /feed/you).
+ * Nhấn thường vẫn về trang chủ như cũ (nhả tay trước 1,2 giây); sau khi giữ đủ 1,2 giây thì bỏ cú chạm để không bị về trang chủ.
  */
 const val YT_PROFILE_HOLD_JS = """
 (function(){
@@ -494,7 +494,7 @@ const val YT_PROFILE_HOLD_JS = """
    if(!onLogo(e)) return;
    fired=false; clear();
    var p=(e.touches&&e.touches[0])||e; sx=p.clientX; sy=p.clientY;
-   timer=setTimeout(go,2000);
+   timer=setTimeout(go,1200);
  }
  function move(e){
    if(!timer) return;
