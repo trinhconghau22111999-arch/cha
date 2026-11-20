@@ -755,49 +755,23 @@ class MainActivity : Activity(), FullscreenHost {
     private var appCache: List<AppEntry>? = null
     private var menuLoading = false
 
-    // Gói hệ thống/nền không đưa vào menu. Khớp theo tiền tố tên gói.
-    private val HIDDEN_PKG_PREFIXES = listOf(
-        "com.android.", "com.google.android.gms", "com.google.android.gsf", "com.google.android.setupwizard",
-        "com.google.android.partnersetup", "com.google.android.feedback", "com.google.android.tungsten",
-        "com.google.android.backuptransport", "com.google.android.onetimeinitializer",
-        "com.google.android.apps.restore", "com.google.android.ext", "com.google.android.networkstack",
-        "com.google.android.inputmethod", "com.google.android.marvin", "com.google.android.tts",
-        "com.google.android.as", "com.google.android.printservice", "com.google.android.tvrecommendations",
-        "com.google.android.leanbacklauncher", "com.google.android.overlay",
-        "com.qualcomm.", "com.mediatek.", "com.amlogic.", "com.rockchip.", "com.realtek.", "com.droidlogic.", "com.mstar."
-    )
-    // Ứng dụng hệ thống vẫn giữ dù khớp tiền tố ở trên (người dùng thường cần)
-    private val KEPT_SYSTEM_PKGS = setOf(
-        "com.android.chrome", "com.android.vending", "com.google.android.youtube", "com.google.android.youtube.tv"
-    )
-
-    private fun shouldShowOnTv(pkg: String, ai: android.content.pm.ApplicationInfo, isTvApp: Boolean): Boolean {
-        if (pkg in KEPT_SYSTEM_PKGS) return true
-        if (HIDDEN_PKG_PREFIXES.any { pkg.startsWith(it) }) return false
-        val isSystem = (ai.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
-        val isUpdatedSystem = (ai.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-        // App hệ thống gốc (không phải bản cập nhật): chỉ giữ nếu được thiết kế cho TV, ví dụ Netflix, YouTube TV.
-        // App hệ thống chỉ có biểu tượng điện thoại (lịch, máy tính, tệp...) bị bỏ.
-        if (isSystem && !isUpdatedSystem && !isTvApp) return false
-        return true
-    }
-
-    /** App có icon mở được trên TV, đã lọc app hệ thống/nền, trừ chính app này. Chạy ở luồng nền (TV Android 8 yếu). */
+    /** TẤT CẢ app có icon mở được (TV + điện thoại), trừ chính app này. Chạy ở luồng nền (TV Android 8 yếu). */
     private fun loadApps(): List<AppEntry> {
         val pm = packageManager
         fun query(cat: String): List<android.content.pm.ResolveInfo> =
             try { pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(cat), 0) } catch (e: Exception) { emptyList() }
         val tvResolves = query(Intent.CATEGORY_LEANBACK_LAUNCHER)
-        val tvPkgs = tvResolves.map { it.activityInfo.packageName }.toHashSet()
         val all = tvResolves + query(Intent.CATEGORY_LAUNCHER)
         val seen = HashSet<String>()
         val out = ArrayList<AppEntry>()
         for (ri in all) {
             val pkg = ri.activityInfo.packageName
-            if (pkg == packageName || pkg in seen) continue
-            if (!shouldShowOnTv(pkg, ri.activityInfo.applicationInfo, pkg in tvPkgs)) continue
-            seen.add(pkg)
+            if (pkg == packageName) continue
+            // Không lọc app hệ thống nữa. Mỗi màn hình mở được (activity) là một ô; chỉ gộp bản trùng.
+            if (!seen.add(pkg + "/" + ri.activityInfo.name)) continue
             val label = try { ri.loadLabel(pm).toString() } catch (e: Exception) { pkg }
+            // Một app vừa có icon TV vừa có icon điện thoại cùng tên: chỉ giữ icon TV (đã xếp trước)
+            if (out.any { it.pkg == pkg && it.label == label }) continue
             val icon = try { ri.loadIcon(pm) } catch (e: Exception) { null }
             out.add(AppEntry(label, icon, pkg, ri.activityInfo.name))
         }
