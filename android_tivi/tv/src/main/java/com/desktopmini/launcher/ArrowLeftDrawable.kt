@@ -1,11 +1,13 @@
 package com.desktopmini.launcher
 
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
+import android.widget.TextView
 
 /**
  * Mũi tên ← vẽ bằng nét trên Canvas, KHÔNG dùng ký tự "←" của font.
@@ -45,4 +47,19 @@ class ArrowLeftDrawable(private val sizePx: Int, color: Int, strokePx: Float) : 
     override fun setAlpha(alpha: Int) { paint.alpha = alpha }
     override fun setColorFilter(colorFilter: ColorFilter?) { paint.colorFilter = colorFilter }
     override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+}
+
+/**
+ * Nút chỉ có mũi tên: vẽ mũi tên ngay chính giữa nút.
+ * (Dùng compoundDrawable của TextView thì khi chữ rỗng mũi tên bị dính sát mép trái.)
+ */
+class ArrowButton(context: Context, private val arrow: ArrowLeftDrawable) : TextView(context) {
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val s = arrow.intrinsicWidth
+        val l = (width - s) / 2
+        val t = (height - s) / 2
+        arrow.setBounds(l, t, l + s, t + s)
+        arrow.draw(canvas)
+    }
 }

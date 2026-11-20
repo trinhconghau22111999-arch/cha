@@ -260,7 +260,7 @@ class MainActivity : Activity(), FullscreenHost {
         b.setTextColor(if (on) Color.WHITE else BAR_TEXT)
     }
 
-    private fun barBtn(text: String): TextView = TextView(this).apply {
+    private fun barBtn(text: String, arrow: ArrowLeftDrawable? = null): TextView = (if (arrow != null) ArrowButton(this, arrow) else TextView(this)).apply {
         this.text = text
         setTextColor(BAR_TEXT)
         textSize = 12f
@@ -305,9 +305,8 @@ class MainActivity : Activity(), FullscreenHost {
         btnFiles = barBtn("Tệp").apply { setOnClickListener { hideMenu(); onModeButton(3) } }
         val btnHome = barBtn("Home").apply { setOnClickListener { hideMenu(); goTvHome() } }
         val btnUpdate = barBtn("Cập nhật").apply { setOnClickListener { hideMenu(); Updater.start(this@MainActivity) } }
-        val btnBack = barBtn("").apply {
+        val btnBack = barBtn("", ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat())).apply {
             contentDescription = "Thoát"; setOnClickListener { hideMenu(); goBack() }
-            setCompoundDrawablesWithIntrinsicBounds(ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat()), null, null, null)
         }
         // 10 nút bằng nhau: Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát)
         val group = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
