@@ -319,7 +319,7 @@ class MainActivity : Activity(), FullscreenHost {
 
         // Góc phải: giờ, ngày, âm lịch (cùng cỡ chữ 13sp, đậm), rồi nút X gỡ app
         val cluster = 13f
-        // Pin nằm bên trái giờ: "pin 25%"; đang sạc thì "10W pin 25%"
+        // Pin nằm bên trái giờ: "Pin 25%"; đang sạc thì "10W Pin 25%"
         tvBatt = small("", cluster, true).apply { setTextColor(0xFF69F0AE.toInt()); setPadding(dp(14), 0, 0, 0) }
         bar.addView(tvBatt, LinearLayout.LayoutParams(-2, -1))
         tvTime = small("--:--", cluster, true).apply { setTextColor(NEON_CYAN); setPadding(dp(14), 0, dp(12), 0) }
@@ -1169,7 +1169,7 @@ class MainActivity : Activity(), FullscreenHost {
             val status = i.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
             val plugged = i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
             val charging = plugged != 0 || status == BatteryManager.BATTERY_STATUS_CHARGING
-            var txt = "pin $pct%"
+            var txt = "Pin $pct%"
             if (charging) {
                 var w = -1.0
                 try {
