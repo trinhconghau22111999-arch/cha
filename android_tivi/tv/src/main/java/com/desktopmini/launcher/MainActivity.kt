@@ -1004,50 +1004,123 @@ class MainActivity : Activity(), FullscreenHost {
         updateButtons()
     }
 
-    /** Bảng "Ẩn/hiện nút": 2 cột (trái / phải của thanh dưới). Bấm một dòng: đang hiện thì ẩn, đang ẩn thì hiện. */
+    /** Bảng "Ẩn/hiện nút" kiểu gaming (nền tối, viền neon): 2 cột (trái / phải của thanh dưới). Bấm một dòng: đang hiện thì ẩn, đang ẩn thì hiện. */
     private fun showBarToggleDialog() {
         val h = hiddenSet()
-        fun column(title: String, names: List<String>): LinearLayout {
+        val cBg = 0xFF0A0E1F.toInt(); val cPanel = 0xFF131A33.toInt(); val cEdge = 0xFF2B3A6B.toInt()
+        val cCyan = 0xFF00E5FF.toInt(); val cMag = 0xFFFF2E93.toInt(); val cViolet = 0xFF7C4DFF.toInt()
+        val cGreen = 0xFF00E676.toInt(); val cRed = 0xFFFF1744.toInt(); val cDim = 0xFF7F8FBF.toInt()
+        fun shape(fill: Int, stroke: Int, r: Int, sw: Int = 1) = android.graphics.drawable.GradientDrawable().apply {
+            setColor(fill); cornerRadius = dp(r).toFloat(); setStroke(dp(sw), stroke)
+        }
+        fun focusable(normal: android.graphics.drawable.Drawable, lit: android.graphics.drawable.Drawable) = android.graphics.drawable.StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_focused), lit)
+            addState(intArrayOf(android.R.attr.state_pressed), lit)
+            addState(intArrayOf(), normal)
+        }
+        fun spaced(t: TextView, v: Float) { if (Build.VERSION.SDK_INT >= 21) t.letterSpacing = v }
+
+        val repaints = ArrayList<() -> Unit>()
+        fun column(title: String, names: List<String>, accent: Int): LinearLayout {
             val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
             col.addView(TextView(this).apply {
-                text = title; textSize = 14f; setTextColor(0xFF90A4AE.toInt()); typeface = android.graphics.Typeface.DEFAULT_BOLD
-                setPadding(dp(8), dp(4), dp(8), dp(6))
+                text = title; textSize = 13f; setTextColor(accent); typeface = android.graphics.Typeface.DEFAULT_BOLD
+                spaced(this, 0.2f); setPadding(dp(6), dp(2), dp(6), dp(8))
             })
             for (n in names) {
-                val row = TextView(this).apply {
-                    textSize = 16f; setPadding(dp(10), dp(10), dp(10), dp(10)); isFocusable = true; isClickable = true
-                    setBackgroundResource(android.R.drawable.list_selector_background)
+                val dot = View(this)
+                val label = TextView(this).apply { textSize = 16f; typeface = android.graphics.Typeface.DEFAULT_BOLD }
+                val tag = TextView(this).apply { textSize = 11f; typeface = android.graphics.Typeface.DEFAULT_BOLD; gravity = Gravity.CENTER; setPadding(dp(8), dp(2), dp(8), dp(2)) }
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(12), dp(9), dp(12), dp(9)); isFocusable = true; isClickable = true
+                    addView(dot, LinearLayout.LayoutParams(dp(10), dp(10)).also { it.rightMargin = dp(10) })
+                    addView(label, LinearLayout.LayoutParams(0, -2, 1f))
+                    addView(tag, LinearLayout.LayoutParams(-2, -2))
                 }
-                fun paint() { val on = n !in h; row.text = (if (on) "●  " else "○  ") + n + (if (on) "" else "  (ẩn)"); row.setTextColor(if (on) 0xFF212121.toInt() else 0xFF9E9E9E.toInt()) }
-                paint()
+                fun paint() {
+                    val on = n !in h
+                    label.text = n
+                    label.setTextColor(if (on) Color.WHITE else cDim)
+                    tag.text = if (on) "HIỆN" else "ẨN"
+                    tag.setTextColor(if (on) 0xFF001F14.toInt() else cRed)
+                    tag.background = if (on) shape(cGreen, cGreen, 6) else shape(0x22FF1744, cRed, 6)
+                    dot.background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(if (on) cGreen else cRed) }
+                    row.background = focusable(
+                        if (on) shape(0xFF102542.toInt(), cCyan, 10) else shape(cPanel, cEdge, 10),
+                        shape(0xFF1E2F63.toInt(), cMag, 10, 2))
+                }
+                paint(); repaints.add { paint() }
                 row.setOnClickListener {
                     if (n in h) h.remove(n) else h.add(n)
                     saveHidden(h); applyBarVisibility(); paint()
                 }
-                col.addView(row, LinearLayout.LayoutParams(-1, -2))
+                col.addView(row, LinearLayout.LayoutParams(-1, -2).also { it.bottomMargin = dp(6) })
             }
             return col
         }
+
+        val title = TextView(this).apply {
+            text = "ẨN / HIỆN NÚT"; textSize = 22f; setTextColor(cCyan); typeface = android.graphics.Typeface.create("sans-serif-black", android.graphics.Typeface.BOLD)
+            spaced(this, 0.15f)
+        }
+        val line = View(this).apply {
+            background = android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(cCyan, cViolet, cMag))
+        }
+        val codeCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+            background = shape(cPanel, cMag, 12, 2); setPadding(dp(12), dp(8), dp(12), dp(10))
+            addView(TextView(this@MainActivity).apply {
+                text = "MÃ KẾT NỐI TV - ĐIỀU KHIỂN"; textSize = 12f; setTextColor(cDim); typeface = android.graphics.Typeface.DEFAULT_BOLD
+                spaced(this, 0.2f); gravity = Gravity.CENTER
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = TransferHost.CODE; textSize = 34f; setTextColor(cGreen); typeface = android.graphics.Typeface.create("sans-serif-black", android.graphics.Typeface.BOLD)
+                spaced(this, 0.3f); gravity = Gravity.CENTER
+            })
+        }
         val two = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(12), dp(8), dp(12), 0)
-            addView(column("BÊN TRÁI", barNames), LinearLayout.LayoutParams(0, -2, 1f))
-            addView(column("BÊN PHẢI", rightNames), LinearLayout.LayoutParams(0, -2, 1f))
+            addView(column("BÊN TRÁI", barNames, cViolet), LinearLayout.LayoutParams(0, -2, 1f).also { it.rightMargin = dp(8) })
+            addView(column("BÊN PHẢI", rightNames, cViolet), LinearLayout.LayoutParams(0, -2, 1f).also { it.leftMargin = dp(8) })
         }
-        val codeLine = TextView(this).apply {
-            text = "Mã kết nối TV - Điều khiển: ${TransferHost.CODE}"
-            textSize = 28f; typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setTextColor(0xFF4A148C.toInt()); gravity = android.view.Gravity.CENTER
-            setPadding(dp(12), dp(14), dp(12), dp(8))
+        val scroll = android.widget.ScrollView(this).apply { isFillViewport = false; addView(two) }
+
+        val dlg = android.app.Dialog(this)
+        fun btn(text: String, filled: Boolean, color: Int, onClick: () -> Unit) = TextView(this).apply {
+            this.text = text; textSize = 15f; gravity = Gravity.CENTER; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            spaced(this, 0.12f); isFocusable = true; isClickable = true
+            setPadding(dp(18), dp(10), dp(18), dp(10))
+            setTextColor(if (filled) 0xFF00131A.toInt() else color)
+            background = focusable(
+                if (filled) shape(color, color, 10) else shape(Color.TRANSPARENT, color, 10, 2),
+                shape(if (filled) Color.WHITE else 0x33FFFFFF, if (filled) Color.WHITE else color, 10, 3))
+            setOnClickListener { onClick() }
         }
-        val body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; addView(codeLine); addView(two) }
-        val scroll = android.widget.ScrollView(this).apply { addView(body) }
-        AlertDialog.Builder(this)
-            .setTitle("Ẩn/hiện nút")
-            .setView(scroll)
-            .setPositiveButton("Xong", null)
-            .setNeutralButton("Hiện tất cả") { _, _ -> saveHidden(emptySet()); applyBarVisibility() }
-            .show()
+        val bottom = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            addView(btn("HIỆN TẤT CẢ", false, cMag) { h.clear(); saveHidden(emptySet()); applyBarVisibility(); repaints.forEach { it() } }, LinearLayout.LayoutParams(-2, -2))
+            addView(View(this@MainActivity), LinearLayout.LayoutParams(0, 1, 1f))
+            addView(btn("XONG", true, cCyan) { dlg.dismiss() }, LinearLayout.LayoutParams(-2, -2))
+        }
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = shape(cBg, cCyan, 18, 2); setPadding(dp(20), dp(16), dp(20), dp(16))
+            addView(title, LinearLayout.LayoutParams(-2, -2))
+            addView(line, LinearLayout.LayoutParams(-1, dp(2)).also { it.topMargin = dp(8); it.bottomMargin = dp(12) })
+            addView(codeCard, LinearLayout.LayoutParams(-1, -2).also { it.bottomMargin = dp(14) })
+            addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(bottom, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(12) })
+        }
+        dlg.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        dlg.setContentView(root)
+        dlg.window?.apply {
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            val dm = resources.displayMetrics
+            setLayout((dm.widthPixels * 0.82f).toInt().coerceAtMost(dp(900)), (dm.heightPixels * 0.92f).toInt())
+            setDimAmount(0.7f)
+        }
+        dlg.show()
     }
 
     private fun confirmSelfRemove() {
