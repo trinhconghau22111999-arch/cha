@@ -250,6 +250,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         topBoxes["power"] = powerBox; topBoxes["screen"] = screenBox; topBoxes["touch"] = touchBox
         topBoxes["full"] = fullBox; topBoxes["mic"] = micBox
         for (b in topBoxes.values) top.addView(b, LinearLayout.LayoutParams(0, -2, 1f))
+        topBoxes["cc"] = btnCc      // nút CC nằm ở đầu trang (không thêm vào hàng này), nhưng vẫn bật/tắt được trong bảng ⚙
         applyButtonVisibility()
         root.addView(top, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(10) })
         refreshPowerButton()
@@ -705,7 +706,8 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         "screen" to "Chuyển đổi giao diện",
         "touch" to "Tắt cảm ứng TV",
         "full" to "Phóng to màn hình",
-        "mic" to "Giọng nói"
+        "mic" to "Giọng nói",
+        "cc" to "Phụ đề CC"
     )
 
     /** Danh sách nút đang ẩn. Lần đầu (chưa lưu gì) mặc định ẩn nút "Tắt cảm ứng TV". */
