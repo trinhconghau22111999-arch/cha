@@ -314,7 +314,16 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
             setOnClickListener { Haptics.tick(this); send(JSONObject().put("action", "media").put("cmd", "next")) }
         }
         val backNext = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        // Nút nhỏ 1x / 2x ở giữa LÙI và BÀI TIẾP: bấm để đổi tốc độ phát video trên TV (1x <-> 2x)
+        btnSpeed = TextView(this).apply {
+            textSize = 15f; gravity = Gravity.CENTER; letterSpacing = 0.04f
+            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+            contentDescription = "Tốc độ phát 1x / 2x"
+            setOnClickListener { Haptics.tick(this); setSpeed(!speedFast) }
+        }
+        refreshSpeedButton()
         backNext.addView(btnBack, LinearLayout.LayoutParams(0, dp(50), 1f).also { it.rightMargin = dp(4) })
+        backNext.addView(btnSpeed, LinearLayout.LayoutParams(dp(54), dp(50)).also { it.leftMargin = dp(4); it.rightMargin = dp(4) })
         backNext.addView(btnNext, LinearLayout.LayoutParams(0, dp(50), 1f).also { it.leftMargin = dp(4) })
         panel.addView(backNext, LinearLayout.LayoutParams(-1, -2).also { it.topMargin = dp(10) })
         // Chat luong video: nhan ben trai + 3 nut cung 1 hang (360p | 480p | 720p)
@@ -349,6 +358,24 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         (Color.green(base) * 0.65f + Color.green(accent) * 0.35f).toInt(),
         (Color.blue(base) * 0.65f + Color.blue(accent) * 0.35f).toInt()
     )
+
+    // ---------------------------------------------------------------- Tốc độ phát 1x / 2x
+
+    private var speedFast = false
+    private lateinit var btnSpeed: TextView
+
+    private fun refreshSpeedButton() {
+        val c = if (speedFast) Neon.AMBER else Neon.VIOLET
+        btnSpeed.text = if (speedFast) "2x" else "1x"
+        btnSpeed.setTextColor(if (speedFast) Neon.AMBER else Color.WHITE)
+        btnSpeed.background = neonBtn(if (speedFast) mix2(Neon.PANEL, Neon.AMBER) else Neon.PANEL, c, mix2(Neon.PANEL, c), 8f)
+    }
+
+    private fun setSpeed(fast: Boolean) {
+        speedFast = fast
+        refreshSpeedButton()
+        send(JSONObject().put("action", "speed").put("rate", if (fast) 2.0 else 1.0))
+    }
 
     private lateinit var btnQ360: TextView
     private lateinit var btnQ480: TextView

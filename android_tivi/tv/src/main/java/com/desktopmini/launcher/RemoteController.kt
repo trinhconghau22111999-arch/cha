@@ -127,6 +127,7 @@ class RemoteController(
             "fullscreen" -> onFullscreen?.invoke()
             "back" -> onBack?.invoke()
             "media" -> media(o.optString("cmd"))
+            "speed" -> setSpeed(o.optDouble("rate", 1.0))
             "mouse" -> if (!o.optBoolean("on", true)) hideCursor()      // nút Chuột trên remote: TẮT thì ẩn con trỏ ngay
         }
     }
@@ -194,6 +195,15 @@ class RemoteController(
         wv.evaluateJavascript("typeof window.__wbScroll==='function'?" + call + ":0") { r ->
             if (r == "0") wv.evaluateJavascript(SCROLL_DEF + ";" + call) { done() } else done()
         }
+    }
+
+    /** Toc do phat video 1x / 2x (nut nho giua LUI va BAI TIEP tren remote). Nho toc do va ap lai khi YouTube doi video. */
+    private fun setSpeed(rate: Double) {
+        val r = rate.coerceIn(0.25, 4.0)
+        val js = "(function(r){window.__wbRate=r;function ap(){var v=document.querySelector('video');if(v&&v.playbackRate!==window.__wbRate)v.playbackRate=window.__wbRate;}ap();" +
+            "if(!window.__wbRateHook){window.__wbRateHook=1;document.addEventListener('loadeddata',function(){ap();setTimeout(ap,500);},true);" +
+            "document.addEventListener('play',ap,true);}})(" + r + ")"
+        activeWeb()?.evaluateJavascript("(function(){try{" + js + "}catch(e){}})()", null)
     }
 
     /** Am luong TV (luong media) theo muc 0..100. */
