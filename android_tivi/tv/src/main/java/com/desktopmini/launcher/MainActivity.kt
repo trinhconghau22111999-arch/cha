@@ -906,7 +906,8 @@ class MainActivity : Activity(), FullscreenHost {
 
     // ---------------- Ẩn/hiện nút trên thanh dưới ----------------
 
-    private val barNames = listOf("Menu", "TV", "YouTube", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)")
+    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ←
+    private val barNames = listOf("Menu", "TV", "Trình duyệt", "YouTube", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)")
     private val rightNames = listOf("Pin", "Giờ", "Ngày dương", "Âm lịch")
     private fun rightViews() = listOf(tvBatt, tvTime, tvDate, tvLunar)
 
@@ -918,8 +919,8 @@ class MainActivity : Activity(), FullscreenHost {
     /** Áp trạng thái ẩn/hiện đã lưu lên thanh dưới (nút X luôn hiện để còn mở được bảng này). */
     private fun applyBarVisibility() {
         val h = hiddenSet()
-        barItems.forEachIndexed { i, b -> b.visibility = if (barNames[i] in h) View.GONE else View.VISIBLE }
-        rightViews().forEachIndexed { i, v -> v.visibility = if (rightNames[i] in h) View.GONE else View.VISIBLE }
+        barItems.forEachIndexed { i, b -> b.visibility = if ((barNames.getOrNull(i) ?: "") in h) View.GONE else View.VISIBLE }
+        rightViews().forEachIndexed { i, v -> v.visibility = if ((rightNames.getOrNull(i) ?: "") in h) View.GONE else View.VISIBLE }
         if (barFocus >= 0 && barItems.getOrNull(barFocus)?.visibility == View.GONE) { barFocus = -1 }
         updateButtons()
     }
