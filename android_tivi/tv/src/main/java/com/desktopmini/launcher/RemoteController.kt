@@ -127,6 +127,7 @@ class RemoteController(
             "fullscreen" -> onFullscreen?.invoke()
             "back" -> onBack?.invoke()
             "media" -> media(o.optString("cmd"))
+            "mouse" -> if (!o.optBoolean("on", true)) hideCursor()      // nút Chuột trên remote: TẮT thì ẩn con trỏ ngay
         }
     }
 

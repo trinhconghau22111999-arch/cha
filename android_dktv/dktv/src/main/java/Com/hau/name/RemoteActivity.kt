@@ -277,6 +277,17 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         key(DPadButton.RIGHT, "right", 52, 100, Gravity.END or Gravity.CENTER_VERTICAL, r = 26)
         key(DPadButton.OK, "ok", 72, 72, Gravity.CENTER)
         attachTouchpad(pad)
+        // Nút bật/tắt chuột (góc phải trên khung): TẮT = chắc chắn chỉ dùng phím (không gửi chuột/cuộn, TV không bỏ phím);
+        // BẬT = ưu tiên dùng chuột (TV không bỏ lệnh chuột, đang dùng chuột thì phím tạm bị bỏ).
+        mouseOn = getSharedPreferences("remote_ui", MODE_PRIVATE).getBoolean("mouse", true)
+        btnMouse = TextView(this).apply {
+            textSize = 9f; gravity = Gravity.CENTER; letterSpacing = 0.05f
+            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+            contentDescription = "Bật/tắt chuột"
+            setOnClickListener { Haptics.tick(this); setMouse(!mouseOn) }
+        }
+        pad.addView(btnMouse, FrameLayout.LayoutParams(dp(54), dp(46), Gravity.TOP or Gravity.END).also { it.setMargins(0, dp(14), dp(14), 0) })
+        refreshMouseButton()
         root.addView(pad, LinearLayout.LayoutParams(-1, 0, 1f).also { it.topMargin = dp(10); it.bottomMargin = dp(4) })
         // Dòng chú thích cách dùng chuột cảm ứng đã được ẩn khỏi giao diện
         root.addView(View(this), LinearLayout.LayoutParams(-1, dp(8)))
@@ -460,9 +471,31 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
     private val sampY = FloatArray(6)
     private var sampN = 0
 
+    private var mouseOn = true
+    private lateinit var btnMouse: TextView
+
+    private fun refreshMouseButton() {
+        val c = if (mouseOn) Neon.GREEN else Neon.RED
+        btnMouse.text = if (mouseOn) "CHUỘT\nBẬT" else "CHUỘT\nTẮT"
+        btnMouse.setTextColor(c)
+        btnMouse.background = neon(Neon.PANEL, c, 8f, glow = mouseOn)
+    }
+
+    private fun setMouse(on: Boolean) {
+        mouseOn = on
+        getSharedPreferences("remote_ui", MODE_PRIVATE).edit().putBoolean("mouse", on).apply()
+        if (!on) {   // đang cuộn/trượt dở thì dừng hẳn
+            stopFling(); pendDx = 0f; pendDy = 0f; pendScroll = 0f; scrollActive = false
+        }
+        refreshMouseButton()
+        send(JSONObject().put("action", "mouse").put("on", on), warn = false)
+        Toast.makeText(this, if (on) "Chuột: BẬT (ưu tiên chuột)" else "Chuột: TẮT (chỉ dùng phím)", Toast.LENGTH_SHORT).show()
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     private fun attachTouchpad(pad: View) {
         pad.setOnTouchListener { _, e ->
+            if (!mouseOn) return@setOnTouchListener true      // chuột đang TẮT: bỏ qua mọi cử chỉ trên khung
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     lastX = e.x; lastY = e.y; startX = e.x; startY = e.y
@@ -722,6 +755,8 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
     // ---------------------------------------------------------------- Gui lenh
 
     private fun send(cmd: JSONObject, warn: Boolean = true) {
+        // Lệnh phím / chuột kèm trạng thái nút chuột để TV biết ưu tiên bên nào
+        when (cmd.optString("action")) { "key", "move", "click", "scroll" -> cmd.put("mouse", mouseOn) }
         val json = cmd.put("type", "remote").toString()
         sender.execute {
             val n = CameraStreamService.instance?.sendRemoteCommand(json) ?: 0

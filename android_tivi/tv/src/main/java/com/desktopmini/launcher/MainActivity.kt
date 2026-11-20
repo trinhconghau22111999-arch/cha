@@ -453,9 +453,9 @@ class MainActivity : Activity(), FullscreenHost {
     private var lastKeyAt = 0L
     private var lastPtrAt = 0L
 
-    private fun allowKeyInput(): Boolean {
+    private fun allowKeyInput(force: Boolean = false): Boolean {
         val now = android.os.SystemClock.uptimeMillis()
-        if (lastInputKind == 2 && now - lastPtrAt < INPUT_LOCK_MS) return false
+        if (!force && lastInputKind == 2 && now - lastPtrAt < INPUT_LOCK_MS) return false
         if (lastInputKind != 1) {
             ui.post { if (::remote.isInitialized) remote.hideCursor(); RemoteAccessibilityService.instance?.hideCursor() }
             lastInputKind = 1
@@ -464,9 +464,9 @@ class MainActivity : Activity(), FullscreenHost {
         return true
     }
 
-    private fun allowPointerInput(): Boolean {
+    private fun allowPointerInput(force: Boolean = false): Boolean {
         val now = android.os.SystemClock.uptimeMillis()
-        if (lastInputKind == 1 && now - lastKeyAt < INPUT_LOCK_MS) return false
+        if (!force && lastInputKind == 1 && now - lastKeyAt < INPUT_LOCK_MS) return false
         if (lastInputKind != 2) {
             lastInputKind = 2
             if (barFocus >= 0 && mode != 0) { ui.removeCallbacks(barRelease); barFocus = -1; updateButtons() }
@@ -659,9 +659,18 @@ class MainActivity : Activity(), FullscreenHost {
 
     /** App TV ở phía trước: RemoteController xử lý. App khác ở phía trước: chuyển cho dịch vụ Trợ năng + phím media hệ thống. */
     fun routeRemote(json: String) {
-        when (try { JSONObject(json).optString("action") } catch (e: Exception) { "" }) {
-            "move", "click" -> if (!allowPointerInput()) return      // đang dùng phím: tạm bỏ chuột
-            "key" -> if (!allowKeyInput()) return                    // đang dùng chuột: tạm bỏ phím
+        // Nút "Chuột" trên remote điện thoại: mouse=false -> chỉ dùng phím (phím luôn được nhận, bỏ lệnh chuột);
+        // mouse=true -> ưu tiên chuột (chuột luôn được nhận, đang dùng chuột thì phím tạm bị bỏ).
+        // Không có trường mouse (remote bản cũ) -> giữ cách cũ: ai dùng trước thì loại kia tạm tắt.
+        val jo = try { JSONObject(json) } catch (e: Exception) { JSONObject() }
+        val mouseFlag: Boolean? = if (jo.has("mouse")) jo.optBoolean("mouse") else null
+        when (jo.optString("action")) {
+            "move", "click", "scroll" -> if (mouseFlag == false) return
+            else -> { }
+        }
+        when (jo.optString("action")) {
+            "move", "click" -> if (!allowPointerInput(force = mouseFlag == true)) return      // chuột TẮT/đang dùng phím (bản cũ): bỏ chuột
+            "key" -> if (!allowKeyInput(force = mouseFlag == false)) return                    // chuột BẬT và đang dùng chuột: tạm bỏ phím
         }
         val svc = RemoteAccessibilityService.instance
         if (try { JSONObject(json).optString("action") == "home" } catch (e: Exception) { false }) { remoteHome(); return }
