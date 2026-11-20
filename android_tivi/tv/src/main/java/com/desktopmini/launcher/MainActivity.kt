@@ -305,7 +305,7 @@ class MainActivity : Activity(), FullscreenHost {
         btnFiles = barBtn("Tệp").apply { setOnClickListener { hideMenu(); onModeButton(3) } }
         val btnHome = barBtn("Home").apply { setOnClickListener { hideMenu(); goTvHome() } }
         val btnUpdate = barBtn("Cập nhật").apply { setOnClickListener { hideMenu(); Updater.start(this@MainActivity) } }
-        // OFF: nhấn thường = tắt hình TV (khóa màn hình); nhấn giữ 2 giây = mở menu nguồn để tắt nguồn
+        // OFF: nhấn thường = tắt hình TV (khóa màn hình); nhấn giữ 1,2 giây = mở menu nguồn để tắt nguồn
         var offHeld = false
         val offFire = Runnable {
             offHeld = true; hideMenu()
@@ -322,7 +322,7 @@ class MainActivity : Activity(), FullscreenHost {
             }
             setOnTouchListener { _, ev ->
                 when (ev.actionMasked) {
-                    android.view.MotionEvent.ACTION_DOWN -> { offHeld = false; ui.removeCallbacks(offFire); ui.postDelayed(offFire, 2000); false }
+                    android.view.MotionEvent.ACTION_DOWN -> { offHeld = false; ui.removeCallbacks(offFire); ui.postDelayed(offFire, 1200); false }
                     android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> { ui.removeCallbacks(offFire); val h = offHeld; offHeld = false; h }
                     else -> offHeld
                 }
