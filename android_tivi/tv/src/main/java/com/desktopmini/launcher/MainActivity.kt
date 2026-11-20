@@ -305,16 +305,37 @@ class MainActivity : Activity(), FullscreenHost {
         btnFiles = barBtn("Tệp").apply { setOnClickListener { hideMenu(); onModeButton(3) } }
         val btnHome = barBtn("Home").apply { setOnClickListener { hideMenu(); goTvHome() } }
         val btnUpdate = barBtn("Cập nhật").apply { setOnClickListener { hideMenu(); Updater.start(this@MainActivity) } }
+        // OFF: nhấn thường = tắt hình TV (khóa màn hình); nhấn giữ 2 giây = mở menu nguồn để tắt nguồn
+        var offHeld = false
+        val offFire = Runnable {
+            offHeld = true; hideMenu()
+            if (RemoteAccessibilityService.instance?.powerMenu() != true)
+                Toast.makeText(this, "Cần bật Trợ năng cho app TV để tắt nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
+        }
+        val btnOff = barBtn("OFF").apply {
+            setOnClickListener {
+                hideMenu()
+                if (RemoteAccessibilityService.instance?.lockScreen() != true)
+                    Toast.makeText(this@MainActivity, "Cần bật Trợ năng cho app TV để tắt màn hình (Android 9 trở lên)", Toast.LENGTH_LONG).show()
+            }
+            setOnTouchListener { _, ev ->
+                when (ev.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> { offHeld = false; ui.removeCallbacks(offFire); ui.postDelayed(offFire, 2000); false }
+                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> { ui.removeCallbacks(offFire); val h = offHeld; offHeld = false; h }
+                    else -> offHeld
+                }
+            }
+        }
         val btnBack = barBtn("", ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat())).apply {
             contentDescription = "Thoát"; setOnClickListener { hideMenu(); goBack() }
         }
-        // 10 nút bằng nhau: Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát)
+        // 11 nút bằng nhau: Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | OFF | ← (Thoát)
         val group = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack).forEachIndexed { i, b ->
+        listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnOff, btnBack).forEachIndexed { i, b ->
             group.addView(b, LinearLayout.LayoutParams(0, -1, 1f).also { if (i > 0) it.leftMargin = dp(4) })
         }
         bar.addView(group, LinearLayout.LayoutParams(0, -1, 1f))
-        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack))
+        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnOff, btnBack))
 
         // Góc phải: giờ, ngày, âm lịch (cùng cỡ chữ 13sp, đậm), rồi nút X gỡ app
         val cluster = 13f
@@ -985,8 +1006,8 @@ class MainActivity : Activity(), FullscreenHost {
 
     // ---------------- Ẩn/hiện nút trên thanh dưới ----------------
 
-    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ←
-    private val barNames = listOf("Menu", "TV", "Trình duyệt", "YouTube", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)")
+    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | OFF | ←
+    private val barNames = listOf("Menu", "TV", "Trình duyệt", "YouTube", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "OFF", "← (Thoát)")
     private val rightNames = listOf("Pin", "Giờ", "Ngày dương", "Âm lịch")
     private fun rightViews() = listOf(tvBatt, tvTime, tvDate, tvLunar)
 

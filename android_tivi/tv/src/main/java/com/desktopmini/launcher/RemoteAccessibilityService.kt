@@ -185,4 +185,7 @@ class RemoteAccessibilityService : AccessibilityService() {
 
     /** Khóa màn hình (tắt hình TV) bằng dịch vụ trợ năng, không cần quyền Quản trị thiết bị. Chỉ Android 9 trở lên. */
     fun lockScreen(): Boolean = Build.VERSION.SDK_INT >= 28 && performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+
+    /** Mở menu nguồn của Android (có nút Tắt nguồn). App thường không tự tắt nguồn được, nên người dùng bấm xác nhận trong menu này. Chỉ Android 9 trở lên. */
+    fun powerMenu(): Boolean = Build.VERSION.SDK_INT >= 28 && performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
 }
