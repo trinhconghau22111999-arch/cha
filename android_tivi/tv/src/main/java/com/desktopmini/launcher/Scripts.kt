@@ -513,3 +513,31 @@ const val YT_PROFILE_HOLD_JS = """
  document.addEventListener('contextmenu',function(e){ if(onLogo(e)) e.preventDefault(); },true);
 })();
 """
+
+
+/**
+ * Phụ đề YouTube (nút CC trên remote): TV nhớ yêu cầu (mặc định TẮT) và ép đúng trạng thái đó cho mọi video:
+ * kiểm tra lúc video nạp / phát, khi chuyển trang kiểu SPA và định kỳ mỗi 3 giây. Thay __ON__ bằng true / false.
+ */
+const val YT_CC_JS = """
+(function(on){
+ window.__wbCCOn=on;
+ function pl(){return document.getElementById('movie_player')||document.querySelector('.html5-video-player');}
+ function state(p){try{var t=p.getOption('captions','track');return !!(t&&t.languageCode);}catch(e){return null;}}
+ function ap(){try{
+   var p=pl(); if(!p||!p.getOption) return; var s=state(p);
+   if(window.__wbCCOn){
+     if(s===false){ try{p.loadModule('captions');}catch(e){} try{ if(p.toggleSubtitlesOn) p.toggleSubtitlesOn(); }catch(e){} }
+   } else {
+     if(s!==false){ try{p.unloadModule('captions');}catch(e){} try{p.setOption('captions','track',{});}catch(e){} }
+   }
+ }catch(e){} }
+ window.__wbCCap=ap; ap(); setTimeout(ap,600); setTimeout(ap,2000);
+ if(!window.__wbCCHook){
+   window.__wbCCHook=1;
+   ['loadeddata','play','playing'].forEach(function(n){ document.addEventListener(n,function(){ setTimeout(ap,300); setTimeout(ap,1500); },true); });
+   window.addEventListener('yt-navigate-finish',function(){ setTimeout(ap,800); },true);
+   setInterval(function(){ try{ if(window.__wbCCap) window.__wbCCap(); }catch(e){} },3000);
+ }
+})(__ON__)
+"""

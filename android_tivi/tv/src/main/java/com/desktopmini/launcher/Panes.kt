@@ -191,6 +191,9 @@ class YouTubePane(private val act: Activity, private val full: FullscreenHost) {
                     view?.evaluateJavascript(HIDE_SHORTS_JS, null)
                     view?.evaluateJavascript(HIDE_HOME_CHROME_JS, null)
                     view?.evaluateJavascript(YT_PROFILE_HOLD_JS, null)
+                    // Phụ đề: TV nhớ yêu cầu từ nút CC trên remote (mặc định TẮT) và áp lên mọi trang YouTube
+                    val ccOn = act.getSharedPreferences("tv", android.content.Context.MODE_PRIVATE).getBoolean("ccOn", false)
+                    view?.evaluateJavascript(YT_CC_JS.replace("__ON__", if (ccOn) "true" else "false"), null)
                 }
             }
         }

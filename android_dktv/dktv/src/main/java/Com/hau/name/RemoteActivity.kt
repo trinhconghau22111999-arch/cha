@@ -187,6 +187,16 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
             contentDescription = "Bật/tắt nút"
             setOnClickListener { showButtonsDialog() }
         }
+        // Nút CC (bật/tắt phụ đề trên TV): TV nhớ yêu cầu; mặc định TẮT. TẮT thì TV luôn tắt phụ đề cho mọi video.
+        ccOn = getSharedPreferences("remote_ui", MODE_PRIVATE).getBoolean("cc", false)
+        btnCc = TextView(this).apply {
+            text = "CC"; textSize = 13f; gravity = Gravity.CENTER; letterSpacing = 0.05f
+            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+            contentDescription = "Bật/tắt phụ đề trên TV"
+            setOnClickListener { Haptics.tick(this); setCc(!ccOn) }
+        }
+        refreshCcButton()
+        head.addView(btnCc, LinearLayout.LayoutParams(dp(40), dp(34)).also { it.rightMargin = dp(8) })
         head.addView(gear, LinearLayout.LayoutParams(dp(36), dp(34)).also { it.rightMargin = dp(8) })
         head.addView(chip)
         root.addView(head, LinearLayout.LayoutParams(-1, -2))
@@ -358,6 +368,27 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         (Color.green(base) * 0.65f + Color.green(accent) * 0.35f).toInt(),
         (Color.blue(base) * 0.65f + Color.blue(accent) * 0.35f).toInt()
     )
+
+    // ---------------------------------------------------------------- Phụ đề CC
+
+    private var ccOn = false
+    private lateinit var btnCc: TextView
+
+    private fun refreshCcButton() {
+        val c = if (ccOn) Neon.CYAN else Neon.DIM
+        btnCc.setTextColor(c)
+        btnCc.background = neon(if (ccOn) mix2(Neon.PANEL, Neon.CYAN) else Neon.PANEL, if (ccOn) Neon.CYAN else Neon.EDGE, 8f, glow = ccOn)
+    }
+
+    private fun sendCc() { send(JSONObject().put("action", "cc").put("on", ccOn), warn = false) }
+
+    private fun setCc(on: Boolean) {
+        ccOn = on
+        getSharedPreferences("remote_ui", MODE_PRIVATE).edit().putBoolean("cc", on).apply()
+        refreshCcButton()
+        sendCc()
+        Toast.makeText(this, if (on) "Phụ đề TV: BẬT" else "Phụ đề TV: TẮT (TV luôn tắt phụ đề)", Toast.LENGTH_SHORT).show()
+    }
 
     // ---------------------------------------------------------------- Tốc độ phát 1x / 2x
 
@@ -800,7 +831,10 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
     // ---------------------------------------------------------------- Trang thai ket noi
 
     override fun onConnectionStatusChanged(connectedCount: Int) {
+        val was = connected
         setConnected(connectedCount > 0)
+        // Vừa kết nối (lại) với TV: gửi lại trạng thái phụ đề đã chọn để TV và nút CC luôn khớp nhau
+        if (!was && connectedCount > 0) ui.postDelayed({ sendCc() }, 1000)
     }
 
     private fun setConnected(on: Boolean) {

@@ -127,6 +127,7 @@ class RemoteController(
             "fullscreen" -> onFullscreen?.invoke()
             "back" -> onBack?.invoke()
             "media" -> media(o.optString("cmd"))
+            "cc" -> setCc(o.optBoolean("on", false))
             "speed" -> setSpeed(o.optDouble("rate", 1.0))
             "mouse" -> if (!o.optBoolean("on", true)) hideCursor()      // nút Chuột trên remote: TẮT thì ẩn con trỏ ngay
         }
@@ -195,6 +196,12 @@ class RemoteController(
         wv.evaluateJavascript("typeof window.__wbScroll==='function'?" + call + ":0") { r ->
             if (r == "0") wv.evaluateJavascript(SCROLL_DEF + ";" + call) { done() } else done()
         }
+    }
+
+    /** Nut CC tren remote: nho yeu cau (mac dinh TAT) va ap ngay len trang dang mo; trang YouTube nap sau cung duoc ap lai (xem YouTubePane). */
+    private fun setCc(on: Boolean) {
+        act.getSharedPreferences("tv", Context.MODE_PRIVATE).edit().putBoolean("ccOn", on).apply()
+        activeWeb()?.evaluateJavascript(YT_CC_JS.replace("__ON__", if (on) "true" else "false"), null)
     }
 
     /** Toc do phat video 1x / 2x (nut nho giua LUI va BAI TIEP tren remote). Nho toc do va ap lai khi YouTube doi video. */
