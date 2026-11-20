@@ -472,7 +472,23 @@ const val YT_PROFILE_HOLD_JS = """
  function go(){
    timer=null; fired=true;
    try{ if(navigator.vibrate) navigator.vibrate(40); }catch(e){}
-   location.href='/feed/you';
+   // Bấm đúng tab "Bạn" ở thanh dưới của YouTube (điều hướng trong trang, giống tự bấm) -> hiện ngay trang "Bạn" có Video đã xem / Danh sách phát.
+   // Trước đây nạp lại cả trang bằng location.href nên có lúc ra trang trắng chưa có nội dung.
+   var t=null;
+   try{
+     t=document.querySelector('ytm-pivot-bar-item-renderer .pivot-library')||document.querySelector('.pivot-library');
+     if(!t){ var items=document.querySelectorAll('ytm-pivot-bar-item-renderer'); if(items.length) t=items[items.length-1]; }
+     if(!t) t=document.querySelector('a[href="/feed/you"],a[href="/feed/library"]');
+   }catch(e){}
+   if(t){
+     try{ (t.querySelector&&t.querySelector('.pivot-bar-item-tab'))? t.querySelector('.pivot-bar-item-tab').click() : t.click(); }catch(e){}
+     // không vào được "Bạn" sau 1,5 giây (không có thanh dưới / bấm không ăn) thì nạp thẳng trang như cũ
+     setTimeout(function(){
+       try{ var pth=location.pathname||''; if(pth.indexOf('/feed/you')<0&&pth.indexOf('/feed/library')<0) location.href='/feed/you'; }catch(e){}
+     },1500);
+   } else {
+     location.href='/feed/you';
+   }
  }
  function start(e){
    if(!onLogo(e)) return;
