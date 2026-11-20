@@ -154,6 +154,16 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
             text = "REMOTE"; textSize = 10f; setTextColor(Neon.MAGENTA); letterSpacing = 0.3f
             typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
         }, LinearLayout.LayoutParams(-2, -2).also { it.leftMargin = dp(8); it.bottomMargin = dp(3) })
+        // Nhấn giữ chữ "DK TV" góc trái trên 2 giây: tải bản mới nhất rồi mở trình cài đặt (Cập nhật)
+        var updHeld = false
+        val fireUpdate = Runnable { updHeld = true; Haptics.tick(title); Updater.start(this) }
+        title.setOnTouchListener { _, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { updHeld = false; ui.removeCallbacks(fireUpdate); ui.postDelayed(fireUpdate, 2000); true }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { ui.removeCallbacks(fireUpdate); true }
+                else -> true
+            }
+        }
         head.addView(title, LinearLayout.LayoutParams(0, -2, 1f))
         statusText = TextView(this).apply {
             textSize = 10.5f; letterSpacing = 0.1f

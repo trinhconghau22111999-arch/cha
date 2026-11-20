@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Bản cập nhật APK tải về nằm trong thư mục riêng của app -->
+    <external-files-path name="ext" path="." />
+    <files-path name="int" path="." />
+</paths>
