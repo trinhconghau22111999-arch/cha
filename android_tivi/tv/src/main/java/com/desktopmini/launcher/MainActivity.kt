@@ -769,6 +769,7 @@ class MainActivity : Activity(), FullscreenHost {
             if (pkg == packageName) continue
             // Không lọc app hệ thống nữa. Mỗi màn hình mở được (activity) là một ô; chỉ gộp bản trùng.
             if (!seen.add(pkg + "/" + ri.activityInfo.name)) continue
+            if (hiddenApps().contains(pkg + "/" + ri.activityInfo.name)) continue   // đã "Xoá khỏi list"
             val label = try { ri.loadLabel(pm).toString() } catch (e: Exception) { pkg }
             // Một app vừa có icon TV vừa có icon điện thoại cùng tên: chỉ giữ icon TV (đã xếp trước)
             if (out.any { it.pkg == pkg && it.label == label }) continue
@@ -838,6 +839,40 @@ class MainActivity : Activity(), FullscreenHost {
                     return cell
                 }
             }
+            // Nhấn giữ 2 giây vào một icon: bảng 3 mục (Xoá khỏi list / Thông tin ứng dụng / Gỡ ứng dụng)
+            var appHeld = false
+            var downPos = -1
+            var downX = 0f; var downY = 0f
+            val slop = dp(10)
+            val fireApp = Runnable {
+                if (downPos in apps.indices) {
+                    appHeld = true
+                    val c = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+                    try { onTouchEvent(c) } catch (ex: Exception) { }
+                    c.recycle()
+                    showAppActions(apps[downPos])
+                }
+            }
+            setOnTouchListener { _, ev ->
+                when (ev.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        appHeld = false; downX = ev.x; downY = ev.y
+                        downPos = pointToPosition(ev.x.toInt(), ev.y.toInt())
+                        ui.removeCallbacks(fireApp)
+                        if (downPos >= 0) ui.postDelayed(fireApp, 2000)
+                        false
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        if (!appHeld && (Math.abs(ev.x - downX) > slop || Math.abs(ev.y - downY) > slop)) ui.removeCallbacks(fireApp)
+                        appHeld
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        ui.removeCallbacks(fireApp)
+                        val h = appHeld; appHeld = false; h
+                    }
+                    else -> appHeld
+                }
+            }
             setOnItemClickListener { _, _, pos, _ ->
                 val e = apps[pos]
                 val intent = Intent(Intent.ACTION_MAIN).setClassName(e.pkg, e.cls)
@@ -847,6 +882,68 @@ class MainActivity : Activity(), FullscreenHost {
             }
         }
         menuLayer.addView(grid, FrameLayout.LayoutParams(-1, -1))
+    }
+
+    private fun hiddenApps(): MutableSet<String> =
+        (getSharedPreferences("tv", MODE_PRIVATE).getString("hiddenApps", "") ?: "").split("|").filter { it.isNotEmpty() }.toMutableSet()
+
+    private var pendingAppRefresh = false
+
+    /** Bảng 3 mục khi nhấn giữ icon app trong menu. */
+    private fun showAppActions(e: AppEntry) {
+        val items = arrayOf("Xoá khỏi list", "Thông tin ứng dụng", "Gỡ ứng dụng")
+        AlertDialog.Builder(this)
+            .setTitle(e.label)
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> {   // chỉ ẩn icon khỏi danh sách menu, app vẫn còn trên máy
+                        val h = hiddenApps(); h.add(e.pkg + "/" + e.cls)
+                        getSharedPreferences("tv", MODE_PRIVATE).edit().putString("hiddenApps", h.joinToString("|")).apply()
+                        val list = (appCache ?: emptyList()).filter { !(it.pkg == e.pkg && it.cls == e.cls) }
+                        appCache = list
+                        if (menuOpen()) renderApps(list)
+                        Toast.makeText(this, "Đã xoá \"" + e.label + "\" khỏi list", Toast.LENGTH_SHORT).show()
+                    }
+                    1 -> {   // trang Thông tin ứng dụng của hệ thống
+                        try {
+                            startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + e.pkg))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                        } catch (ex: Exception) {
+                            Toast.makeText(this, "Không mở được thông tin ứng dụng", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    2 -> confirmUninstallApp(e)
+                }
+            }
+            .setNegativeButton("Hủy", null)
+            .show()
+    }
+
+    /** Gỡ ứng dụng khỏi máy (hỏi lại trước khi gỡ). */
+    private fun confirmUninstallApp(e: AppEntry) {
+        val ai = try { packageManager.getApplicationInfo(e.pkg, 0) } catch (ex: Exception) { null }
+        if (ai == null) { Toast.makeText(this, "Không tìm thấy ứng dụng này", Toast.LENGTH_SHORT).show(); return }
+        val isSystem = (ai.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+        val isUpdatedSystem = (ai.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+        if (isSystem && !isUpdatedSystem) {
+            Toast.makeText(this, "\"" + e.label + "\" là ứng dụng hệ thống, không gỡ khỏi máy được", Toast.LENGTH_LONG).show()
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Gỡ \"" + e.label + "\" khỏi máy?")
+            .setMessage("Ứng dụng sẽ bị gỡ cài đặt khỏi thiết bị.")
+            .setPositiveButton("Gỡ") { _, _ ->
+                try {
+                    pendingAppRefresh = true
+                    @Suppress("DEPRECATION")
+                    startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:" + e.pkg)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                } catch (ex: Exception) {
+                    pendingAppRefresh = false
+                    Toast.makeText(this, "Không gỡ được ứng dụng này", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Hủy", null)
+            .show()
     }
 
     private fun openTvSettings() {
@@ -1188,7 +1285,7 @@ class MainActivity : Activity(), FullscreenHost {
     override fun onStart() { super.onStart(); RemoteHub.host?.attach(hidden) }
     override fun onStop() { super.onStop(); RemoteHub.host?.detach() }
 
-    override fun onResume() { super.onResume(); resumed = true; RemoteHub.appVisible = true; RemoteAccessibilityService.instance?.hideCursor(); if (accPendingHome) { accPendingHome = false; ui.postDelayed({ maybeAskDefaultHome() }, 500) }; hideSystemBars(); refreshStatus(); if (mode == 1) tv?.onResume() else if (mode == 2) yt?.onResume() else if (mode == 3) files?.onResume() else if (mode == 4) aikara?.onResume(); consumePendingFile() }
+    override fun onResume() { super.onResume(); resumed = true; RemoteHub.appVisible = true; RemoteAccessibilityService.instance?.hideCursor(); if (accPendingHome) { accPendingHome = false; ui.postDelayed({ maybeAskDefaultHome() }, 500) }; hideSystemBars(); refreshStatus(); if (mode == 1) tv?.onResume() else if (mode == 2) yt?.onResume() else if (mode == 3) files?.onResume() else if (mode == 4) aikara?.onResume(); consumePendingFile(); if (pendingAppRefresh) { pendingAppRefresh = false; if (menuOpen()) showAppMenu() } }
     override fun onPause() { super.onPause(); resumed = false; RemoteHub.appVisible = false; tv?.onPause(); yt?.onPause(); files?.onPause(); aikara?.onPause(); browser?.onPause() }
 
     override fun onDestroy() {
