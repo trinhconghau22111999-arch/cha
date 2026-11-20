@@ -315,8 +315,10 @@ class MainActivity : Activity(), FullscreenHost {
         val btnOff = barBtn("OFF").apply {
             setOnClickListener {
                 hideMenu()
-                if (RemoteAccessibilityService.instance?.lockScreen() != true)
-                    Toast.makeText(this@MainActivity, "Cần bật Trợ năng cho app TV để tắt màn hình (Android 9 trở lên)", Toast.LENGTH_LONG).show()
+                if (!ScreenAdmin.lock(this@MainActivity)) {
+                    Toast.makeText(this@MainActivity, "Cần bật Quản trị thiết bị cho app TV để tắt màn hình", Toast.LENGTH_LONG).show()
+                    ScreenAdmin.requestActivation(this@MainActivity)
+                }
             }
             setOnTouchListener { _, ev ->
                 when (ev.actionMasked) {
@@ -1156,6 +1158,7 @@ class MainActivity : Activity(), FullscreenHost {
     private fun selfRemove() {
         // 1) Bỏ thiết lập "giao diện mặc định" của app này (nếu có)
         try { packageManager.clearPackagePreferredActivities(packageName) } catch (e: Exception) { }
+        ScreenAdmin.deactivate(this)      // bỏ quyền Quản trị thiết bị, nếu không app sẽ không gỡ được
         // 2) Gỡ app
         try {
             startActivity(Intent(Intent.ACTION_DELETE, Uri.parse("package:$packageName")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

@@ -269,9 +269,9 @@ class RemoteController(
     /** Tắt màn hình TV bằng dịch vụ trợ năng (Android 9+), không cần quyền Quản trị thiết bị.
      *  Không được thì giảm độ sáng xuống thấp nhất. */
     private fun lock() {
-        if (RemoteAccessibilityService.instance?.lockScreen() == true) return
-        setBrightness(0)
-        Toast.makeText(act, "TV này không tắt được hình (cần Android 9 trở lên). Đã giảm độ sáng tối thiểu.", Toast.LENGTH_LONG).show()
+        if (ScreenAdmin.lock(act)) return
+        Toast.makeText(act, "Cần bật Quản trị thiết bị cho app TV để tắt màn hình", Toast.LENGTH_LONG).show()
+        ScreenAdmin.requestActivation(act)
     }
 
     @Suppress("DEPRECATION")
