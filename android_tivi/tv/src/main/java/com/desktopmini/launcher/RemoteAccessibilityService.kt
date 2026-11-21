@@ -16,6 +16,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import org.json.JSONObject
 
 /**
@@ -123,6 +124,8 @@ class RemoteAccessibilityService : AccessibilityService() {
         val o = try { JSONObject(json) } catch (e: Exception) { return }
         ui.post {
             val dm = screen()
+            // Remote đang TẮT chuột (chỉ dùng phím): không vẽ/di chuyển con trỏ, phím điều hướng bằng ô chọn thật của app
+            val mouseOff = o.has("mouse") && !o.optBoolean("mouse")
             when (o.optString("action")) {
                 "move" -> {
                     if (!placed) { cx = dm.widthPixels / 2f; cy = dm.heightPixels / 2f; placed = true }
@@ -136,7 +139,11 @@ class RemoteAccessibilityService : AccessibilityService() {
                     showCursor(); pumpScroll(dm)
                 }
                 "back" -> performGlobalAction(GLOBAL_ACTION_BACK)
-                "key" -> key(o.optString("key"), dm)
+                "key" -> {
+                    if (mouseOff) { hideCursor(); navKey(o.optString("key")) }
+                    else key(o.optString("key"), dm)
+                }
+                "mouse" -> if (!o.optBoolean("on", true)) hideCursor()
             }
         }
     }
@@ -179,6 +186,31 @@ class RemoteAccessibilityService : AccessibilityService() {
             else -> return
         }
         showCursor()
+    }
+
+    /**
+     * Chế độ chỉ dùng phím (chuột TẮT): chuyển ô chọn (focus) thật của app đang mở theo hướng ▲▼◀▶, OK = bấm ô đang chọn.
+     * Không dịch/vẽ con trỏ chuột. Cần Android 5+ (focusSearch).
+     */
+    private fun navKey(k: String): Boolean {
+        if (Build.VERSION.SDK_INT < 21) return false
+        val root = try { rootInActiveWindow } catch (e: Exception) { null } ?: return false
+        try {
+            val cur = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY)
+            if (k == "ok") {
+                var n: AccessibilityNodeInfo? = cur
+                while (n != null && !n.isClickable) n = n.parent
+                return n != null && n.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            }
+            val dir = when (k) {
+                "up" -> View.FOCUS_UP; "down" -> View.FOCUS_DOWN
+                "left" -> View.FOCUS_LEFT; "right" -> View.FOCUS_RIGHT
+                else -> return false
+            }
+            val next = (cur ?: root).focusSearch(dir) ?: return false
+            return next.performAction(AccessibilityNodeInfo.ACTION_FOCUS) ||
+                next.performAction(AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS)
+        } catch (e: Exception) { return false }
     }
 
     fun goHome() { performGlobalAction(GLOBAL_ACTION_HOME) }

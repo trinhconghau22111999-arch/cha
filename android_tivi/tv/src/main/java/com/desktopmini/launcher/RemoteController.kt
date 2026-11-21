@@ -129,7 +129,7 @@ class RemoteController(
             "media" -> media(o.optString("cmd"))
             "cc" -> setCc(o.optBoolean("on", false))
             "speed" -> setSpeed(o.optDouble("rate", 1.0))
-            "mouse" -> if (!o.optBoolean("on", true)) hideCursor()      // nút Chuột trên remote: TẮT thì ẩn con trỏ ngay
+            "mouse" -> if (!o.optBoolean("on", true)) { hideCursor(); RemoteAccessibilityService.instance?.hideCursor() }      // nút Chuột trên remote: TẮT thì ẩn con trỏ ngay
         }
     }
 

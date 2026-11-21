@@ -696,6 +696,9 @@ class MainActivity : Activity(), FullscreenHost {
             "key" -> if (!allowKeyInput(force = mouseFlag == false)) return                    // chuột BẬT và đang dùng chuột: tạm bỏ phím
         }
         val svc = RemoteAccessibilityService.instance
+        if (mouseFlag == false && jo.optString("action") == "key") {
+            ui.post { if (::remote.isInitialized) remote.hideCursor(); RemoteAccessibilityService.instance?.hideCursor() }
+        }
         if (try { JSONObject(json).optString("action") == "home" } catch (e: Exception) { false }) { remoteHome(); return }
         if (backBurst(json)) return
         if (resumed || isFinishing) { remote.handle(json); return }
