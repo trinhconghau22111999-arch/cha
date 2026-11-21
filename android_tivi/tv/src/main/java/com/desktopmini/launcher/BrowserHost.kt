@@ -1236,7 +1236,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         m.add(0, 4, 0, "Lịch sử")
         // Mục "Xoá lịch sử" (id 7) và "Dấu trang" (id 3) đã ẩn khỏi menu: xoá lịch sử có nút "Xoá hết" trong trang Lịch sử,
         // dấu trang mở từ nút ★ trên thanh tab; clearData() và showList("Dấu trang") vẫn giữ nguyên.
-        m.add(0, 11, 0, "Chặn web đen / lừa đảo")
+        // Mục "Chặn web đen / lừa đảo" (id 11) đã ẩn khỏi menu; showPhishingManager() và cơ chế chặn vẫn giữ nguyên.
         m.add(0, 13, 0, "Chặn quảng cáo YouTube (tự bấm Bỏ qua)").apply {
             isCheckable = true
             isChecked = adSkipOn
