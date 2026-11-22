@@ -467,86 +467,39 @@ const val HIDE_HOME_CHROME_JS = """
 """
 
 /**
- * YouTube: nhấn giữ chữ/biểu tượng "YouTube" ở góc trái trên cùng 1 giây thì mở trang cá nhân ("Bạn": /feed/you).
- * Nhấn thường vẫn về trang chủ như cũ (nhả tay trước 1 giây); sau khi giữ đủ 1 giây thì bỏ cú chạm để không bị về trang chủ.
+ * YouTube: bấm chữ/biểu tượng "YouTube" ở góc trái trên cùng:
+ *  - 1 lần = về trang chủ như cũ (chờ ~0,4 giây xem có bấm tiếp không);
+ *  - 2 lần liền = mở trang "Xem sau" (/playlist?list=WL);
+ *  - 3 lần liền = mở trang lịch sử (/feed/history).
  */
 const val YT_PROFILE_HOLD_JS = """
 (function(){
- if(window.__wbProfileHold2) return; window.__wbProfileHold2=true;
+ if(window.__wbLogoTaps) return; window.__wbLogoTaps=true;
  var SEL='ytm-home-logo,.mobile-topbar-logo,ytm-mobile-topbar-renderer a[href="/"],ytm-mobile-topbar-renderer #home-icon,ytd-masthead #logo,ytd-masthead a#logo,#logo-icon,a[aria-label="YouTube Home"],a[title="YouTube"],a[aria-label="YouTube"],ytm-mobile-topbar-renderer ytm-home-logo,ytm-mobile-topbar-renderer c3-icon,ytm-mobile-topbar-renderer yt-icon';
- var timer=null, fired=false, down=false, sx=0, sy=0;
- // chặn bôi đen / menu giữ-lâu của hệ thống trên logo (menu này làm huỷ cú chạm nên trước đây giữ không ăn)
+ var cnt=0, timer=null, lastEl=null, bypass=false;
  try{ var st=document.createElement('style'); st.textContent=SEL+'{-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;-webkit-tap-highlight-color:transparent!important}'; (document.head||document.documentElement).appendChild(st); }catch(e){}
- function pt(e){ return (e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e; }
- // Logo: khớp theo bộ chọn, hoặc (phòng YouTube đổi giao diện) theo vị trí: góc trái trên cùng của trang, ngoài khung video
  function onLogo(e){
    try{
      var t=e.target; if(!t||!t.closest) return false;
      if(t.closest(SEL)) return true;
-     var p=pt(e);
-     if(p && p.clientX<150 && p.clientY<60 && !t.closest('#movie_player,.html5-video-player,video,input,textarea')) return true;
+     if(e.clientX<150 && e.clientY<60 && !t.closest('#movie_player,.html5-video-player,video,input,textarea')) return true;
    }catch(x){}
    return false;
  }
- function clear(){ if(timer){ clearTimeout(timer); timer=null; } }
- function onPageOk(){
-   try{
-     var pth=location.pathname||'';
-     if(pth.indexOf('/feed/you')<0&&pth.indexOf('/feed/library')<0) return false;
-     // trang đã có nội dung thật (không phải trang trắng)
-     var n=document.querySelectorAll('ytm-item-section-renderer,ytm-shelf-renderer,ytm-compact-video-renderer,ytm-video-with-context-renderer,ytm-playlist-renderer,ytm-channel-list-sub-menu-renderer,ytm-profile-icon,ytd-browse,ytm-account-section-list-renderer').length;
-     return n>0 || ((document.body&&document.body.innerText)||'').replace(/\s+/g,'').length>80;
-   }catch(e){ return true; }
+ function vib(){ try{ if(navigator.vibrate) navigator.vibrate(40); }catch(e){} }
+ function fin(){
+   timer=null; var n=cnt, el=lastEl; cnt=0; lastEl=null;
+   if(n>=3){ vib(); location.href='/feed/history'; }
+   else if(n===2){ vib(); location.href='/playlist?list=WL'; }
+   else if(el){ bypass=true; try{ el.click(); }catch(e){} bypass=false; }
  }
- function hardLoad(){ try{ sessionStorage.setItem('__wbYouTry','1'); }catch(e){} location.href='/feed/you'; }
- function go(){
-   timer=null; fired=true; down=false;
-   try{ if(navigator.vibrate) navigator.vibrate(40); }catch(e){}
-   var t=null;
-   try{
-     t=document.querySelector('ytm-pivot-bar-item-renderer .pivot-library')||document.querySelector('.pivot-library');
-     if(!t){ var items=document.querySelectorAll('ytm-pivot-bar-item-renderer'); if(items.length) t=items[items.length-1]; }
-     if(!t) t=document.querySelector('a[href="/feed/you"],a[href="/feed/library"]');
-   }catch(e){}
-   if(t){
-     try{ (t.querySelector&&t.querySelector('.pivot-bar-item-tab'))? t.querySelector('.pivot-bar-item-tab').click() : t.click(); }catch(e){}
-     // sau 1,6 giây vẫn chưa vào được trang "Bạn" (hoặc vào nhưng trắng) thì nạp thẳng trang
-     setTimeout(function(){ if(!onPageOk()) hardLoad(); },1600);
-   } else {
-     hardLoad();
-   }
- }
- // Vừa nạp thẳng /feed/you mà trang vẫn trắng sau 3 giây: nạp lại đúng 1 lần
- try{
-   if(sessionStorage.getItem('__wbYouTry')==='1'){
-     sessionStorage.removeItem('__wbYouTry');
-     setTimeout(function(){ if((location.pathname||'').indexOf('/feed/you')===0 && !onPageOk()) location.reload(); },3000);
-   }
- }catch(e){}
- function start(e){
-   if(!onLogo(e)) return;
-   fired=false; clear(); down=true;
-   var p=pt(e); sx=p.clientX; sy=p.clientY;
-   timer=setTimeout(function(){ if(down) go(); else timer=null; },1000);
- }
- function move(e){
-   if(!timer) return;
-   var p=pt(e);
-   if(Math.abs(p.clientX-sx)>20||Math.abs(p.clientY-sy)>20){ clear(); down=false; }
- }
- function end(){ down=false; clear(); }
- document.addEventListener('touchstart',start,true);
- document.addEventListener('touchmove',move,true);
- document.addEventListener('touchend',end,true);
- // touchcancel: hệ thống huỷ cú chạm khi nhận ra "giữ lâu" -> KHÔNG huỷ bộ đếm (nếu thật sự là cuộn thì touchmove đã huỷ rồi)
- document.addEventListener('pointerdown',function(e){ if(e.pointerType!=='mouse') start(e); },true);
- document.addEventListener('pointermove',move,true);
- document.addEventListener('pointerup',end,true);
- document.addEventListener('mousedown',start,true);
- document.addEventListener('mouseup',end,true);
- // giữ đủ 1 giây thì chặn cú nhấp sinh ra khi nhả tay (khỏi nhảy về trang chủ)
- document.addEventListener('click',function(e){ if(fired&&onLogo(e)){ e.preventDefault(); e.stopPropagation(); fired=false; } },true);
- document.addEventListener('contextmenu',function(e){ if(onLogo(e)||timer||fired) e.preventDefault(); },true);
+ document.addEventListener('click',function(e){
+   if(bypass||!onLogo(e)) return;
+   e.preventDefault(); e.stopPropagation();
+   cnt++; lastEl=e.target;
+   if(timer) clearTimeout(timer);
+   timer=setTimeout(fin,400);
+ },true);
 })();
 """
 
