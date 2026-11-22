@@ -339,7 +339,7 @@ class MainActivity : Activity(), FullscreenHost {
         btnFiles = barBtn("Tệp").apply { setOnClickListener { hideMenu(); onModeButton(3) } }
         val btnHome = barBtn("Home").apply { setOnClickListener { hideMenu(); goTvHome() } }
         val btnUpdate = barBtn("Cập nhật").apply { setOnClickListener { hideMenu(); Updater.start(this@MainActivity) } }
-        // OFF: nhấn thường = tắt hình TV (khóa màn hình); nhấn giữ 1,2 giây = hiện khung hỏi khởi động lại TV
+        // OFF: nhấn thường = tắt hình TV (khóa màn hình); nhấn giữ 1 giây = hiện khung hỏi khởi động lại TV
         var offHeld = false
         val offFire = Runnable {
             offHeld = true; hideMenu()
@@ -358,7 +358,7 @@ class MainActivity : Activity(), FullscreenHost {
             }
             setOnTouchListener { _, ev ->
                 when (ev.actionMasked) {
-                    android.view.MotionEvent.ACTION_DOWN -> { offHeld = false; ui.removeCallbacks(offFire); ui.postDelayed(offFire, 1200); false }
+                    android.view.MotionEvent.ACTION_DOWN -> { offHeld = false; ui.removeCallbacks(offFire); ui.postDelayed(offFire, 1000); false }
                     android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> { ui.removeCallbacks(offFire); val h = offHeld; offHeld = false; h }
                     else -> offHeld
                 }
@@ -391,12 +391,12 @@ class MainActivity : Activity(), FullscreenHost {
             background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFFFF3B0.toInt()); setStroke(dp(1), 0xFFFFF9D6.toInt()) }
             setTextColor(0xFF3A3000.toInt())
             setOnClickListener { hideMenu(); confirmSelfRemove() }
-            // Nhấn giữ 2 giây: bảng Ẩn/hiện nút (nhấn thường vẫn hỏi gỡ app như cũ)
+            // Nhấn giữ 1 giây: bảng Ẩn/hiện nút (nhấn thường vẫn hỏi gỡ app như cũ)
             var held = false
             val fire = Runnable { held = true; hideMenu(); showBarToggleDialog() }
             setOnTouchListener { _, ev ->
                 when (ev.actionMasked) {
-                    android.view.MotionEvent.ACTION_DOWN -> { held = false; ui.removeCallbacks(fire); ui.postDelayed(fire, 2000); false }
+                    android.view.MotionEvent.ACTION_DOWN -> { held = false; ui.removeCallbacks(fire); ui.postDelayed(fire, 1000); false }
                     android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> { ui.removeCallbacks(fire); val h = held; held = false; h }
                     else -> held
                 }
@@ -630,7 +630,7 @@ class MainActivity : Activity(), FullscreenHost {
         return true
     }
 
-    // Bàn phím / remote vật lý nối với TV: giữ ▼ đúng 2 giây = nhảy xuống thanh dưới (YouTube, TV đều dùng được)
+    // Bàn phím / remote vật lý nối với TV: giữ ▼ đúng 1 giây = nhảy xuống thanh dưới (YouTube, TV đều dùng được)
     private var downHoldPending = false
     private var downHoldFired = false
     private val downHold = Runnable { downHoldPending = false; downHoldFired = true; handleRemoteKey("bar") }
@@ -656,8 +656,8 @@ class MainActivity : Activity(), FullscreenHost {
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && barFocus < 0) {
             if (!allowKeyInput()) return true
-            // Đang ở trang: ▼ nhấn nhanh = đi xuống như thường (xử lý lúc nhả phím); giữ 2 giây = xuống thanh dưới
-            if (event?.repeatCount == 0) { downHoldFired = false; downHoldPending = true; ui.removeCallbacks(downHold); ui.postDelayed(downHold, 2000) }
+            // Đang ở trang: ▼ nhấn nhanh = đi xuống như thường (xử lý lúc nhả phím); giữ 1 giây = xuống thanh dưới
+            if (event?.repeatCount == 0) { downHoldFired = false; downHoldPending = true; ui.removeCallbacks(downHold); ui.postDelayed(downHold, 1000) }
             return true
         }
         val k = keyName(keyCode)
@@ -1055,7 +1055,7 @@ class MainActivity : Activity(), FullscreenHost {
                     return cell
                 }
             }
-            // Nhấn giữ 2 giây vào một icon: bảng 3 mục (Xoá khỏi list / Thông tin ứng dụng / Gỡ ứng dụng)
+            // Nhấn giữ 1 giây vào một icon: bảng 3 mục (Xoá khỏi list / Thông tin ứng dụng / Gỡ ứng dụng)
             var appHeld = false
             var downPos = -1
             var downX = 0f; var downY = 0f
@@ -1075,7 +1075,7 @@ class MainActivity : Activity(), FullscreenHost {
                         appHeld = false; downX = ev.x; downY = ev.y
                         downPos = pointToPosition(ev.x.toInt(), ev.y.toInt())
                         ui.removeCallbacks(fireApp)
-                        if (downPos >= 0) ui.postDelayed(fireApp, 2000)
+                        if (downPos >= 0) ui.postDelayed(fireApp, 1000)
                         false
                     }
                     MotionEvent.ACTION_MOVE -> {
@@ -1330,7 +1330,7 @@ class MainActivity : Activity(), FullscreenHost {
         dlg.show()
     }
 
-    /** Khung hỏi khởi động lại (hiện khi nhấn giữ nút OFF 1,2 giây). Nút "Tắt nguồn" mở menu nguồn của hệ thống như trước. */
+    /** Khung hỏi khởi động lại (hiện khi nhấn giữ nút OFF 1 giây). Nút "Tắt nguồn" mở menu nguồn của hệ thống như trước. */
     private fun confirmRestart() {
         AlertDialog.Builder(this)
             .setTitle("Khởi động lại TV?")

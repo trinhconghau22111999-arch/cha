@@ -459,8 +459,8 @@ const val HIDE_HOME_CHROME_JS = """
 """
 
 /**
- * YouTube: nhấn giữ chữ/biểu tượng "YouTube" ở góc trái trên cùng 1,2 giây thì mở trang cá nhân ("Bạn": /feed/you).
- * Nhấn thường vẫn về trang chủ như cũ (nhả tay trước 1,2 giây); sau khi giữ đủ 1,2 giây thì bỏ cú chạm để không bị về trang chủ.
+ * YouTube: nhấn giữ chữ/biểu tượng "YouTube" ở góc trái trên cùng 1 giây thì mở trang cá nhân ("Bạn": /feed/you).
+ * Nhấn thường vẫn về trang chủ như cũ (nhả tay trước 1 giây); sau khi giữ đủ 1 giây thì bỏ cú chạm để không bị về trang chủ.
  */
 const val YT_PROFILE_HOLD_JS = """
 (function(){
@@ -519,7 +519,7 @@ const val YT_PROFILE_HOLD_JS = """
    if(!onLogo(e)) return;
    fired=false; clear(); down=true;
    var p=pt(e); sx=p.clientX; sy=p.clientY;
-   timer=setTimeout(function(){ if(down) go(); else timer=null; },1200);
+   timer=setTimeout(function(){ if(down) go(); else timer=null; },1000);
  }
  function move(e){
    if(!timer) return;
@@ -536,7 +536,7 @@ const val YT_PROFILE_HOLD_JS = """
  document.addEventListener('pointerup',end,true);
  document.addEventListener('mousedown',start,true);
  document.addEventListener('mouseup',end,true);
- // giữ đủ 1,2 giây thì chặn cú nhấp sinh ra khi nhả tay (khỏi nhảy về trang chủ)
+ // giữ đủ 1 giây thì chặn cú nhấp sinh ra khi nhả tay (khỏi nhảy về trang chủ)
  document.addEventListener('click',function(e){ if(fired&&onLogo(e)){ e.preventDefault(); e.stopPropagation(); fired=false; } },true);
  document.addEventListener('contextmenu',function(e){ if(onLogo(e)||timer||fired) e.preventDefault(); },true);
 })();

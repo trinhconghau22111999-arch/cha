@@ -120,7 +120,7 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
 
     private fun isZip(f: File) = f.name.endsWith(".zip", ignoreCase = true)
 
-    /** Nhấn giữ tệp .zip 1,2 giây thì tự giải nén. Trả false để cú chạm vẫn cuộn/bấm bình thường. */
+    /** Nhấn giữ tệp .zip 1 giây thì tự giải nén. Trả false để cú chạm vẫn cuộn/bấm bình thường. */
     private fun attachLongPress(row: View, pos: Int) {
         var sx = 0f; var sy = 0f
         val fire = Runnable {
@@ -222,7 +222,7 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
         if (isZip(f)) {
             sb.append("  •  ")
             val b = sb.length
-            sb.append("Nhấn giữ 1,2 giây để giải nén")
+            sb.append("Nhấn giữ 1 giây để giải nén")
             sb.setSpan(ForegroundColorSpan(0xFF00E676.toInt()), b, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         return sb
@@ -307,4 +307,4 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
     }
 }
 
-private const val ZIP_HOLD_MS = 1200L
+private const val ZIP_HOLD_MS = 1000L
