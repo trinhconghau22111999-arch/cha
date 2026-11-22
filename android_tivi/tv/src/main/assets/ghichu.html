@@ -4,11 +4,12 @@
 <title>Ghi chú</title>
 <style>
 html,body{margin:0;height:100%;background:#05070d;font-family:sans-serif}
-body{display:flex;flex-direction:column;position:relative}
-#list{display:none;position:absolute;left:0;top:0;right:0;bottom:0;background:#05070d;z-index:5;flex-direction:column}
+body{display:flex;flex-direction:column;position:relative;box-sizing:border-box;height:100%;padding-top:40px}
+#list{display:none;position:absolute;left:0;top:40px;right:0;bottom:0;background:#05070d;z-index:5;flex-direction:column}
 #list.on{display:flex}
 #lh{background:#0a0d16;padding:8px;display:flex;gap:8px;align-items:center;border-bottom:2px solid #00e5ff55}
 #lh span{color:#9ee;font-size:16px;font-weight:bold}
+#bLs{margin-left:auto}
 #lb{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
 #lb button{text-align:left;background:#10162a;border:1px solid #00e5ff66;font-weight:normal;font-size:17px}
 #lb .e{color:#9ee;font-size:16px;padding:20px}
@@ -52,7 +53,7 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
   <button class="d" id="dI">🗑 Xoá ảnh</button>
   <button id="xI">✔ Xong</button>
 </div>
-<div id="list"><div id="lh"><button class="n" id="bLsNew">➕ Ghi chú mới</button><button id="bLs">✖ Đóng danh sách</button><span>Ghi chú đã lưu</span></div><div id="lb"></div></div>
+<div id="list"><div id="lh"><span>Ghi chú đã lưu</span><button class="n" id="bLsNew">➕ Ghi chú mới</button><button id="bLs">✖ Đóng danh sách</button></div><div id="lb"></div></div>
 <div id="pop"><div id="pbox">
   <div class="t" id="popT"></div>
   <div id="pMain">
