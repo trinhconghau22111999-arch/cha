@@ -307,12 +307,11 @@ class MainActivity : Activity(), FullscreenHost {
         btnFiles = barBtn("Tệp").apply { setOnClickListener { hideMenu(); onModeButton(3) } }
         val btnHome = barBtn("Home").apply { setOnClickListener { hideMenu(); goTvHome() } }
         val btnUpdate = barBtn("Cập nhật").apply { setOnClickListener { hideMenu(); Updater.start(this@MainActivity) } }
-        // OFF: nhấn thường = tắt hình TV (khóa màn hình); nhấn giữ 1,2 giây = mở menu nguồn để tắt nguồn
+        // OFF: nhấn thường = tắt hình TV (khóa màn hình); nhấn giữ 1,2 giây = hiện khung hỏi khởi động lại TV
         var offHeld = false
         val offFire = Runnable {
             offHeld = true; hideMenu()
-            if (RemoteAccessibilityService.instance?.powerMenu() != true)
-                Toast.makeText(this, "Cần bật Trợ năng cho app TV để tắt nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
+            confirmRestart()
         }
         val btnOff = barBtn("OFF").apply {
             tag = "off"
@@ -1159,6 +1158,30 @@ class MainActivity : Activity(), FullscreenHost {
             setDimAmount(0.7f)
         }
         dlg.show()
+    }
+
+    /** Khung hỏi khởi động lại (hiện khi nhấn giữ nút OFF 1,2 giây). Nút "Tắt nguồn" mở menu nguồn của hệ thống như trước. */
+    private fun confirmRestart() {
+        AlertDialog.Builder(this)
+            .setTitle("Khởi động lại TV?")
+            .setMessage("TV sẽ tắt rồi tự bật lại.")
+            .setPositiveButton("Khởi động lại") { _, _ -> restartTv() }
+            .setNeutralButton("Tắt nguồn") { _, _ ->
+                if (RemoteAccessibilityService.instance?.powerMenu() != true)
+                    Toast.makeText(this, "Cần bật Trợ năng cho app TV để tắt nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
+            }
+            .setNegativeButton("Hủy", null)
+            .show()
+    }
+
+    /** Khởi động lại: thử reboot trực tiếp (máy có quyền hệ thống/root); không được thì mở menu nguồn để chọn Khởi động lại. */
+    private fun restartTv() {
+        try { (getSystemService(POWER_SERVICE) as android.os.PowerManager).reboot(null); return } catch (e: Throwable) { }
+        try { Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot")); return } catch (e: Throwable) { }
+        if (RemoteAccessibilityService.instance?.powerMenu() == true)
+            Toast.makeText(this, "Chọn \"Khởi động lại\" trong menu nguồn", Toast.LENGTH_LONG).show()
+        else
+            Toast.makeText(this, "Cần bật Trợ năng cho app TV để mở menu nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
     }
 
     private fun confirmSelfRemove() {
