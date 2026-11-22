@@ -5,7 +5,7 @@
 <style>
 html,body{margin:0;height:100%;background:#05070d;font-family:sans-serif}
 body{display:flex;flex-direction:column;position:relative;box-sizing:border-box;height:100%;padding-top:40px}
-#list{display:none;position:absolute;left:0;top:40px;right:0;bottom:0;background:#05070d;z-index:5;flex-direction:column}
+#list{display:none;position:absolute;left:0;top:40px;right:0;bottom:0;background:#fff;z-index:5;flex-direction:column}
 #list.on{display:flex}
 #lh{background:#0a0d16;padding:8px;display:flex;gap:8px;align-items:center;border-bottom:2px solid #00e5ff55}
 #lh span{color:#9ee;font-size:16px;font-weight:bold}
@@ -13,7 +13,7 @@ body{display:flex;flex-direction:column;position:relative;box-sizing:border-box;
 #bLsNew{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
 #lb{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
 #lb button{text-align:left;background:#10162a;border:1px solid #00e5ff66;font-weight:normal;font-size:17px}
-#lb .e{color:#9ee;font-size:16px;padding:20px}
+#lb .e{color:#555;font-size:16px;padding:20px}
 .row{display:flex;gap:8px;align-items:stretch}
 #lb .nm{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #lb .row button.c,#lb .row button.d{flex:0 0 auto;white-space:nowrap}
@@ -41,7 +41,6 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
   <button class="i" id="bList">📂 Danh sách</button>
   <button class="c" id="bCopy">📋 Copy ghi chú</button>
   <button class="i" id="bPaste">🖼 Dán ảnh</button>
-  <button class="n" id="bKb">⌨ Bàn phím</button>
   <input id="title" placeholder="Tiêu đề">
   <button class="s" id="bSave">💾 Lưu</button>
 </div>
@@ -151,12 +150,11 @@ function newNote(){
   ed.innerHTML='';unselect();saved=null;
 };
 /* Con trỏ (chuột remote) vẫn đặt con trỏ / chọn chữ bình thường trong ô.
-   Bàn phím chỉ hiện khi bấm nút ⌨ Bàn phím; khi tắt thì mọi lần lấy tiêu điểm đều ẩn bàn phím. */
+   Đã bỏ nút bật/tắt bàn phím riêng của Ghi chú (dùng bàn phím ảo nổi ⌨ trên thanh dưới); bàn phím hệ thống luôn ẩn. */
 var kbOn=false;
 function kbUI(){
   var m=kbOn?'text':'none';
   ed.setAttribute('inputmode',m);ti.setAttribute('inputmode',m);
-  $('bKb').textContent=kbOn?'⌨ Tắt bàn phím':'⌨ Bàn phím';
 }
 function leftEditing(){
   setTimeout(function(){
@@ -168,18 +166,6 @@ ed.addEventListener('focus',onEditFocus);
 ti.addEventListener('focus',onEditFocus);
 ed.addEventListener('blur',leftEditing);
 ti.addEventListener('blur',leftEditing);
-function setKb(on){
-  kbOn=on;kbUI();
-  if(on){
-    ed.focus();
-    if(A()) try{A().showIme()}catch(e){}
-  }else{
-    if(A()) try{A().hideIme()}catch(e){}
-    ed.blur();ti.blur();
-  }
-}
-$('bKb').addEventListener('mousedown',function(e){e.preventDefault()});
-$('bKb').onclick=function(){setKb(!kbOn)};
 kbUI();
 $('bSave').onclick=function(){flush(true);showList()};   /* lưu ngay (ghi tệp đồng bộ) rồi về trang danh sách */
 $('bCopy').onclick=function(){if(A())A().copy(ed.innerText||'',cleanHtml())};
