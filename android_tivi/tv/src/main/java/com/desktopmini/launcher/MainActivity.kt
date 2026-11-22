@@ -331,19 +331,19 @@ class MainActivity : Activity(), FullscreenHost {
         val btnBack = barBtn("", ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat())).apply {
             contentDescription = "Thoát"; setOnClickListener { hideMenu(); goBack() }
         }
-        // 11 nút bằng nhau: Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | OFF | ← (Thoát)
+        // 10 nút bằng nhau: Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát); OFF nằm cuối hàng, bên phải nút X
         val group = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnOff, btnBack).forEachIndexed { i, b ->
-            if (b === btnOff) b.minWidth = 0      // OFF thu còn 60% bề ngang so với nút thường
-            group.addView(b, LinearLayout.LayoutParams(0, -1, if (b === btnOff) 0.6f else 1f).also { if (i > 0) it.leftMargin = dp(4) })
+        listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack).forEachIndexed { i, b ->
+            group.addView(b, LinearLayout.LayoutParams(0, -1, 1f).also { if (i > 0) it.leftMargin = dp(4) })
         }
         bar.addView(group, LinearLayout.LayoutParams(0, -1, 1f))
-        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnOff, btnBack))
+        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack, btnOff))
 
         // Góc phải: giờ, ngày, âm lịch (cùng cỡ chữ 13sp, đậm), rồi nút X gỡ app
         val cluster = 13f
-        // Pin: "Pin 25%"; đang sạc thì "10W Pin 25%" (đặt cuối hàng, sau nút X)
-        tvBatt = small("", cluster, true).apply { setTextColor(0xFF69F0AE.toInt()); setPadding(dp(10), 0, 0, 0) }
+        // Pin nằm bên trái giờ: "Pin 25%"; đang sạc thì "10W Pin 25%"
+        tvBatt = small("", cluster, true).apply { setTextColor(0xFF69F0AE.toInt()); setPadding(dp(14), 0, 0, 0) }
+        bar.addView(tvBatt, LinearLayout.LayoutParams(-2, -1))
         tvTime = small("--:--", cluster, true).apply { setTextColor(NEON_CYAN); setPadding(dp(14), 0, dp(12), 0) }
         bar.addView(tvTime, LinearLayout.LayoutParams(-2, -1))
         tvDate = small("", cluster, true).apply { setTextColor(0xFFB0BEC5.toInt()); setPadding(0, 0, dp(12), 0) }
@@ -366,8 +366,13 @@ class MainActivity : Activity(), FullscreenHost {
             }
         }
         bar.addView(btnKill, LinearLayout.LayoutParams(dp(44), -1).also { it.leftMargin = dp(10) })
-        // Pin nằm cuối hàng, bên phải nút X
-        bar.addView(tvBatt, LinearLayout.LayoutParams(-2, -1))
+        // OFF: cuối cùng bên phải nút X, bề ngang = 60% một nút thường (theo bề ngang nút Menu sau khi bố cục xong)
+        btnOff.minWidth = 0
+        bar.addView(btnOff, LinearLayout.LayoutParams(dp(30), -1).also { it.leftMargin = dp(4) })
+        btnMenu.addOnLayoutChangeListener { v, l, _, r, _, _, _, _, _ ->
+            val w = ((r - l) * 0.6f).toInt()
+            if (w > 0 && btnOff.layoutParams.width != w) { btnOff.layoutParams = btnOff.layoutParams.also { it.width = w } }
+        }
 
         barView = bar
         content = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
@@ -1013,8 +1018,8 @@ class MainActivity : Activity(), FullscreenHost {
 
     // ---------------- Ẩn/hiện nút trên thanh dưới ----------------
 
-    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | OFF | ←
-    private val barNames = listOf("Menu", "TV", "Trình duyệt", "YouTube", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "OFF", "← (Thoát)")
+    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← | OFF
+    private val barNames = listOf("Menu", "TV", "Trình duyệt", "YouTube", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)", "OFF")
     private val rightNames = listOf("Pin", "Giờ", "Ngày dương", "Âm lịch")
     private fun rightViews() = listOf(tvBatt, tvTime, tvDate, tvLunar)
 
