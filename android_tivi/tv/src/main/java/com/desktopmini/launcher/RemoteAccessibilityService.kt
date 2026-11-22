@@ -61,6 +61,8 @@ class RemoteAccessibilityService : AccessibilityService() {
 
     // ===== Toàn bộ giao diện app TV: 1 cửa sổ trợ năng phủ kín màn hình (che cả thanh trạng thái và thanh điều hướng) =====
     private var uiBox: FrameLayout? = null
+    private var uiLp: WindowManager.LayoutParams? = null
+    @Volatile private var uiBrightness = -1f      // -1 = theo hệ thống
     /** Dịch vụ bị tắt / cửa sổ mất: MainActivity đưa giao diện về lại trong app. */
     @Volatile var onUiLost: (() -> Unit)? = null
 
@@ -81,8 +83,9 @@ class RemoteAccessibilityService : AccessibilityService() {
                 gravity = Gravity.TOP or Gravity.START
                 if (Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
+            p.screenBrightness = uiBrightness
             w.addView(box, p)
-            uiBox = box
+            uiBox = box; uiLp = p
             true
         } catch (e: Exception) {
             try { box.removeAllViews() } catch (e2: Exception) { }
@@ -91,12 +94,21 @@ class RemoteAccessibilityService : AccessibilityService() {
         }
     }
 
+    /** Độ sáng 0..1 cho cửa sổ giao diện nổi (cửa sổ Activity bên dưới trống nên chỉnh độ sáng của nó không còn tác dụng). */
+    fun setUiBrightness(b: Float) {
+        uiBrightness = b
+        val box = uiBox ?: return
+        val p = uiLp ?: return
+        p.screenBrightness = b
+        try { wm?.updateViewLayout(box, p) } catch (e: Exception) { }
+    }
+
     /** Gỡ cửa sổ giao diện (view được trả lại cho MainActivity). */
     fun hideUi() {
         val box = uiBox ?: return
         try { box.removeAllViews() } catch (e: Exception) { }
         try { wm?.removeView(box) } catch (e: Exception) { }
-        uiBox = null
+        uiBox = null; uiLp = null
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) { }

@@ -137,6 +137,7 @@ class MainActivity : Activity(), FullscreenHost {
         ui.postDelayed({ if (!isFinishing) maybeAskInstallUnknown() }, 3000)
         ui.postDelayed({ if (!isFinishing) maybeAskIgnoreBattery() }, 9000)
         ui.postDelayed({ if (!isFinishing) maybeAskOverlay() }, 16000)
+        ui.postDelayed({ if (!isFinishing) maybeAskWriteSettings() }, 24000)
     }
 
     // Android 8+: sau khi cài xong, hỏi bật "Cho phép cài ứng dụng từ nguồn không xác định" cho chính app này
@@ -178,6 +179,24 @@ class MainActivity : Activity(), FullscreenHost {
     }
 
     // Android 10+: chỉ app có quyền "Hiển thị trên ứng dụng khác" mới tự mở lại được từ nền (nút Màn hình chính trên điện thoại khi TV đang ở app khác)
+    private fun maybeAskWriteSettings() {
+        if (Build.VERSION.SDK_INT < 23) return
+        val sp = getSharedPreferences("tv", MODE_PRIVATE)
+        if (sp.getBoolean("askedWriteSettings", false)) return
+        try {
+            if (android.provider.Settings.System.canWrite(this)) return
+            sp.edit().putBoolean("askedWriteSettings", true).apply()
+            AlertDialog.Builder(this)
+                .setTitle("Cho phép chỉnh độ sáng?")
+                .setMessage("Để thanh \"Độ sáng\" trên điện thoại điều khiển đổi độ sáng thật của TV (cả khi đang ở app khác), hãy bật quyền \"Sửa đổi cài đặt hệ thống\" cho app.")
+                .setPositiveButton("Mở cài đặt") { _, _ ->
+                    try { startActivity(Intent(android.provider.Settings.ACTION_MANAGE_WRITE_SETTINGS).setData(Uri.parse("package:" + packageName))) } catch (e: Exception) { }
+                }
+                .setNegativeButton("Để sau", null)
+                .show()
+        } catch (e: Exception) { }
+    }
+
     private fun maybeAskOverlay() {
         if (Build.VERSION.SDK_INT < 23) return
         val sp = getSharedPreferences("tv", MODE_PRIVATE)

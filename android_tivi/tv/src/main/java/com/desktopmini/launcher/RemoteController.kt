@@ -221,13 +221,29 @@ class RemoteController(
         try { am.setStreamVolume(AudioManager.STREAM_MUSIC, (level * max / 100f).roundToInt(), 0) } catch (e: Exception) { }
     }
 
-    /** Do sang man hinh app theo muc 0..100 (khong can cap quyen he thong). */
+    /**
+     * Độ sáng màn hình TV theo mức 0..100:
+     *  - cửa sổ Activity + cửa sổ trợ năng nổi (giao diện đang nằm ở đó nên phải chỉnh cả nó), có tác dụng ngay, không cần quyền;
+     *  - độ sáng HỆ THỐNG (Settings.System) khi app được cấp quyền "Sửa đổi cài đặt hệ thống" (WRITE_SETTINGS).
+     */
     private fun setBrightness(level: Int) {
         if (level !in 0..100) return
+        val b = (level / 100f).coerceIn(0.02f, 1f)
         ui.post {
-            val lp = act.window.attributes
-            lp.screenBrightness = (level / 100f).coerceIn(0.02f, 1f)
-            act.window.attributes = lp
+            try {
+                val lp = act.window.attributes
+                lp.screenBrightness = b
+                act.window.attributes = lp
+            } catch (e: Exception) { }
+            RemoteAccessibilityService.instance?.setUiBrightness(b)
+            try {
+                if (android.os.Build.VERSION.SDK_INT < 23 || android.provider.Settings.System.canWrite(act)) {
+                    val cr = act.contentResolver
+                    android.provider.Settings.System.putInt(cr, android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE,
+                        android.provider.Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
+                    android.provider.Settings.System.putInt(cr, android.provider.Settings.System.SCREEN_BRIGHTNESS, (b * 255).roundToInt().coerceIn(1, 255))
+                }
+            } catch (e: Exception) { }
         }
     }
 
