@@ -41,6 +41,7 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
   <button class="i" id="bList">📂 Danh sách</button>
   <button class="c" id="bCopy">📋 Copy ghi chú</button>
   <button class="i" id="bPaste">🖼 Dán ảnh</button>
+  <button class="n" id="bKb">⌨ Bàn phím</button>
   <input id="title" placeholder="Tiêu đề">
   <button class="s" id="bSave">💾 Lưu</button>
 </div>
@@ -147,8 +148,17 @@ function newNote(){
   flush(false);
   if(!A())return;
   ti.value=A().newTitle();
-  ed.innerHTML='';unselect();saved=null;ed.focus();
+  ed.innerHTML='';unselect();saved=null;
 };
+/* Con trỏ (chuột remote) bấm vào ô không được làm bật bàn phím: chặn việc lấy tiêu điểm.
+   Chỉ khi bấm nút ⌨ Bàn phím thì mới cho phép gõ. */
+var kbOn=false;
+function blockKb(e){if(!kbOn)e.preventDefault()}
+ed.addEventListener('mousedown',blockKb);
+ti.addEventListener('mousedown',blockKb);
+ed.addEventListener('blur',function(){kbOn=false});
+ti.addEventListener('blur',function(){kbOn=false});
+$('bKb').onclick=function(){kbOn=true;ed.focus()};
 $('bSave').onclick=function(){flush(true);showList()};   /* lưu ngay (ghi tệp đồng bộ) rồi về trang danh sách */
 $('bCopy').onclick=function(){if(A())A().copy(ed.innerText||'',cleanHtml())};
 $('bPaste').onclick=function(){if(A())A().pasteImage()};
