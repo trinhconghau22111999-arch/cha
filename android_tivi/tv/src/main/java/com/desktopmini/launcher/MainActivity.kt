@@ -356,8 +356,8 @@ class MainActivity : Activity(), FullscreenHost {
         tvLunar = small("", cluster, true).apply { setTextColor(0xFFFFC400.toInt()) }
         bar.addView(tvLunar, LinearLayout.LayoutParams(-2, -1))
         val btnKill = barBtn("X").apply {
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFFFD600.toInt()); setStroke(dp(1), 0xFFFFF59D.toInt()) }
-            setTextColor(Color.BLACK)
+            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFFFF3B0.toInt()); setStroke(dp(1), 0xFFFFF9D6.toInt()) }
+            setTextColor(0xFF3A3000.toInt())
             setOnClickListener { hideMenu(); confirmSelfRemove() }
             // Nhấn giữ 2 giây: bảng Ẩn/hiện nút (nhấn thường vẫn hỏi gỡ app như cũ)
             var held = false
