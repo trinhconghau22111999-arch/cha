@@ -38,6 +38,9 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
     /** ▼ ở dòng cuối: đưa ô chọn xuống thanh dưới (MainActivity gán). */
     var onExitDown: () -> Unit = { }
 
+    /** Mở tệp .ipynb: MainActivity chuyển sang Trình duyệt, mở Colab và nhét tệp vào "Tải sổ tay lên". */
+    var onOpenIpynb: (File) -> Unit = { }
+
     private val ui = Handler(Looper.getMainLooper())
     private val header = TextView(act)
     private val empty = TextView(act)
@@ -199,6 +202,12 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
             sb.append("OK để cài đặt")
             sb.setSpan(ForegroundColorSpan(0xFF00E676.toInt()), b, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
+        if (f.name.endsWith(".ipynb", ignoreCase = true)) {
+            sb.append("  •  ")
+            val b = sb.length
+            sb.append("OK để mở trong Colab")
+            sb.setSpan(ForegroundColorSpan(0xFF00E676.toInt()), b, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
         if (isZip(f)) {
             sb.append("  •  ")
             val b = sb.length
@@ -245,7 +254,9 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
     private fun open(pos: Int) {
         val f = items.getOrNull(pos) ?: return
         if (!f.isFile) { refresh(); return }
-        if (isApk(f)) installApk(f) else openOther(f)
+        if (isApk(f)) installApk(f)
+        else if (f.name.endsWith(".ipynb", ignoreCase = true)) onOpenIpynb(f)
+        else openOther(f)
     }
 
     private fun uriFor(f: File): Uri =

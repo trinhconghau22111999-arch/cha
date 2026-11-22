@@ -28,6 +28,7 @@ import android.text.InputType
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -69,6 +70,7 @@ import java.io.FileOutputStream
 private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 private const val HOME = "https://www.google.com"
+private const val COLAB_URL = "https://colab.research.google.com/?hl=vi"
 private const val REQ_MEDIA = 2101
 private const val REQ_STORAGE = 2102
 private const val REQ_FILE = 2103
@@ -206,6 +208,69 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         if (startUrl != null && !(homeStart && tabs.isNotEmpty())) openUrl(startUrl)
         else if (tabs.isEmpty()) newTab(HOME)
         else selectTab(tabs[prefs.getInt("activeIdx", 0).coerceIn(0, tabs.size - 1)])
+    }
+
+    // ====================== Mở sổ tay .ipynb trong Colab ======================
+
+    private var pendingUpload: File? = null
+    private var pendingUploadAt = 0L
+
+    /**
+     * Mở trang Colab và nhét tệp [f] (.ipynb) vào mục "Tải sổ tay lên": tự bấm nút đó bằng một cú chạm thật
+     * (để trang cho phép mở hộp chọn tệp), hộp chọn tệp của WebView được trả đúng tệp này.
+     */
+    fun openColabWithFile(f: File) {
+        pendingUpload = f
+        pendingUploadAt = System.currentTimeMillis()
+        val ex = tabs.firstOrNull { !it.discarded && (try { Uri.parse(it.url).host } catch (e: Exception) { null }) == "colab.research.google.com" }
+        if (ex != null) { selectTab(ex); ex.webView.loadUrl(COLAB_URL) } else newTab(COLAB_URL)
+        Toast.makeText(this, "Đang mở Colab, tự chọn tệp " + f.name, Toast.LENGTH_LONG).show()
+        ui.postDelayed({ colabTick(f, 0, 1) }, 2500)
+    }
+
+    private fun colabTick(f: File, n: Int, stage: Int) {
+        if (pendingUpload !== f) return                              // đã trao tệp cho hộp chọn tệp
+        if (System.currentTimeMillis() - pendingUploadAt > 180_000L || n > 40) { pendingUpload = null; return }
+        val wv = active?.webView
+        val host = try { Uri.parse(active?.url ?: "").host } catch (e: Exception) { null }
+        if (wv == null || host != "colab.research.google.com") { ui.postDelayed({ colabTick(f, n + 1, stage) }, 700); return }
+        val keys = if (stage == 1) arrayOf("tải sổ tay lên", "upload notebook") else
+            arrayOf("duyệt", "chọn tệp", "chọn từ máy", "browse", "choose file", "select file", "từ máy tính")
+        wv.evaluateJavascript(findButtonJs(keys)) { r ->
+            val xy = Regex("(-?[0-9.]+),(-?[0-9.]+)").find(r ?: "")
+            if (xy != null && pendingUpload === f) {
+                realTap(wv, xy.groupValues[1].toFloat(), xy.groupValues[2].toFloat())
+                // sau khi chạm nút "Tải sổ tay lên": chờ hộp chọn tệp; nếu hiện hộp thoại có nút Duyệt thì chạm tiếp
+                ui.postDelayed({ colabTick(f, if (stage == 1) 0 else n + 1, 2) }, 1200)
+            } else if (stage == 2 && n >= 8) {
+                // không thấy nút phụ: để người dùng tự bấm, tệp vẫn được điền khi hộp chọn tệp mở
+            } else ui.postDelayed({ colabTick(f, n + 1, stage) }, 700)
+        }
+    }
+
+    private fun findButtonJs(keys: Array<String>): String {
+        val ks = keys.joinToString(",") { JSONObject.quote(it) }
+        return "(function(){var K=[" + ks + "],best=null,ba=1e12;" +
+            "function walk(n){var c=n.children||[];for(var i=0;i<c.length;i++){var e=c[i];chk(e);if(e.shadowRoot)walk(e.shadowRoot);walk(e);}}" +
+            "function chk(e){try{var t=((e.innerText||e.textContent||'')+' '+(e.getAttribute('aria-label')||'')).toLowerCase().replace(/\\s+/g,' ').trim();" +
+            "if(!t||t.length>60)return;var ok=false;for(var i=0;i<K.length;i++)if(t.indexOf(K[i])>=0)ok=true;if(!ok)return;" +
+            "var r=e.getBoundingClientRect();var a=r.width*r.height;if(r.width<8||r.height<8||a<200)return;" +
+            "if(r.bottom<0||r.right<0||r.top>innerHeight||r.left>innerWidth)return;" +
+            "if(a<ba){ba=a;best=r;}}catch(x){}}" +
+            "walk(document);if(!best)return null;var d=window.devicePixelRatio||1;" +
+            "return (best.left+best.width/2)*d+','+(best.top+best.height/2)*d;})()"
+    }
+
+    /** Cú chạm thật vào WebView (tay ảo): để trang coi là người dùng bấm và cho mở hộp chọn tệp. */
+    private fun realTap(wv: WebView, x: Float, y: Float) {
+        val t0 = android.os.SystemClock.uptimeMillis()
+        val down = MotionEvent.obtain(t0, t0, MotionEvent.ACTION_DOWN, x, y, 0)
+        wv.dispatchTouchEvent(down); down.recycle()
+        ui.postDelayed({
+            val t1 = android.os.SystemClock.uptimeMillis()
+            val up = MotionEvent.obtain(t0, t1, MotionEvent.ACTION_UP, x, y, 0)
+            wv.dispatchTouchEvent(up); up.recycle()
+        }, 90)
     }
 
     /** Mở một địa chỉ: nếu đã có thẻ đang mở đúng địa chỉ đó thì chuyển sang thẻ đó, chưa có mới tạo thẻ mới. */
@@ -2016,6 +2081,12 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
     private fun openFileChooser(
         cb: ValueCallback<Array<Uri>>?, params: WebChromeClient.FileChooserParams?
     ): Boolean {
+        val up = pendingUpload
+        if (up != null && cb != null && up.isFile && System.currentTimeMillis() - pendingUploadAt < 180_000L) {
+            pendingUpload = null
+            cb.onReceiveValue(arrayOf(Uri.fromFile(up)))     // Colab đang chờ chọn tệp: trả luôn tệp .ipynb
+            return true
+        }
         fileCallback?.onReceiveValue(null)
         fileCallback = cb
         return try {

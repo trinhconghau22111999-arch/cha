@@ -644,6 +644,7 @@ class MainActivity : Activity(), FullscreenHost {
             }
             3 -> {
                 val p = files ?: FilesPane(this) { RemoteHub.host?.recentFiles() ?: emptyList() }.also { fp ->
+                    fp.onOpenIpynb = { f -> openIpynbInBrowser(f) }
                     fp.onExitDown = { barFocus = 6; updateButtons() }      // ▼ ở dòng cuối: xuống thanh dưới
                     files = fp
                 }
@@ -791,6 +792,13 @@ class MainActivity : Activity(), FullscreenHost {
 
     /** Mở trang "Tệp" (BrowserHost gọi khi bấm 📂 ở mục tải xuống). */
     fun showFilesPage() { hideMenu(); onModeButton(3) }
+
+    /** Trang Tệp mở tệp .ipynb: sang Trình duyệt, vào Colab và nhét tệp vào mục "Tải sổ tay lên". */
+    private fun openIpynbInBrowser(f: java.io.File) {
+        hideMenu()
+        if (mode != 5) { hideFull(); setMode(5) }
+        browser?.openColabWithFile(f)
+    }
 
     private fun hideMenu() { if (::menuLayer.isInitialized) menuLayer.visibility = View.GONE; updateButtons() }
 
