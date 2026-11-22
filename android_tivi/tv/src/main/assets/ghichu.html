@@ -179,8 +179,9 @@ function showList(){
     b.appendChild(row);
   });
   $('list').classList.add('on');
+  try{A().listState(true)}catch(e){}
 }
-function hideList(){$('list').classList.remove('on')}
+function hideList(){$('list').classList.remove('on');try{A().listState(false)}catch(e){}}
 
 /* Xoá một ghi chú trong danh sách */
 function doDelete(name){

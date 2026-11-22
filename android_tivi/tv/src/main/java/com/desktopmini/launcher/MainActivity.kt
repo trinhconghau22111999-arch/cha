@@ -684,7 +684,7 @@ class MainActivity : Activity(), FullscreenHost {
             2 -> { if (fullView != null) { hideFull(); return }; yt?.back() }
             3 -> setMode(2)                        // Tệp -> quay lại YouTube
             4 -> aikara?.home()
-            6 -> setMode(2)                        // Ghi chú -> quay lại YouTube
+            6 -> { if (notes?.onBack() != true) setMode(2) }   // Ghi chú: đang soạn -> về danh sách; đang ở danh sách -> quay lại YouTube
             5 -> if (browser?.back() != true) setMode(0)     // trình duyệt: lùi trang/đóng thẻ trước, hết thì về trang chủ
         }
     }

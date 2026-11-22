@@ -40,6 +40,7 @@ class NotesPane(private val act: Activity) {
     private var pageReady = false
     private var pendingOpen: File? = null
     private var listOnReady = false
+    @Volatile private var listOpen = false      // trang danh sách đang hiện (JS báo qua AndroidNote.listState)
 
     init {
         view.setBackgroundColor(0xFF05070D.toInt())
@@ -57,6 +58,14 @@ class NotesPane(private val act: Activity) {
     fun onResume() { }
 
     /** Bấm nút Ghi chú trên thanh dưới: mở thẳng danh sách ghi chú đã lưu. */
+    /** Nút Back khi đang soạn: về trang danh sách (trả true = đã xử lý). Đang ở danh sách: trả false để app quay về trang trước. */
+    fun onBack(): Boolean {
+        if (listOpen || !pageReady) return false
+        listOpen = true
+        showList()
+        return true
+    }
+
     fun showList() {
         if (!pageReady) { listOnReady = true; return }
         web.evaluateJavascript("showList()", null)
@@ -204,6 +213,9 @@ class NotesPane(private val act: Activity) {
 
         /** Hiện thông báo ngắn (cho JS báo lỗi/kết quả). */
         @JavascriptInterface fun toast(m: String) { toastMsg(m) }
+
+        /** JS báo trang danh sách đang mở (true) hay đã đóng (false). */
+        @JavascriptInterface fun listState(open: Boolean) { listOpen = open }
 
         /** Xoá một ghi chú trong danh sách. Trả true nếu đó là ghi chú đang mở trong trang soạn (trang sẽ làm trống). */
         @JavascriptInterface fun delete(name: String): Boolean {
