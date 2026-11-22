@@ -77,7 +77,7 @@ class MainActivity : Activity(), FullscreenHost {
     private var notes: NotesPane? = null      // Ghi chú (mode 6), tạo khi mở lần đầu
     private var browser: BrowserHost? = null   // Trình duyệt (mode 5), tạo khi mở lần đầu
     private val barItems = ArrayList<TextView>()
-    private var barFocus = -1                // ô chọn trên thanh dưới: 0 Menu,1 TV,2 YouTube,3 Ái Kara,4 Cài đặt,5 Tệp,6 Home,7 Cập nhật,8 ←; -1 = đang điều khiển trang. Mở app: nằm sẵn ở YouTube
+    private var barFocus = -1                // ô chọn trên thanh dưới (theo barItems): 0 Menu,1 TV,2 YouTube,3 Trình duyệt,4 Ghi chú,5 Ái Kara,6 Cài đặt,7 Tệp,8 Home,9 Cập nhật,10 ←; -1 = đang điều khiển trang. Mở app: nằm sẵn ở YouTube
     private var fullView: View? = null
     private var fullCb: WebChromeClient.CustomViewCallback? = null
     private var fileCb: ValueCallback<Array<Uri>>? = null
@@ -479,7 +479,7 @@ class MainActivity : Activity(), FullscreenHost {
 
     private fun menuOpen() = ::menuLayer.isInitialized && menuLayer.visibility == View.VISIBLE
     /** Ô trên thanh dưới tương ứng với chế độ đang mở. */
-    private fun barIndexForMode(m: Int) = when (m) { 1 -> 1; 5 -> 2; 2 -> 3; 4 -> 4; 3 -> 6; else -> 0 }
+    private fun barIndexForMode(m: Int) = when (m) { 1 -> 1; 2 -> 2; 5 -> 3; 6 -> 4; 4 -> 5; 3 -> 7; else -> 0 }
 
     // Ô chọn thanh dưới tự nhả sau 8 giây không bấm phím (mode 0 giữ nguyên) -> không bao giờ bị "kẹt" ở nút Cài đặt
     private val barRelease = Runnable { if (mode != 0 && barFocus >= 0) { barFocus = -1; updateButtons() } }
