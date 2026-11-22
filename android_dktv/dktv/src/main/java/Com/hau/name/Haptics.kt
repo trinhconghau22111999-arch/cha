@@ -13,15 +13,21 @@ import android.view.View
  */
 object Haptics {
     private const val TICK_MS = 25L
+    private const val KEY_MS = 40L          // phím bàn phím: rung dài hơn chút cho dễ cảm nhận
+
+    /** Rung khi bấm phím bàn phím gõ sang TV (rung ngay lúc chạm xuống). */
+    fun key(view: View) = vibrate(view, KEY_MS)
+
+    fun tick(view: View) = vibrate(view, TICK_MS)
 
     @Suppress("DEPRECATION")
-    fun tick(view: View) {
+    private fun vibrate(view: View, ms: Long) {
         val vib = view.context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         if (vib != null && vib.hasVibrator()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vib.vibrate(VibrationEffect.createOneShot(TICK_MS, VibrationEffect.DEFAULT_AMPLITUDE))
+                vib.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE))
             } else {
-                vib.vibrate(TICK_MS)
+                vib.vibrate(ms)
             }
         } else {
             view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)

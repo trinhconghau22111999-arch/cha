@@ -130,7 +130,8 @@ class PhoneKeyboard(
             typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
             isFocusable = false; isFocusableInTouchMode = false
             background = keyBg(base)
-            setOnClickListener { Haptics.tick(this); click() }
+            setOnTouchListener { v, ev -> if (ev.actionMasked == MotionEvent.ACTION_DOWN) Haptics.key(v); false }   // rung ngay khi chạm, vẫn nhận click
+            setOnClickListener { click() }
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, weight).also { it.setMargins(dp(2), dp(2), dp(2), dp(2)) }
         }
 
@@ -180,10 +181,10 @@ class PhoneKeyboard(
     private fun bsKey(weight: Float): TextView {
         val bs = key("⌫", weight, TEAL, 32f) { }
         bs.setOnClickListener(null)
-        val rep = object : Runnable { override fun run() { backspace(); h.postDelayed(this, 70) } }
+        val rep = object : Runnable { override fun run() { Haptics.key(bs); backspace(); h.postDelayed(this, 70) } }
         bs.setOnTouchListener { v, ev ->
             when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { v.isPressed = true; Haptics.tick(v); backspace(); h.postDelayed(rep, 400) }
+                MotionEvent.ACTION_DOWN -> { v.isPressed = true; Haptics.key(v); backspace(); h.postDelayed(rep, 400) }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { v.isPressed = false; h.removeCallbacks(rep) }
             }
             true
