@@ -14,7 +14,8 @@ body{display:flex;flex-direction:column;position:relative;box-sizing:border-box;
 #lb button{text-align:left;background:#10162a;border:1px solid #00e5ff66;font-weight:normal;font-size:17px}
 #lb .e{color:#9ee;font-size:16px;padding:20px}
 .row{display:flex;gap:8px;align-items:stretch}
-#lb .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lb .nm{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lb .row button.c,#lb .row button.d{flex:0 0 auto;white-space:nowrap}
 #lb button.c{background:#8e44ad;border-color:transparent}
 #lb button.d{background:#c62828;border-color:transparent}
 #top button{white-space:nowrap;flex:0 0 auto}
@@ -165,7 +166,12 @@ function showList(){
     x.textContent='📝 '+n.name+'   ('+n.time+')';
     x.onclick=function(){hideList();if(A())A().open(n.name)};
     var c=document.createElement('button');c.className='c';c.textContent='📋 Copy';
-    c.onclick=function(){if(A())A().copyNote(n.name)};
+    c.onclick=function(){
+      if(!A())return;
+      A().copyNote(n.name);
+      c.textContent='✔ Đã copy';
+      setTimeout(function(){c.textContent='📋 Copy'},1500);
+    };
     var d=document.createElement('button');d.className='d';d.textContent='🗑 Xoá';
     d.onclick=function(){doDelete(n.name)};
     row.appendChild(x);row.appendChild(c);row.appendChild(d);
