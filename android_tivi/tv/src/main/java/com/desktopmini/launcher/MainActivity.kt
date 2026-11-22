@@ -84,6 +84,7 @@ class MainActivity : Activity(), FullscreenHost {
     private var notes: NotesPane? = null      // Ghi chú (mode 6), tạo khi mở lần đầu
     private var browser: BrowserHost? = null   // Trình duyệt (mode 5), tạo khi mở lần đầu
     private val barItems = ArrayList<TextView>()
+    private var btnKillRef: TextView? = null     // nút X: nằm trong barItems (giữa ⌨ và OFF) để remote chọn được
     private var barFocus = -1                // ô chọn trên thanh dưới (theo barItems): 0 Menu,1 TV,2 YouTube,3 Trình duyệt,4 Ghi chú,5 Ái Kara,6 Cài đặt,7 Tệp,8 Home,9 Cập nhật,10 ←; -1 = đang điều khiển trang. Mở app: nằm sẵn ở YouTube
     private var fullView: View? = null
     private var fullCb: WebChromeClient.CustomViewCallback? = null
@@ -277,8 +278,9 @@ class MainActivity : Activity(), FullscreenHost {
 
     private fun activeBtn(b: TextView, on: Boolean, onColor: Int) {
         val isOff = b.tag == "off"
+        val isKill = b === btnKillRef
         val isKb = b === btnKb                     // nút ⌨ bàn phím: nền xanh lá (sáng vừa)
-        val fill = if (isOff) 0xFFD50000.toInt() else if (isKb) 0xFF2E9E5B.toInt() else if (on) onColor else BAR_BTN_BG
+        val fill = if (isKill) 0xFFFFF3B0.toInt() else if (isOff) 0xFFD50000.toInt() else if (isKb) 0xFF2E9E5B.toInt() else if (on) onColor else BAR_BTN_BG
         val focused = barFocus >= 0 && barItems.indexOf(b) == barFocus
         b.background = android.graphics.drawable.GradientDrawable().apply {
             cornerRadius = dp(6).toFloat()
@@ -286,11 +288,12 @@ class MainActivity : Activity(), FullscreenHost {
             when {
                 focused -> setStroke(dp(3), FOCUS_RING)                 // ô chọn (viền vàng)
                 on -> setStroke(dp(2), 0xCCFFFFFF.toInt())              // nút đang mở: viền sáng
+                isKill -> setStroke(dp(1), 0xFFFFF9D6.toInt())
                 isOff -> setStroke(dp(1), 0xFFFF8A80.toInt())
                 else -> setStroke(dp(1), BTN_EDGE)
             }
         }
-        b.setTextColor(if (on || isOff || isKb) Color.WHITE else BAR_TEXT)
+        b.setTextColor(if (isKill) 0xFF3A3000.toInt() else if (on || isOff || isKb) Color.WHITE else BAR_TEXT)
     }
 
     private fun barBtn(text: String, arrow: ArrowLeftDrawable? = null): TextView = (if (arrow != null) ArrowButton(this, arrow) else TextView(this)).apply {
@@ -404,6 +407,7 @@ class MainActivity : Activity(), FullscreenHost {
         }
         bar.addView(btnKb, LinearLayout.LayoutParams(dp(34), -1).also { it.leftMargin = dp(10) })
         bar.addView(btnKill, LinearLayout.LayoutParams(dp(44), -1).also { it.leftMargin = dp(4) })
+        btnKillRef = btnKill; barItems.add(barItems.indexOf(btnOff), btnKill)      // remote ◀▶ chọn được nút X, OK = bấm
         // OFF: cuối cùng bên phải nút X, bề ngang = 60% một nút thường (theo bề ngang nút Menu sau khi bố cục xong)
         btnOff.minWidth = 0
         bar.addView(btnOff, LinearLayout.LayoutParams(dp(30), -1).also { it.leftMargin = dp(4) })
@@ -1192,8 +1196,8 @@ class MainActivity : Activity(), FullscreenHost {
 
     // ---------------- Ẩn/hiện nút trên thanh dưới ----------------
 
-    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | YouTube | Trình duyệt | Ghi chú | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← | Bàn phím | OFF
-    private val barNames = listOf("Menu", "TV", "YouTube", "Trình duyệt", "Ghi chú", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)", "Bàn phím", "OFF")
+    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | YouTube | Trình duyệt | Ghi chú | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← | Bàn phím | X | OFF
+    private val barNames = listOf("Menu", "TV", "YouTube", "Trình duyệt", "Ghi chú", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)", "Bàn phím", "X", "OFF")
     private val rightNames = listOf("Pin", "Giờ", "Ngày dương", "Âm lịch")
     private fun rightViews() = listOf(tvBatt, tvTime, tvDate, tvLunar)
 
@@ -1288,7 +1292,7 @@ class MainActivity : Activity(), FullscreenHost {
         }
         val two = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            addView(column("BÊN TRÁI", barNames, cViolet), LinearLayout.LayoutParams(0, -2, 1f).also { it.rightMargin = dp(8) })
+            addView(column("BÊN TRÁI", barNames.filter { it != "X" }, cViolet), LinearLayout.LayoutParams(0, -2, 1f).also { it.rightMargin = dp(8) })
             addView(column("BÊN PHẢI", rightNames, cViolet), LinearLayout.LayoutParams(0, -2, 1f).also { it.leftMargin = dp(8) })
         }
         val scroll = android.widget.ScrollView(this).apply { isFillViewport = false; addView(two) }
