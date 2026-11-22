@@ -342,29 +342,23 @@ class MainActivity : Activity(), FullscreenHost {
         btnFiles = barBtn("Tệp").apply { setOnClickListener { hideMenu(); onModeButton(3) } }
         val btnHome = barBtn("Home").apply { setOnClickListener { hideMenu(); goTvHome() } }
         val btnUpdate = barBtn("Cập nhật").apply { setOnClickListener { hideMenu(); Updater.start(this@MainActivity) } }
-        // OFF: nhấn thường = tắt hình TV (khóa màn hình); nhấn giữ 1 giây = tắt nguồn TV
-        var offHeld = false
-        val offFire = Runnable {
-            offHeld = true; hideMenu()
-            shutdownTv()
+        // OFF: nhấp 1 lần = tắt hình TV (khóa màn hình); nhấp 2 lần liên tiếp (double click) = tắt nguồn TV
+        val offSingle = Runnable {
+            if (!ScreenAdmin.lock(this@MainActivity)) {
+                Toast.makeText(this@MainActivity, "Cần bật Quản trị thiết bị cho app TV để tắt màn hình", Toast.LENGTH_LONG).show()
+                ScreenAdmin.requestActivation(this@MainActivity)
+            }
         }
+        var offPending = false
+        val offTimer = Runnable { offPending = false; offSingle.run() }
         val btnOff = barBtn("OFF").apply {
             tag = "off"
             background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFD50000.toInt()); setStroke(dp(1), 0xFFFF8A80.toInt()) }
             setTextColor(Color.WHITE)
             setOnClickListener {
                 hideMenu()
-                if (!ScreenAdmin.lock(this@MainActivity)) {
-                    Toast.makeText(this@MainActivity, "Cần bật Quản trị thiết bị cho app TV để tắt màn hình", Toast.LENGTH_LONG).show()
-                    ScreenAdmin.requestActivation(this@MainActivity)
-                }
-            }
-            setOnTouchListener { _, ev ->
-                when (ev.actionMasked) {
-                    android.view.MotionEvent.ACTION_DOWN -> { offHeld = false; ui.removeCallbacks(offFire); ui.postDelayed(offFire, 1000); false }
-                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> { ui.removeCallbacks(offFire); val h = offHeld; offHeld = false; h }
-                    else -> offHeld
-                }
+                if (offPending) { offPending = false; ui.removeCallbacks(offTimer); shutdownTv() }
+                else { offPending = true; ui.postDelayed(offTimer, 400) }
             }
         }
         val btnBack = barBtn("", ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat())).apply {
@@ -1335,7 +1329,7 @@ class MainActivity : Activity(), FullscreenHost {
         dlg.show()
     }
 
-    /** Tắt nguồn TV (nhấn giữ nút OFF 1 giây): mở menu nguồn của hệ thống rồi tự bấm "Tắt nguồn" qua Trợ năng (máy không root). */
+    /** Tắt nguồn TV (nhấp đúp nút OFF): mở menu nguồn của hệ thống rồi tự bấm "Tắt nguồn" qua Trợ năng (máy không root). */
     private fun shutdownTv() {
         // Máy không root: mở menu nguồn của hệ thống rồi tự bấm "Tắt nguồn" (+ xác nhận) qua Trợ năng
         if (RemoteAccessibilityService.instance?.powerOffAuto() != true)
