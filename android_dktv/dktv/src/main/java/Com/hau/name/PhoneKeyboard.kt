@@ -113,16 +113,18 @@ class PhoneKeyboard(
     private val body = LinearLayout(ctx)
     private val echoTv = TextView(ctx)
 
+    private val TEAL = 0xFF00897B.toInt()       // nền xanh ngọc của phím
+
     private fun rect(fill: Int, stroke: Int = Neon.EDGE_HI, r: Int = 8) = GradientDrawable().apply {
         cornerRadius = dp(r).toFloat(); setColor(fill); setStroke(dp(1), stroke)
     }
 
     private fun keyBg(base: Int): StateListDrawable = StateListDrawable().apply {
-        addState(intArrayOf(android.R.attr.state_pressed), rect(0xFF0097A7.toInt(), Neon.CYAN))
+        addState(intArrayOf(android.R.attr.state_pressed), rect(0xFF00C9A7.toInt(), Neon.CYAN))
         addState(intArrayOf(), rect(base))
     }
 
-    private fun key(label: String, weight: Float, base: Int = Neon.PANEL_HI, sp: Float = 22f, click: () -> Unit): TextView =
+    private fun key(label: String, weight: Float, base: Int = TEAL, sp: Float = 22f, click: () -> Unit): TextView =
         TextView(ctx).apply {
             text = label; textSize = sp; setTextColor(Neon.TEXT); gravity = Gravity.CENTER
             typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
@@ -176,7 +178,7 @@ class PhoneKeyboard(
     }
 
     private fun bsKey(weight: Float): TextView {
-        val bs = key("⌫", weight, 0xFF2A3556.toInt()) { }
+        val bs = key("⌫", weight, TEAL, 32f) { }
         bs.setOnClickListener(null)
         val rep = object : Runnable { override fun run() { backspace(); h.postDelayed(this, 70) } }
         bs.setOnTouchListener { v, ev ->
@@ -197,7 +199,7 @@ class PhoneKeyboard(
         if (!symbols) {
             body.addView(row(*chars("qwertyuiop")))
             body.addView(row(spacer(0.5f), *chars("asdfghjkl"), spacer(0.5f)))
-            val shiftKey = key("⇧", 1.5f, if (shift) 0xFF7C4DFF.toInt() else 0xFF2A3556.toInt()) { shift = !shift; rebuild() }
+            val shiftKey = key("⇧", 1.5f, if (shift) 0xFF7C4DFF.toInt() else TEAL, 32f) { shift = !shift; rebuild() }
             body.addView(row(shiftKey, *chars("zxcvbnm"), bsKey(1.5f)))
         } else {
             body.addView(row(*chars("@#$%&*-+()")))
@@ -205,13 +207,13 @@ class PhoneKeyboard(
             body.addView(row(spacer(1.5f), *chars("~^<>{}|\\"), bsKey(1.5f)))
         }
         body.addView(row(
-            key(if (symbols) "ABC" else "?123", 1.5f, 0xFF2A3556.toInt(), 18f) { symbols = !symbols; resetWord(); rebuild() },
-            key(if (vnMode) "VN" else "EN", 1.2f, 0xFF2A3556.toInt(), 18f) { vnMode = !vnMode; resetWord(); rebuild() },
+            key(if (symbols) "ABC" else "?123", 1.5f, TEAL, 18f) { symbols = !symbols; resetWord(); rebuild() },
+            key(if (vnMode) "VN" else "EN", 1.2f, TEAL, 18f) { vnMode = !vnMode; resetWord(); rebuild() },
             key(",", 1f) { typeOther(",") },
-            key(if (vnMode) "Tiếng Việt" else "English", 4f, Neon.PANEL_HI, 16f) { typeOther(" ") },
+            key(if (vnMode) "Tiếng Việt" else "English", 4f, TEAL, 16f) { typeOther(" ") },
             key(".", 1f) { typeOther(".") },
             key("?", 1f) { typeOther("?") },
-            key("↵", 1.8f, 0xFF00897B.toInt()) { doEnter() }
+            key("↵", 1.8f, TEAL, 36f) { doEnter() }
         ))
     }
 
