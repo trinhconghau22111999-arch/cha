@@ -53,6 +53,9 @@ class MainActivity : Activity(), FullscreenHost {
     private lateinit var barView: LinearLayout
     private lateinit var floatBack: TextView
     private var barH = 0
+    private lateinit var rootView: FrameLayout           // toàn bộ giao diện (trên + dưới), cùng nổi trong cửa sổ trợ năng khi dịch vụ bật
+    private var uiParent: android.view.ViewGroup? = null // chỗ cũ của rootView trong cửa sổ Activity
+    private var rootInOverlay = false
     private lateinit var fullLayer: FrameLayout
     private lateinit var hidden: FrameLayout
     private lateinit var btnMenu: TextView
@@ -105,6 +108,7 @@ class MainActivity : Activity(), FullscreenHost {
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "tv:connection").also { it.setReferenceCounted(false); it.acquire() }
         } catch (e: Exception) { }
         buildUi()
+        RemoteAccessibilityService.onConnected = { ui.post { attachUiOverlay() } }
         applyBarVisibility()
         hideSystemBars()
         setMode(2)                      // mở app lên là vào thẳng YouTube
@@ -423,6 +427,7 @@ class MainActivity : Activity(), FullscreenHost {
         remote.onFullscreen = { if (fullView != null) hideFull() else remote.fullscreenVideo() }
         hidden = FrameLayout(this)
         root.addView(hidden, FrameLayout.LayoutParams(1, 1))
+        rootView = root
         setContentView(root)
         if (Build.VERSION.SDK_INT >= 30) {
             // Thanh điều hướng/trạng thái vừa lộ ra (vuốt mép): ẩn lại ngay
@@ -443,6 +448,40 @@ class MainActivity : Activity(), FullscreenHost {
         updateButtons()
     }
 
+    // ===== Cả giao diện (phần trên + thanh dưới) nổi chung 1 thể trong cửa sổ trợ năng, phủ lên cả thanh trạng thái lẫn thanh điều hướng =====
+    // => không vuốt xuống kéo thông báo được. Dịch vụ trợ năng chưa bật / lỗi: giao diện vẫn nằm trong app như cũ.
+    // Có hộp thoại/cửa sổ hệ thống hiện lên (Activity mất focus) thì giao diện tạm về lại trong app để hộp thoại không bị che.
+    fun attachUiOverlay() {
+        if (rootInOverlay || Build.VERSION.SDK_INT < 22 || !resumed || isFinishing || !hasWindowFocus()) return
+        val svc = RemoteAccessibilityService.instance ?: return
+        val parent = rootView.parent as? android.view.ViewGroup ?: return
+        try {
+            uiParent = parent
+            parent.removeView(rootView)
+            if (svc.showUi(rootView)) {
+                rootInOverlay = true
+                svc.onUiLost = { runOnUiThread { detachUiOverlay() } }
+            } else restoreRoot()
+        } catch (e: Exception) {
+            try { restoreRoot() } catch (e2: Exception) { }
+        }
+    }
+
+    fun detachUiOverlay() {
+        if (!rootInOverlay) return
+        rootInOverlay = false
+        RemoteAccessibilityService.instance?.let { it.onUiLost = null; it.hideUi() }
+        restoreRoot()
+    }
+
+    private fun restoreRoot() {
+        rootInOverlay = false
+        (rootView.parent as? android.view.ViewGroup)?.removeView(rootView)
+        val p = uiParent ?: findViewById<android.view.ViewGroup>(android.R.id.content)
+        p.addView(rootView, FrameLayout.LayoutParams(-1, -1))
+        hideSystemBars()
+    }
+
     private fun hideSystemBars() {
         if (Build.VERSION.SDK_INT >= 30) {
             // Android 11+: cờ cũ đôi khi bị bỏ qua -> dùng WindowInsetsController; vuốt từ mép chỉ hiện thanh tạm thời
@@ -460,7 +499,7 @@ class MainActivity : Activity(), FullscreenHost {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) hideSystemBars()
+        if (hasFocus) { hideSystemBars(); attachUiOverlay() } else detachUiOverlay()
     }
 
     private fun updateButtons() {
@@ -1519,10 +1558,12 @@ class MainActivity : Activity(), FullscreenHost {
     override fun onStart() { super.onStart(); RemoteHub.host?.attach(hidden) }
     override fun onStop() { super.onStop(); RemoteHub.host?.detach() }
 
-    override fun onResume() { super.onResume(); resumed = true; RemoteHub.appVisible = true; RemoteAccessibilityService.instance?.hideCursor(); if (accPendingHome) { accPendingHome = false; ui.postDelayed({ maybeAskDefaultHome() }, 500) }; hideSystemBars(); refreshStatus(); if (mode == 1) tv?.onResume() else if (mode == 2) yt?.onResume() else if (mode == 3) files?.onResume() else if (mode == 4) aikara?.onResume(); consumePendingFile(); if (pendingAppRefresh) { pendingAppRefresh = false; if (menuOpen()) showAppMenu() } }
-    override fun onPause() { super.onPause(); resumed = false; RemoteHub.appVisible = false; tv?.onPause(); yt?.onPause(); files?.onPause(); aikara?.onPause(); browser?.onPause(); notes?.onPause() }
+    override fun onResume() { super.onResume(); resumed = true; RemoteHub.appVisible = true; RemoteAccessibilityService.instance?.hideCursor(); attachUiOverlay(); if (accPendingHome) { accPendingHome = false; ui.postDelayed({ maybeAskDefaultHome() }, 500) }; hideSystemBars(); refreshStatus(); if (mode == 1) tv?.onResume() else if (mode == 2) yt?.onResume() else if (mode == 3) files?.onResume() else if (mode == 4) aikara?.onResume(); consumePendingFile(); if (pendingAppRefresh) { pendingAppRefresh = false; if (menuOpen()) showAppMenu() } }
+    override fun onPause() { super.onPause(); resumed = false; RemoteHub.appVisible = false; detachUiOverlay(); tv?.onPause(); yt?.onPause(); files?.onPause(); aikara?.onPause(); browser?.onPause(); notes?.onPause() }
 
     override fun onDestroy() {
+        detachUiOverlay()
+        RemoteAccessibilityService.onConnected = null
         ui.removeCallbacksAndMessages(null)
         try { battReceiver?.let { unregisterReceiver(it) } } catch (e: Exception) { }
         RemoteHub.setActivity(null)

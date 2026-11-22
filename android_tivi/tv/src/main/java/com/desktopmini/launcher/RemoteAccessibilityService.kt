@@ -14,6 +14,8 @@ import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -30,6 +32,8 @@ import org.json.JSONObject
 class RemoteAccessibilityService : AccessibilityService() {
     companion object {
         @Volatile var instance: RemoteAccessibilityService? = null
+        /** MainActivity đăng ký: gọi khi dịch vụ vừa kết nối (để đưa giao diện lên cửa sổ trợ năng). */
+        @Volatile var onConnected: (() -> Unit)? = null
         fun isEnabled(ctx: Context): Boolean {
             if (instance != null) return true
             return try {
@@ -52,17 +56,65 @@ class RemoteAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         instance = this
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        onConnected?.invoke()
+    }
+
+    // ===== Toàn bộ giao diện app TV: 1 cửa sổ trợ năng phủ kín màn hình (che cả thanh trạng thái và thanh điều hướng) =====
+    private var uiBox: FrameLayout? = null
+    /** Dịch vụ bị tắt / cửa sổ mất: MainActivity đưa giao diện về lại trong app. */
+    @Volatile var onUiLost: (() -> Unit)? = null
+
+    /** Đưa [ui] vào cửa sổ trợ năng toàn màn hình. Trả false nếu không thêm được (khi đó [ui] không còn thuộc cửa sổ nào). */
+    fun showUi(ui: View): Boolean {
+        if (Build.VERSION.SDK_INT < 22) return false
+        val w = wm ?: return false
+        hideUi()
+        val box = FrameLayout(this)
+        return try {
+            (ui.parent as? ViewGroup)?.removeView(ui)
+            box.addView(ui, FrameLayout.LayoutParams(-1, -1))
+            val p = WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                    or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+                PixelFormat.OPAQUE).apply {
+                gravity = Gravity.TOP or Gravity.START
+                if (Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+            w.addView(box, p)
+            uiBox = box
+            true
+        } catch (e: Exception) {
+            try { box.removeAllViews() } catch (e2: Exception) { }
+            uiBox = null
+            false
+        }
+    }
+
+    /** Gỡ cửa sổ giao diện (view được trả lại cho MainActivity). */
+    fun hideUi() {
+        val box = uiBox ?: return
+        try { box.removeAllViews() } catch (e: Exception) { }
+        try { wm?.removeView(box) } catch (e: Exception) { }
+        uiBox = null
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) { }
     override fun onInterrupt() { }
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
-        removeCursor(); instance = null
+        uiLost(); removeCursor(); instance = null
         return super.onUnbind(intent)
     }
 
-    override fun onDestroy() { removeCursor(); instance = null; super.onDestroy() }
+    override fun onDestroy() { uiLost(); removeCursor(); instance = null; super.onDestroy() }
+
+    private fun uiLost() {
+        if (uiBox == null) return
+        val cb = onUiLost
+        hideUi()
+        cb?.invoke()
+    }
 
     private fun screen(): DisplayMetrics {
         val dm = DisplayMetrics()
