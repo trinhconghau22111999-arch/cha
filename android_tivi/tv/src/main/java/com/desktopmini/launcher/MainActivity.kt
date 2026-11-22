@@ -721,8 +721,38 @@ class MainActivity : Activity(), FullscreenHost {
     }
 
     // Khoa cam ung: nuot moi cham tren man hinh TV. Chuot ao cua remote gui thang vao root nen van hoat dong.
+    // Cử chỉ vuốt từ mép dưới lên: giao diện không phản ứng với nó (không kéo, không bấm nhầm nút).
+    // Chạm thường trên thanh dưới vẫn bấm được; chỉ khi ngón tay bắt đầu ở mép dưới rồi vuốt lên đủ xa thì huỷ.
+    private var edgeStartY = -1f
+    private var edgeSwallow = false
+
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
         if (::remote.isInitialized && remote.touchLocked) return true
+        if (ev != null) {
+            val edgeBand = window.decorView.height - dp(40)
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    edgeSwallow = false
+                    edgeStartY = if (ev.rawY > edgeBand) ev.rawY else -1f
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (edgeStartY >= 0f && !edgeSwallow && edgeStartY - ev.rawY > dp(24)) {
+                        edgeSwallow = true
+                        // Huỷ cử chỉ đang được các nút nhận, để nút không bị bấm nhầm khi vuốt
+                        val cancel = MotionEvent.obtain(ev)
+                        cancel.action = MotionEvent.ACTION_CANCEL
+                        super.dispatchTouchEvent(cancel)
+                        cancel.recycle()
+                    }
+                }
+            }
+            if (edgeSwallow) {
+                if (ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_CANCEL) {
+                    edgeSwallow = false; edgeStartY = -1f
+                }
+                return true
+            }
+        }
         return super.dispatchTouchEvent(ev)
     }
 
