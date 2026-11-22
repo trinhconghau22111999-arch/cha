@@ -1652,6 +1652,13 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         if (ok) {
             // Tên chỉ là UUID.bin -> đoán đuôi thật theo nội dung rồi đổi tên
             val f0 = od.file
+            if (f0 != null && od.name.endsWith(".txt", true) && Regex("^[0-9a-fA-F-]{32,40}\\.txt$").matches(od.name)) {
+                val head = try { f0.inputStream().use { ins -> val b = ByteArray(4096); String(b, 0, maxOf(0, ins.read(b))) } } catch (e: Throwable) { "" }
+                if (head.contains("\"nbformat\"")) {
+                    val nf = File(f0.parentFile, od.name.removeSuffix(".txt") + ".ipynb")
+                    if (!nf.exists() && f0.renameTo(nf)) { od.file = nf; od.name = nf.name; ui.post { renameDownloadRecord(od.id, od.name) } }
+                }
+            }
             if (f0 != null && od.name.endsWith(".bin", true)) {
                 val ext = sniffExt(f0)
                 if (ext != null) {
@@ -1753,11 +1760,13 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         val token = java.util.UUID.randomUUID().toString().replace("-", "")
         blobDls[token] = od
         Toast.makeText(this, "Đang tải: $name", Toast.LENGTH_SHORT).show()
-        val js = "(function(u,t){try{var x=new XMLHttpRequest();x.open('GET',u);x.responseType='blob';" +
-            "x.onload=function(){var b=x.response,CH=786432,off=0;AndroidBlob.begin(t,b.size,b.type||'');" +
+        val js = "(function(u,t){try{function go(b){var CH=786432,off=0;AndroidBlob.begin(t,b.size,b.type||'');" +
             "function nx(){if(off>=b.size){AndroidBlob.done(t);return;}var fr=new FileReader();" +
             "fr.onload=function(){var s=fr.result;AndroidBlob.chunk(t,s.substring(s.indexOf(',')+1));off+=CH;nx();};" +
-            "fr.onerror=function(){AndroidBlob.fail(t,'đọc dữ liệu lỗi');};fr.readAsDataURL(b.slice(off,off+CH));}nx();};" +
+            "fr.onerror=function(){AndroidBlob.fail(t,'đọc dữ liệu lỗi');};fr.readAsDataURL(b.slice(off,off+CH));}nx();}" +
+            "var c=window.__wbBlobs&&window.__wbBlobs[u];if(c){go(c);return;}" +
+            "var x=new XMLHttpRequest();x.open('GET',u);x.responseType='blob';" +
+            "x.onload=function(){go(x.response);};" +
             "x.onerror=function(){AndroidBlob.fail(t,'không đọc được tệp trong trang');};x.send();}" +
             "catch(e){AndroidBlob.fail(t,String(e));}})(" + JSONObject.quote(blobUrl) + "," + JSONObject.quote(token) + ")"
         wv.evaluateJavascript(js, null)
@@ -2685,8 +2694,13 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
 }
 
 private const val DL_NAME_HOOK_JS = "(function(){if(window.__wbDl)return;window.__wbDl=1;" +
-    "var P=HTMLAnchorElement.prototype,oc=P.click;" +
+    "var B=window.__wbBlobs={},K=[];" +
+    "var oc=URL.createObjectURL;URL.createObjectURL=function(o){var u=oc.apply(this,arguments);" +
+    "try{if(o instanceof Blob){B[u]=o;K.push(u);while(K.length>8){delete B[K.shift()];}}}catch(e){}return u;};" +
+    "var orv=URL.revokeObjectURL;URL.revokeObjectURL=function(){var a=arguments,t=this;setTimeout(function(){try{orv.apply(t,a)}catch(e){}},60000);};" +
+    "var P=HTMLAnchorElement.prototype,pc=P.click;" +
     "function rec(a){try{if(a&&a.download&&a.href&&window.AndroidBlob&&AndroidBlob.name)AndroidBlob.name(a.href,a.download)}catch(e){}}" +
-    "P.click=function(){rec(this);return oc.apply(this,arguments)};" +
+    "P.click=function(){rec(this);return pc.apply(this,arguments)};" +
+    "var de=EventTarget.prototype.dispatchEvent;EventTarget.prototype.dispatchEvent=function(ev){" +
+    "try{if(this instanceof HTMLAnchorElement&&ev&&ev.type==='click')rec(this)}catch(e){}return de.apply(this,arguments);};" +
     "document.addEventListener('click',function(e){var a=e.target&&e.target.closest?e.target.closest('a[download]'):null;rec(a)},true);})();"
-
