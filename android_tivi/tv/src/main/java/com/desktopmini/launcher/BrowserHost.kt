@@ -685,7 +685,6 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         wv.addJavascriptInterface(BlobBridge(), "AndroidBlob")
 
         wv.setDownloadListener { dlUrl, userAgent, contentDisposition, mimeType, _ ->
-            if (handledBlobs.remove(dlUrl)) return@setDownloadListener      // đã được trang tự đẩy sang app qua AndroidBlob.open
             val fileName = dlNameHints[dlUrl]?.let { cleanName(it) } ?: URLUtil.guessFileName(dlUrl, contentDisposition, mimeType)
             val startIt = { startOwnDownload(wv, dlUrl, userAgent, contentDisposition, mimeType) }
             // Cảnh báo khi tải trùng một tệp đang tải: hỏi xác nhận rồi mới tải thêm
@@ -1773,8 +1772,6 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         wv.evaluateJavascript(js, null)
     }
 
-    private val handledBlobs: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
-
     private inner class BlobBridge {
         /** Trang tự bấm tải một Blob: tạo lượt tải (ở luồng giao diện) rồi trả mã để trang đẩy dữ liệu qua begin/chunk/done. */
         @JavascriptInterface fun open(url: String, name: String, mime: String): String {
@@ -1785,7 +1782,6 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
                 try {
                     val od = newOwnDl(cleanName(if (name.isEmpty()) "download" else name), mime)
                     blobDls[token] = od
-                    handledBlobs.add(url)
                     Toast.makeText(this@BrowserHost, "Đang tải: " + od.name, Toast.LENGTH_SHORT).show()
                     ok = true
                 } catch (e: Throwable) { }
