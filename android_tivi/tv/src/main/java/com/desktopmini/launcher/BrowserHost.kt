@@ -17,6 +17,8 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -54,6 +56,7 @@ import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.webkit.JavaScriptReplyProxy
 import androidx.webkit.ScriptHandler
 import androidx.webkit.WebSettingsCompat
@@ -258,6 +261,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
     /** Bấm Back: true = trình duyệt đã xử lý (đóng bảng, lùi trang, đóng thẻ...), false = hết việc để làm, nơi gọi nên đóng trình duyệt. */
     fun back(): Boolean {
         when {
+            snipView != null -> cancelSnip()
             customView != null -> hideCustomView()
             dlScrim.visibility == View.VISIBLE -> closeDownloads()
             drawerScrim.visibility == View.VISIBLE -> closeDrawer()
@@ -1621,31 +1625,113 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         }
     }
 
+    // ====================== Cắt ảnh màn hình (giống Win+Shift+S) ======================
+    // Bấm nút chụp: màn hình đứng hình + tối đi, kéo ngón tay/chuột chọn vùng cần cắt, thả ra là vùng đó được chép vào
+    // bộ nhớ tạm (clipboard) dưới dạng ảnh để dán vào chỗ khác. Back hoặc nút "Hủy" để thoát.
+
+    private var snipView: View? = null
+
     private fun takeScreenshot() {
-        val wv = active?.webView ?: return
-        if (wv.width <= 0 || wv.height <= 0) return
+        if (snipView != null) return
+        val w = rootFrame.width; val h = rootFrame.height
+        if (w <= 0 || h <= 0) return
         try {
-            val bmp = Bitmap.createBitmap(wv.width, wv.height, Bitmap.Config.ARGB_8888)
-            wv.draw(Canvas(bmp))
-            val name = "Webandr_" + System.currentTimeMillis() + ".png"
-            if (Build.VERSION.SDK_INT >= 29) {
-                val cv = ContentValues().apply {
-                    put(MediaStore.Images.Media.DISPLAY_NAME, name)
-                    put(MediaStore.Images.Media.MIME_TYPE, "image/png")
-                    put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Webandr")
-                }
-                val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv)
-                    ?: throw Exception("không tạo được tệp")
-                contentResolver.openOutputStream(uri)?.use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
-            } else {
-                val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "Webandr")
-                dir.mkdirs()
-                FileOutputStream(File(dir, name)).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
-                android.media.MediaScannerConnection.scanFile(this, arrayOf(File(dir, name).absolutePath), arrayOf("image/png"), null) /* để Ảnh/Tệp thấy ngay */
-            }
-            Toast.makeText(this, "Đã lưu ảnh chụp: Pictures/Webandr/$name", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
+            val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+            rootFrame.draw(Canvas(bmp))
+            val v = SnipView(bmp)
+            snipView = v
+            rootFrame.addView(v, FrameLayout.LayoutParams(MATCH, MATCH))
+            v.bringToFront()
+        } catch (e: Throwable) {
+            snipView = null
             Toast.makeText(this, "Không chụp được: " + e.message, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun cancelSnip() {
+        snipView?.let { rootFrame.removeView(it) }
+        snipView = null
+    }
+
+    private fun copyImageToClipboard(bmp: Bitmap) {
+        try {
+            val dir = File(cacheDir, "snips")
+            dir.mkdirs()
+            dir.listFiles()?.forEach { it.delete() }
+            val f = File(dir, "snip_" + System.currentTimeMillis() + ".png")
+            FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            val uri = FileProvider.getUriForFile(this, packageName + ".fileprovider", f)
+            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            cm.setPrimaryClip(ClipData.newUri(contentResolver, "Ảnh cắt", uri))
+            Toast.makeText(this, "Đã chép ảnh vào bộ nhớ tạm - hãy dán vào nơi cần", Toast.LENGTH_LONG).show()
+        } catch (e: Throwable) {
+            Toast.makeText(this, "Không chép được ảnh: " + e.message, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    @SuppressLint("ViewConstructor")
+    private inner class SnipView(private val shot: Bitmap) : View(this@BrowserHost) {
+        private val dim = Paint().apply { color = 0x99000000.toInt() }
+        private val border = Paint().apply { color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = dp(2).toFloat() }
+        private val hintBg = Paint().apply { color = 0xCC000000.toInt(); isAntiAlias = true }
+        private val hintTx = Paint().apply { color = Color.WHITE; textSize = dp(14).toFloat(); isAntiAlias = true; textAlign = Paint.Align.CENTER }
+        private val cancelBg = Paint().apply { color = 0xFFD50000.toInt(); isAntiAlias = true }
+        private val sel = RectF()
+        private val cancelBox = RectF()
+        private var hasSel = false
+        private var sx = 0f; private var sy = 0f
+
+        override fun onDraw(c: Canvas) {
+            val w = width.toFloat(); val h = height.toFloat()
+            val dst = android.graphics.Rect(0, 0, width, height)
+            c.drawBitmap(shot, null, dst, null)
+            c.drawRect(0f, 0f, w, h, dim)
+            if (hasSel) {
+                c.save(); c.clipRect(sel)
+                c.drawBitmap(shot, null, dst, null)
+                c.restore()
+                c.drawRect(sel, border)
+            }
+            val pad = dp(10).toFloat()
+            val t = "Kéo để chọn vùng cần cắt"
+            val tw = hintTx.measureText(t)
+            c.drawRoundRect(w / 2 - tw / 2 - pad, pad, w / 2 + tw / 2 + pad, pad + dp(32), dp(8).toFloat(), dp(8).toFloat(), hintBg)
+            c.drawText(t, w / 2, pad + dp(21), hintTx)
+            val cw = dp(72).toFloat()
+            cancelBox.set(w - cw - pad, pad, w - pad, pad + dp(32))
+            c.drawRoundRect(cancelBox, dp(8).toFloat(), dp(8).toFloat(), cancelBg)
+            c.drawText("✕ Hủy", cancelBox.centerX(), pad + dp(21), hintTx)
+        }
+
+        @SuppressLint("ClickableViewAccessibility")
+        override fun onTouchEvent(e: android.view.MotionEvent): Boolean {
+            val x = e.x.coerceIn(0f, width.toFloat()); val y = e.y.coerceIn(0f, height.toFloat())
+            when (e.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    if (cancelBox.contains(e.x, e.y)) { cancelSnip(); return true }
+                    sx = x; sy = y; hasSel = false
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    sel.set(minOf(sx, x), minOf(sy, y), maxOf(sx, x), maxOf(sy, y)); hasSel = true; invalidate()
+                }
+                android.view.MotionEvent.ACTION_UP -> {
+                    sel.set(minOf(sx, x), minOf(sy, y), maxOf(sx, x), maxOf(sy, y))
+                    if (sel.width() >= dp(12) && sel.height() >= dp(12)) finish() else { hasSel = false; invalidate() }
+                }
+                android.view.MotionEvent.ACTION_CANCEL -> { hasSel = false; invalidate() }
+            }
+            return true
+        }
+
+        private fun finish() {
+            val kx = shot.width / width.toFloat(); val ky = shot.height / height.toFloat()
+            val l = (sel.left * kx).toInt().coerceIn(0, shot.width - 1)
+            val t = (sel.top * ky).toInt().coerceIn(0, shot.height - 1)
+            val w = ((sel.right - sel.left) * kx).toInt().coerceIn(1, shot.width - l)
+            val h = ((sel.bottom - sel.top) * ky).toInt().coerceIn(1, shot.height - t)
+            val crop = Bitmap.createBitmap(shot, l, t, w, h)
+            cancelSnip()
+            copyImageToClipboard(crop)
         }
     }
 
