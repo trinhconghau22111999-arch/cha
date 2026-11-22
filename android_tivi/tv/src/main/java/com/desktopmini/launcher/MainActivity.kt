@@ -53,6 +53,8 @@ class MainActivity : Activity(), FullscreenHost {
     private lateinit var barView: LinearLayout
     private lateinit var floatBack: TextView
     private var barH = 0
+    private var kb: MiniKeyboard? = null
+    private lateinit var btnKb: TextView
     private lateinit var rootView: FrameLayout           // toàn bộ giao diện (trên + dưới), cùng nổi trong cửa sổ trợ năng khi dịch vụ bật
     private var uiParent: android.view.ViewGroup? = null // chỗ cũ của rootView trong cửa sổ Activity
     private var rootInOverlay = false
@@ -112,6 +114,7 @@ class MainActivity : Activity(), FullscreenHost {
         applyBarVisibility()
         hideSystemBars()
         setMode(2)                      // mở app lên là vào thẳng YouTube
+        if (getSharedPreferences("tv", MODE_PRIVATE).getBoolean("kbOn", false)) rootView.post { showKeyboard() }
         if (intent?.getBooleanExtra(RemoteHub.EXTRA_HOME, false) == true) { hideMenu(); setMode(0) }   // được gọi từ nút "Màn hình chính" khi app đã bị tắt
 
         refreshStatus()
@@ -364,12 +367,13 @@ class MainActivity : Activity(), FullscreenHost {
             contentDescription = "Thoát"; setOnClickListener { hideMenu(); goBack() }
         }
         // 10 nút bằng nhau: Menu | TV | YouTube | Trình duyệt | Ghi chú | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát); OFF nằm cuối hàng, bên phải nút X
+        btnKb = barBtn("⌨").apply { minWidth = 0; contentDescription = "Bàn phím"; setOnClickListener { hideMenu(); toggleKeyboard() } }
         val group = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         listOf(btnMenu, btnTv, btnYt, btnBrowser, btnNotes, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack).forEachIndexed { i, b ->
             group.addView(b, LinearLayout.LayoutParams(0, -1, 1f).also { if (i > 0) it.leftMargin = dp(4) })
         }
         bar.addView(group, LinearLayout.LayoutParams(0, -1, 1f))
-        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnYt, btnBrowser, btnNotes, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack, btnOff))
+        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnYt, btnBrowser, btnNotes, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack, btnOff, btnKb))
 
         // Góc phải: giờ, ngày, âm lịch (cùng cỡ chữ 13sp, đậm), rồi nút X gỡ app
         val cluster = 13f
@@ -401,6 +405,7 @@ class MainActivity : Activity(), FullscreenHost {
         // OFF: cuối cùng bên phải nút X, bề ngang = 60% một nút thường (theo bề ngang nút Menu sau khi bố cục xong)
         btnOff.minWidth = 0
         bar.addView(btnOff, LinearLayout.LayoutParams(dp(30), -1).also { it.leftMargin = dp(4) })
+        bar.addView(btnKb, LinearLayout.LayoutParams(dp(34), -1).also { it.leftMargin = dp(4) })
         btnMenu.addOnLayoutChangeListener { v, l, _, r, _, _, _, _, _ ->
             val w = ((r - l) * 0.6f).toInt()
             if (w > 0 && btnOff.layoutParams.width != w) { btnOff.layoutParams = btnOff.layoutParams.also { it.width = w } }
@@ -1170,8 +1175,8 @@ class MainActivity : Activity(), FullscreenHost {
 
     // ---------------- Ẩn/hiện nút trên thanh dưới ----------------
 
-    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | YouTube | Trình duyệt | Ghi chú | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← | OFF
-    private val barNames = listOf("Menu", "TV", "YouTube", "Trình duyệt", "Ghi chú", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)", "OFF")
+    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | YouTube | Trình duyệt | Ghi chú | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← | OFF | Bàn phím
+    private val barNames = listOf("Menu", "TV", "YouTube", "Trình duyệt", "Ghi chú", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)", "OFF", "Bàn phím")
     private val rightNames = listOf("Pin", "Giờ", "Ngày dương", "Âm lịch")
     private fun rightViews() = listOf(tvBatt, tvTime, tvDate, tvLunar)
 
@@ -1485,9 +1490,68 @@ class MainActivity : Activity(), FullscreenHost {
         yt?.search(q)
     }
 
+    // ---------------- Bàn phím ảo nổi ----------------
+    private fun toggleKeyboard() { if (kb == null) showKeyboard() else hideKeyboard() }
+
+    private fun showKeyboard() {
+        if (kb != null || !::rootView.isInitialized) return
+        val sp = getSharedPreferences("tv", MODE_PRIVATE)
+        val k = MiniKeyboard(this, { d, t -> keyboardEdit(d, t) }, { keyboardEnter() }, { hideKeyboard() },
+            { x, y -> sp.edit().putInt("kbX", x).putInt("kbY", y).apply() })
+        val rw = if (rootView.width > 0) rootView.width else resources.displayMetrics.widthPixels
+        val rh = if (rootView.height > 0) rootView.height else resources.displayMetrics.heightPixels
+        val w = minOf(dp(330), (rw * 0.94f).toInt()).coerceAtLeast(dp(220))
+        val lp = FrameLayout.LayoutParams(w, FrameLayout.LayoutParams.WRAP_CONTENT)
+        lp.gravity = Gravity.TOP or Gravity.START
+        var x = sp.getInt("kbX", -1); var y = sp.getInt("kbY", -1)
+        if (x < 0 || y < 0) { x = (rw - w - dp(8)).coerceAtLeast(0); y = (rh - dp(190) - barH - dp(8)).coerceAtLeast(0) }
+        lp.leftMargin = x; lp.topMargin = y
+        rootView.addView(k.view, lp)
+        val l = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> k.clamp() }
+        k.layoutListener = l
+        rootView.addOnLayoutChangeListener(l)
+        k.view.post { k.clamp() }
+        kb = k
+        sp.edit().putBoolean("kbOn", true).apply()
+    }
+
+    private fun hideKeyboard() {
+        val k = kb ?: return
+        kb = null
+        k.layoutListener?.let { rootView.removeOnLayoutChangeListener(it) }
+        rootView.removeView(k.view)
+        k.destroy()
+        getSharedPreferences("tv", MODE_PRIVATE).edit().putBoolean("kbOn", false).apply()
+    }
+
+    /** Gõ vào ô đang chọn: ô nhập gốc của app (vd thanh địa chỉ trình duyệt) hoặc ô nhập trong trang web đang mở. */
+    private fun keyboardEdit(del: Int, ins: String) {
+        val f = rootView.findFocus()
+        if (f is android.widget.EditText) {
+            try {
+                val t = f.text
+                val a = f.selectionStart.coerceAtLeast(0); val b = f.selectionEnd.coerceAtLeast(0)
+                if (a != b) t.replace(minOf(a, b), maxOf(a, b), ins)
+                else t.replace((b - del).coerceAtLeast(0), b, ins)
+            } catch (e: Exception) { }
+            return
+        }
+        applyTextEdit(del, ins)
+    }
+
+    private fun keyboardEnter() {
+        val f = rootView.findFocus()
+        if (f is android.widget.EditText) {
+            f.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+            f.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+            return
+        }
+        applyTextEdit(0, "\n")
+    }
+
     // Điện thoại gửi {del, ins}: xoá `del` ký tự trước con trỏ rồi chèn `ins` vào ô nhập đang chọn của TV/YouTube.
     private fun applyTextEdit(delRaw: Int, ins: String) {
-        val wv: WebView = (if (mode == 1) tv?.activeWeb else if (mode == 2) yt?.web else if (mode == 4) aikara?.web else null) ?: return
+        val wv: WebView = (if (mode == 1) tv?.activeWeb else if (mode == 2) yt?.web else if (mode == 4) aikara?.web else if (mode == 5) browser?.currentWebView else if (mode == 6) notes?.web else null) ?: return
         val del = delRaw.coerceIn(0, 1000000)
         if (del == 0 && ins.isEmpty()) return
         if (ins == "\n" && del == 0) {
@@ -1581,6 +1645,7 @@ class MainActivity : Activity(), FullscreenHost {
     override fun onPause() { super.onPause(); resumed = false; RemoteHub.appVisible = false; detachUiOverlay(); tv?.onPause(); yt?.onPause(); files?.onPause(); aikara?.onPause(); browser?.onPause(); notes?.onPause() }
 
     override fun onDestroy() {
+        kb?.destroy()
         detachUiOverlay()
         RemoteAccessibilityService.onConnected = null
         ui.removeCallbacksAndMessages(null)
