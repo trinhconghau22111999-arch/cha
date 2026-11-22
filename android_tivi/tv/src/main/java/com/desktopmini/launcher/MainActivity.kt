@@ -1353,11 +1353,14 @@ class MainActivity : Activity(), FullscreenHost {
         }
     }
 
-    /** Tắt nguồn TV (nhấp đúp nút OFF): mở menu nguồn của hệ thống rồi tự bấm "Tắt nguồn" qua Trợ năng (máy không root). */
+    /** Tắt nguồn TV (nhấp đúp nút OFF): mở menu nguồn của Android (như bấm giữ nút nguồn), người dùng bấm "Tắt nguồn". */
     private fun shutdownTv() {
-        // Máy không root: mở menu nguồn của hệ thống rồi tự bấm "Tắt nguồn" (+ xác nhận) qua Trợ năng
-        if (RemoteAccessibilityService.instance?.powerOffAuto() != true)
-            Toast.makeText(this, "Cần bật Trợ năng cho app TV để tắt nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
+        // Đưa giao diện về lại trong app (gỡ lớp phủ trợ năng) để menu nguồn của Android hiện lên trên cùng, rồi bấm "Tắt nguồn" bằng tay
+        detachUiOverlay()
+        ui.postDelayed({
+            if (RemoteAccessibilityService.instance?.powerMenu() != true)
+                Toast.makeText(this, "Cần bật Trợ năng cho app TV để mở menu nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
+        }, 300)
     }
 
     /** (Không còn dùng cho nút OFF) Khung hỏi khởi động lại. Nút "Tắt nguồn" mở menu nguồn của hệ thống như trước. */
