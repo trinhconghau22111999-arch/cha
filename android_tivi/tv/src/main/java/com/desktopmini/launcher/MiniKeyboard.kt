@@ -118,12 +118,12 @@ class MiniKeyboard(
     var layoutListener: View.OnLayoutChangeListener? = null
 
     private fun rect(c: Int, r: Int = 5) = GradientDrawable().apply { cornerRadius = dp(r).toFloat(); setColor(c) }
-    private fun keyBg(base: Int = 0xFF2E9E5B.toInt()): StateListDrawable = StateListDrawable().apply {
-        addState(intArrayOf(android.R.attr.state_pressed), rect(0xFF6FE3A0.toInt()))
+    private fun keyBg(base: Int = 0xFF1B2340.toInt()): StateListDrawable = StateListDrawable().apply {
+        addState(intArrayOf(android.R.attr.state_pressed), rect(0xFF00ACC1.toInt()))
         addState(intArrayOf(), rect(base))
     }
 
-    private fun key(label: String, weight: Float, base: Int = 0xFF2E9E5B.toInt(), sp: Float = 13f, click: () -> Unit): TextView =
+    private fun key(label: String, weight: Float, base: Int = 0xFF1B2340.toInt(), sp: Float = 13f, click: () -> Unit): TextView =
         TextView(ctx).apply {
             text = label; textSize = sp * SCALE; setTextColor(Color.WHITE); gravity = Gravity.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -164,7 +164,7 @@ class MiniKeyboard(
 
     private fun refreshLabels() {
         for ((c, tv) in letterKeys) tv.text = (if (shift) Character.toUpperCase(c) else c).toString()
-        shiftKey.background = keyBg(if (shift) 0xFF7C4DFF.toInt() else 0xFF237A47.toInt())
+        shiftKey.background = keyBg(if (shift) 0xFF7C4DFF.toInt() else 0xFF2A3556.toInt())
         langKey.text = if (vnMode) "VN" else "EN"
     }
 
@@ -212,8 +212,8 @@ class MiniKeyboard(
         fun letter(c: Char, w: Float = 1f): TextView = key(c.toString(), w) { typeLetter(c) }.also { letterKeys.add(Pair(c, it)) }
         view.addView(row(*"qwertyuiop".map { letter(it) }.toTypedArray()))
         view.addView(row(spacer(0.5f), *"asdfghjkl".map { letter(it) }.toTypedArray(), spacer(0.5f)))
-        shiftKey = key("⇧", 1.5f, 0xFF237A47.toInt()) { shift = !shift; refreshLabels() }
-        val bs = key("⌫", 1.5f, 0xFF237A47.toInt()) { }
+        shiftKey = key("⇧", 1.5f, 0xFF2A3556.toInt()) { shift = !shift; refreshLabels() }
+        val bs = key("⌫", 1.5f, 0xFF2A3556.toInt()) { }
         bs.setOnClickListener(null)
         val rep = object : Runnable { override fun run() { backspace(); h.postDelayed(this, 70) } }
         bs.setOnTouchListener { v, ev ->
@@ -225,7 +225,7 @@ class MiniKeyboard(
         }
         view.addView(row(shiftKey, *"zxcvbnm".map { letter(it) }.toTypedArray(), bs))
         // Hàng cuối
-        langKey = key("VN", 1.5f, 0xFF237A47.toInt(), 12f) { vnMode = !vnMode; resetWord(); refreshLabels() }
+        langKey = key("VN", 1.5f, 0xFF2A3556.toInt(), 12f) { vnMode = !vnMode; resetWord(); refreshLabels() }
         view.addView(row(
             langKey,
             key("@", 1f) { typeOther("@") },
