@@ -277,7 +277,8 @@ class MainActivity : Activity(), FullscreenHost {
 
     private fun activeBtn(b: TextView, on: Boolean, onColor: Int) {
         val isOff = b.tag == "off"
-        val fill = if (isOff) 0xFFD50000.toInt() else if (on) onColor else BAR_BTN_BG
+        val isKb = b === btnKb                     // nút ⌨ bàn phím: nền xanh lá (sáng vừa)
+        val fill = if (isOff) 0xFFD50000.toInt() else if (isKb) 0xFF2E9E5B.toInt() else if (on) onColor else BAR_BTN_BG
         val focused = barFocus >= 0 && barItems.indexOf(b) == barFocus
         b.background = android.graphics.drawable.GradientDrawable().apply {
             cornerRadius = dp(6).toFloat()
@@ -289,7 +290,7 @@ class MainActivity : Activity(), FullscreenHost {
                 else -> setStroke(dp(1), BTN_EDGE)
             }
         }
-        b.setTextColor(if (on || isOff) Color.WHITE else BAR_TEXT)
+        b.setTextColor(if (on || isOff || isKb) Color.WHITE else BAR_TEXT)
     }
 
     private fun barBtn(text: String, arrow: ArrowLeftDrawable? = null): TextView = (if (arrow != null) ArrowButton(this, arrow) else TextView(this)).apply {
@@ -367,7 +368,7 @@ class MainActivity : Activity(), FullscreenHost {
             contentDescription = "Thoát"; setOnClickListener { hideMenu(); goBack() }
         }
         // 10 nút bằng nhau: Menu | TV | YouTube | Trình duyệt | Ghi chú | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát); OFF nằm cuối hàng, bên phải nút X
-        btnKb = barBtn("⌨").apply { minWidth = 0; contentDescription = "Bàn phím"; setOnClickListener { hideMenu(); toggleKeyboard() } }
+        btnKb = barBtn("⌨").apply { minWidth = 0; setBackgroundColor(0xFF2E9E5B.toInt()); setTextColor(Color.WHITE); contentDescription = "Bàn phím"; setOnClickListener { hideMenu(); toggleKeyboard() } }
         val group = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         listOf(btnMenu, btnTv, btnYt, btnBrowser, btnNotes, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack).forEachIndexed { i, b ->
             group.addView(b, LinearLayout.LayoutParams(0, -1, 1f).also { if (i > 0) it.leftMargin = dp(4) })
