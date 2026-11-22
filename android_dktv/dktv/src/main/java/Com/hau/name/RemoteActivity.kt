@@ -15,7 +15,13 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.speech.RecognizerIntent
+import android.text.Editable
 import android.text.InputType
+import android.text.SpannableString
+import android.text.TextWatcher
+import android.text.style.RelativeSizeSpan
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -94,11 +100,14 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        setContentView(buildUi())
+        val content = FrameLayout(this)
+        content.addView(buildUi(), FrameLayout.LayoutParams(-1, -1))
+        content.addView(buildKbBar(), FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        setContentView(content)
 
         // Back chi dua app xuong nen (dich vu ket noi van chay), khong thoat han.
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() { moveTaskToBack(true) }
+            override fun handleOnBackPressed() { if (kbBar.visibility == View.VISIBLE) hideKb() else moveTaskToBack(true) }
         })
         setConnected(false)
     }
@@ -299,6 +308,16 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         }
         pad.addView(btnMouse, FrameLayout.LayoutParams(dp(54), dp(46), Gravity.TOP or Gravity.END).also { it.setMargins(0, dp(14), dp(14), 0) })
         refreshMouseButton()
+        // Nút BÀN PHÍM (góc trái dưới khung): bấm là hiện bàn phím điện thoại, gõ chữ nào TV nhận chữ đó tại vị trí con trỏ
+        btnKb = TextView(this).apply {
+            gravity = Gravity.CENTER; setTextColor(Neon.CYAN); textSize = 9f; letterSpacing = 0.05f
+            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+            text = SpannableString("⌨\nPHÍM").also { it.setSpan(RelativeSizeSpan(2.2f), 0, 1, 0) }
+            contentDescription = "Bàn phím"
+            background = neon(Neon.PANEL, Neon.CYAN, 8f, glow = true)
+            setOnClickListener { Haptics.tick(this); if (kbBar.visibility == View.VISIBLE) hideKb() else showKb() }
+        }
+        pad.addView(btnKb, FrameLayout.LayoutParams(dp(56), dp(56), Gravity.BOTTOM or Gravity.START).also { it.setMargins(dp(10), 0, 0, dp(10)) })
         root.addView(pad, LinearLayout.LayoutParams(-1, 0, 1f).also { it.topMargin = dp(10); it.bottomMargin = dp(4) })
         // Dòng chú thích cách dùng chuột cảm ứng đã được ẩn khỏi giao diện
         root.addView(View(this), LinearLayout.LayoutParams(-1, dp(8)))
@@ -532,6 +551,102 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     private var mouseOn = true
     private lateinit var btnMouse: TextView
+    private lateinit var btnKb: TextView
+
+    // ---------------------------------------------------------------- Ban phim go sang TV
+    // Ô gõ luôn bắt đầu bằng 1 ký tự đệm (U+200B) để bắt được cả phím xoá khi ô trống.
+    // Mỗi lần ô đổi: so với lần trước -> gửi {del, ins} (xoá del ký tự trước con trỏ TV rồi chèn ins), TV chèn tại vị trí con trỏ.
+    private lateinit var kbBar: LinearLayout
+    private lateinit var kbInput: EditText
+    private val kbPad = "\u200B"
+    private var kbPrev = "\u200B"
+    private var kbSkip = false
+
+    private fun buildKbBar(): LinearLayout {
+        kbBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(0xFF0F1426.toInt()); setPadding(dp(12), dp(8), dp(12), dp(8))
+            visibility = View.GONE
+            isClickable = true
+        }
+        kbBar.addView(TextView(this).apply {
+            text = "GÕ SANG TV"; textSize = 10f; setTextColor(Neon.DIM); letterSpacing = 0.1f
+            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
+        }, LinearLayout.LayoutParams(-2, -2).also { it.rightMargin = dp(8) })
+        kbInput = EditText(this).apply {
+            setTextColor(Neon.TEXT); textSize = 17f
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            imeOptions = EditorInfo.IME_ACTION_SEND or EditorInfo.IME_FLAG_NO_EXTRACT_UI
+            isSingleLine = true
+            background = neon(Neon.PANEL, Neon.CYAN, 8f, glow = false)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            setText(kbPad); setSelection(kbPad.length)
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
+                override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+                override fun afterTextChanged(s: Editable?) { onKbChanged(s?.toString() ?: "") }
+            })
+            setOnEditorActionListener { _, actionId, ev ->
+                if (actionId == EditorInfo.IME_ACTION_SEND || (ev != null && ev.keyCode == android.view.KeyEvent.KEYCODE_ENTER)) { kbEnter(); true } else false
+            }
+        }
+        kbBar.addView(kbInput, LinearLayout.LayoutParams(0, -2, 1f))
+        kbBar.addView(TextView(this).apply {
+            text = "✕"; textSize = 18f; setTextColor(Neon.TEXT); gravity = Gravity.CENTER
+            contentDescription = "Đóng bàn phím"
+            setOnClickListener { Haptics.tick(this); hideKb() }
+        }, LinearLayout.LayoutParams(dp(44), dp(44)).also { it.leftMargin = dp(6) })
+        return kbBar
+    }
+
+    private fun kbReset() {
+        kbSkip = true
+        kbInput.setText(kbPad); kbInput.setSelection(kbPad.length)
+        kbPrev = kbPad
+        kbSkip = false
+    }
+
+    private fun onKbChanged(cur: String) {
+        if (kbSkip) return
+        val prev = kbPrev
+        var p = 0
+        val m = minOf(prev.length, cur.length)
+        while (p < m && prev[p] == cur[p]) p++
+        var del = prev.length - p
+        val ins = cur.substring(p)
+        // ký tự đệm bị xoá cùng: ô trống mà bấm xoá = xoá 1 ký tự bên TV
+        if (p == 0 && prev.isNotEmpty()) del = if (prev.length == 1 && ins.isEmpty()) 1 else del - 1
+        if (del > 0 || ins.isNotEmpty()) {
+            send(JSONObject().put("action", "text").put("del", del.coerceAtLeast(0)).put("ins", ins))
+        }
+        val fixed = if (cur.startsWith(kbPad)) cur else kbPad + cur
+        kbPrev = fixed
+        if (fixed != cur) {
+            kbSkip = true
+            kbInput.setText(fixed); kbInput.setSelection(fixed.length)
+            kbSkip = false
+        }
+    }
+
+    private fun kbEnter() {
+        send(JSONObject().put("action", "enter"))
+        kbReset()
+    }
+
+    private fun showKb() {
+        kbReset()
+        kbBar.visibility = View.VISIBLE
+        kbInput.requestFocus()
+        ui.postDelayed({
+            try { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(kbInput, InputMethodManager.SHOW_IMPLICIT) } catch (e: Exception) { }
+        }, 120)
+    }
+
+    private fun hideKb() {
+        try { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(kbInput.windowToken, 0) } catch (e: Exception) { }
+        kbInput.clearFocus()
+        kbBar.visibility = View.GONE
+    }
 
     private fun refreshMouseButton() {
         val c = if (mouseOn) Neon.GREEN else Neon.RED
@@ -908,6 +1023,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     override fun onPause() {
         pausedAt = SystemClock.elapsedRealtime()
+        if (::kbBar.isInitialized && kbBar.visibility == View.VISIBLE) hideKb()
         RemoteState.removeListener(modeListener)
         ui.removeCallbacks(attachLoop)
         attachedService?.removeConnectionStatusListener(this)

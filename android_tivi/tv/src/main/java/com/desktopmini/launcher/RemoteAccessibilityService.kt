@@ -9,6 +9,7 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.DisplayMetrics
@@ -208,8 +209,45 @@ class RemoteAccessibilityService : AccessibilityService() {
                     else key(o.optString("key"), dm)
                 }
                 "mouse" -> if (!o.optBoolean("on", true)) hideCursor()
+                "text" -> typeText(o.optInt("del").coerceAtLeast(0), o.optString("ins"))
+                "enter" -> pressEnter()
             }
         }
+    }
+
+    /** Gõ từ điện thoại vào ô nhập đang chọn của app khác: xoá [del] ký tự trước con trỏ (hoặc thay vùng đang chọn) rồi chèn [ins] tại con trỏ. */
+    private fun typeText(del: Int, ins: String) {
+        if (Build.VERSION.SDK_INT < 21) return
+        val root = try { rootInActiveWindow } catch (e: Exception) { null } ?: return
+        try {
+            val n = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return
+            if (!n.isEditable) return
+            val showingHint = Build.VERSION.SDK_INT >= 26 && n.isShowingHintText
+            val base = if (showingHint) "" else (n.text ?: "").toString()
+            var a = n.textSelectionStart; var b = n.textSelectionEnd
+            if (showingHint || a < 0 || b < 0) { a = base.length; b = base.length }
+            val s = minOf(a, b).coerceIn(0, base.length); val e = maxOf(a, b).coerceIn(0, base.length)
+            val from = if (s != e) s else (s - del).coerceAtLeast(0)
+            val out = base.substring(0, from) + ins + base.substring(e)
+            val args = Bundle()
+            args.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, out)
+            n.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+            val pos = from + ins.length
+            val sel = Bundle()
+            sel.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, pos)
+            sel.putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, pos)
+            n.performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, sel)
+        } catch (e: Exception) { }
+    }
+
+    /** Phím Enter / Gửi của bàn phím điện thoại, trong ô nhập app khác (Android 11+). */
+    private fun pressEnter() {
+        if (Build.VERSION.SDK_INT < 30) return
+        val root = try { rootInActiveWindow } catch (e: Exception) { null } ?: return
+        try {
+            val n = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return
+            n.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id)
+        } catch (e: Exception) { }
     }
 
     // Cuon: gop cac lenh den trong luc cu vuot truoc chua xong, vuot ngan (~90ms) lien tiep cho muot

@@ -84,7 +84,7 @@ object RemoteHub {
                 } else svc?.handle(json)
             }
             "home" -> bringToFront(ctx)
-            "move", "click", "scroll", "key" -> if (svc != null) svc.handle(json) else warnNoAccessibility(ctx)
+            "move", "click", "scroll", "key", "text", "enter" -> if (svc != null) svc.handle(json) else warnNoAccessibility(ctx)
             "media" -> media(ctx, o.optString("cmd"))
             "volume" -> volume(ctx, o.optInt("level", -1))
             "screen" -> if (o.optBoolean("on", true)) wake(ctx) else if (!ScreenAdmin.lock(ctx)) ScreenAdmin.requestActivation(ctx)

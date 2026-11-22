@@ -12,6 +12,7 @@ Gộp 2 app điều khiển từ xa thành 1, giữ toàn bộ chức năng củ
 - 5 phím ▲ ▼ ◀ ▶ OK trong khung chuột; giữ ▼ 2 giây = nhảy xuống thanh dưới.
 - Nút TẮT/MỞ MÀN HÌNH, CHUYỂN ĐỔI GIAO DIỆN, GIỌNG NÓI, TẮT/BẬT CẢM ỨNG TV, PHÓNG TO MÀN HÌNH.
 - Thanh ÂM LƯỢNG và ĐỘ SÁNG; chất lượng video 360p/720p; BÀI TIẾP; lùi / phát-dừng / tiến; nút LÙI.
+- Nút ⌨ PHÍM (góc trái dưới khung chuột): hiện bàn phím điện thoại, gõ chữ nào TV nhận chữ đó tại vị trí con trỏ (xoá, Enter/Gửi đều chạy; gõ được cả trong app khác nếu TV đã bật Trợ năng).
 - Chạy nền bằng dịch vụ, tự chạy lại sau khi khởi động máy.
 
 ## Build

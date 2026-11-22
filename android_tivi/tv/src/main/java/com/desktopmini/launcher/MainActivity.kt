@@ -834,6 +834,10 @@ class MainActivity : Activity(), FullscreenHost {
         // Không có trường mouse (remote bản cũ) -> giữ cách cũ: ai dùng trước thì loại kia tạm tắt.
         val jo = try { JSONObject(json) } catch (e: Exception) { JSONObject() }
         val mouseFlag: Boolean? = if (jo.has("mouse")) jo.optBoolean("mouse") else null
+        // Chữ gõ từ bàn phím điện thoại: chèn tại con trỏ của ô nhập đang chọn (trong app này, hoặc app ngoài qua Trợ năng)
+        when (jo.optString("action")) {
+            "text", "enter" -> { phoneText(jo); return }
+        }
         when (jo.optString("action")) {
             "move", "click", "scroll" -> if (mouseFlag == false) return
             else -> { }
@@ -854,6 +858,18 @@ class MainActivity : Activity(), FullscreenHost {
             "move", "click", "scroll", "key", "back" -> if (svc != null) svc.handle(json) else remote.handle(json)
             "media" -> systemMedia(try { JSONObject(json).optString("cmd") } catch (e: Exception) { "" })
             else -> remote.handle(json)       // volume, screen (tắt/bật màn hình)... tác động toàn hệ thống nên giữ nguyên
+        }
+    }
+
+    private fun phoneText(jo: JSONObject) {
+        val enter = jo.optString("action") == "enter"
+        if (resumed && !isFinishing) {
+            ui.post {
+                if (enter) keyboardEnter() else keyboardEdit(jo.optInt("del").coerceAtLeast(0), jo.optString("ins"))
+            }
+        } else {
+            val svc = RemoteAccessibilityService.instance
+            if (svc != null) svc.handle(jo.toString())
         }
     }
 
