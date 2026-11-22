@@ -51,8 +51,6 @@ class MainActivity : Activity(), FullscreenHost {
     private lateinit var barView: LinearLayout
     private lateinit var floatBack: TextView
     private var barH = 0
-    private var navH = 0                 // chiều cao thanh điều hướng/đa nhiệm của máy: thanh dưới được nâng lên trên nó
-    private var colView: LinearLayout? = null
     private lateinit var fullLayer: FrameLayout
     private lateinit var hidden: FrameLayout
     private lateinit var btnMenu: TextView
@@ -290,8 +288,6 @@ class MainActivity : Activity(), FullscreenHost {
         val root = FrameLayout(this)
         root.setBackgroundColor(Color.BLACK)
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        navH = navBarHeight()
-        colView = col
 
         barH = dp(40)
         val bar = LinearLayout(this).apply {
@@ -394,13 +390,13 @@ class MainActivity : Activity(), FullscreenHost {
         }, FrameLayout.LayoutParams(-1, -1))
         col.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
         col.addView(bar, LinearLayout.LayoutParams(-1, barH))
-        root.addView(col, FrameLayout.LayoutParams(-1, -1).also { it.bottomMargin = navH })
+        root.addView(col, FrameLayout.LayoutParams(-1, -1))
 
         fullLayer = FrameLayout(this).apply { visibility = View.GONE; setBackgroundColor(Color.BLACK) }
-        val lp = FrameLayout.LayoutParams(-1, -1); lp.bottomMargin = barH + navH
+        val lp = FrameLayout.LayoutParams(-1, -1); lp.bottomMargin = barH
         root.addView(fullLayer, lp)
         menuLayer = FrameLayout(this).apply { visibility = View.GONE; setBackgroundColor(0xF0101018.toInt()); isClickable = true }
-        val mlp = FrameLayout.LayoutParams(-1, -1); mlp.bottomMargin = barH + navH
+        val mlp = FrameLayout.LayoutParams(-1, -1); mlp.bottomMargin = barH
         root.addView(menuLayer, mlp)
         floatBack = TextView(this).apply {
             text = ""; contentDescription = "Thoát"; gravity = Gravity.CENTER
@@ -421,16 +417,6 @@ class MainActivity : Activity(), FullscreenHost {
         root.addView(hidden, FrameLayout.LayoutParams(1, 1))
         setContentView(root)
         updateButtons()
-    }
-
-    /** Chiều cao thanh điều hướng/đa nhiệm của máy (0 nếu máy không có). Thanh điều hướng luôn được chừa chỗ,
-     *  kể cả khi đang ẩn (chế độ toàn màn hình), để khi vuốt lên hiện nó thì thanh nút không bị che. */
-    private fun navBarHeight(): Int {
-        val boolId = resources.getIdentifier("config_showNavigationBar", "bool", "android")
-        val hasNav = boolId != 0 && resources.getBoolean(boolId)
-        if (!hasNav) return 0
-        val dimId = resources.getIdentifier("navigation_bar_height", "dimen", "android")
-        return if (dimId != 0) resources.getDimensionPixelSize(dimId) else dp(48)
     }
 
     private fun hideSystemBars() {
@@ -636,8 +622,7 @@ class MainActivity : Activity(), FullscreenHost {
         runOnUiThread {
             barView.visibility = if (v) View.VISIBLE else View.GONE
             floatBack.visibility = if (v) View.GONE else View.VISIBLE
-            (fullLayer.layoutParams as FrameLayout.LayoutParams).bottomMargin = if (v) barH + navH else 0
-            colView?.let { c -> (c.layoutParams as FrameLayout.LayoutParams).bottomMargin = if (v) navH else 0; c.requestLayout() }
+            (fullLayer.layoutParams as FrameLayout.LayoutParams).bottomMargin = if (v) barH else 0
             fullLayer.requestLayout()
         }
     }
