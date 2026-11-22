@@ -14,8 +14,6 @@ import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -32,8 +30,6 @@ import org.json.JSONObject
 class RemoteAccessibilityService : AccessibilityService() {
     companion object {
         @Volatile var instance: RemoteAccessibilityService? = null
-        /** MainActivity đăng ký: gọi khi dịch vụ vừa kết nối (để chuyển thanh dock lên cửa sổ trợ năng). */
-        @Volatile var onConnected: (() -> Unit)? = null
         fun isEnabled(ctx: Context): Boolean {
             if (instance != null) return true
             return try {
@@ -56,73 +52,17 @@ class RemoteAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         instance = this
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        onConnected?.invoke()
-    }
-
-    // ===== Thanh dock của app TV: cửa sổ trợ năng ở đáy màn hình (che được thanh điều hướng) =====
-    private var dockBox: FrameLayout? = null
-    private var dockLp: WindowManager.LayoutParams? = null
-    /** Dịch vụ bị tắt / cửa sổ dock mất: MainActivity đưa thanh dock về trong app. */
-    @Volatile var onDockLost: (() -> Unit)? = null
-
-    /** Đưa [bar] vào cửa sổ trợ năng cao [h] px ở đáy màn hình. Trả false nếu không thêm được (khi đó bar không còn thuộc cửa sổ nào). */
-    fun showDock(bar: View, h: Int): Boolean {
-        if (Build.VERSION.SDK_INT < 22) return false
-        val w = wm ?: return false
-        hideDock()
-        val box = FrameLayout(this)
-        return try {
-            (bar.parent as? ViewGroup)?.removeView(bar)
-            box.addView(bar, FrameLayout.LayoutParams(-1, -1))
-            val p = WindowManager.LayoutParams(WindowManager.LayoutParams.MATCH_PARENT, h,
-                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-                    or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                PixelFormat.OPAQUE).apply { gravity = Gravity.BOTTOM or Gravity.START }
-            w.addView(box, p)
-            dockBox = box; dockLp = p
-            true
-        } catch (e: Exception) {
-            try { box.removeAllViews() } catch (e2: Exception) { }
-            dockBox = null; dockLp = null
-            false
-        }
-    }
-
-    /** Ẩn/hiện dock (vd khi xem toàn màn hình); ẩn thì cửa sổ không nhận chạm, để thao tác xuyên xuống app bên dưới. */
-    fun setDockVisible(v: Boolean) {
-        val box = dockBox ?: return
-        val p = dockLp ?: return
-        box.visibility = if (v) View.VISIBLE else View.GONE
-        p.flags = if (v) p.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-                  else p.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        try { wm?.updateViewLayout(box, p) } catch (e: Exception) { }
-    }
-
-    /** Gỡ cửa sổ dock (thanh dock được trả lại cho MainActivity). */
-    fun hideDock() {
-        val box = dockBox ?: return
-        try { box.removeAllViews() } catch (e: Exception) { }
-        try { wm?.removeView(box) } catch (e: Exception) { }
-        dockBox = null; dockLp = null
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) { }
     override fun onInterrupt() { }
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
-        dockLost(); removeCursor(); instance = null
+        removeCursor(); instance = null
         return super.onUnbind(intent)
     }
 
-    override fun onDestroy() { dockLost(); removeCursor(); instance = null; super.onDestroy() }
-
-    private fun dockLost() {
-        if (dockBox == null) return
-        val cb = onDockLost
-        hideDock()
-        cb?.invoke()
-    }
+    override fun onDestroy() { removeCursor(); instance = null; super.onDestroy() }
 
     private fun screen(): DisplayMetrics {
         val dm = DisplayMetrics()

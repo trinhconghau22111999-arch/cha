@@ -53,10 +53,6 @@ class MainActivity : Activity(), FullscreenHost {
     private lateinit var barView: LinearLayout
     private lateinit var floatBack: TextView
     private var barH = 0
-    private lateinit var barCol: LinearLayout          // cột chính của app (nội dung + thanh dưới)
-    private var barLayers: android.graphics.drawable.LayerDrawable? = null
-    private var barPlaceholder: View? = null           // giữ chỗ barH trong cột khi thanh dock đang nằm ở cửa sổ trợ năng
-    private var barInOverlay = false
     private lateinit var fullLayer: FrameLayout
     private lateinit var hidden: FrameLayout
     private lateinit var btnMenu: TextView
@@ -109,7 +105,6 @@ class MainActivity : Activity(), FullscreenHost {
                 .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "tv:connection").also { it.setReferenceCounted(false); it.acquire() }
         } catch (e: Exception) { }
         buildUi()
-        RemoteAccessibilityService.onConnected = { ui.post { if (resumed) attachBarOverlay() } }
         applyBarVisibility()
         hideSystemBars()
         setMode(2)                      // mở app lên là vào thẳng YouTube
@@ -304,7 +299,7 @@ class MainActivity : Activity(), FullscreenHost {
                 android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
                 intArrayOf(NEON_CYAN, 0xFF7C4DFF.toInt(), NEON_MAGENTA))
             background = android.graphics.drawable.LayerDrawable(arrayOf(
-                android.graphics.drawable.ColorDrawable(BAR_BG), strip)).also { it.setLayerInset(1, 0, 0, 0, barH - dp(2)); barLayers = it }
+                android.graphics.drawable.ColorDrawable(BAR_BG), strip)).also { it.setLayerInset(1, 0, 0, 0, barH - dp(2)) }
             setPadding(dp(4), dp(3), dp(6), dp(3))
         }
         btnMenu = barBtn("Menu").apply { setOnClickListener { toggleMenu() } }
@@ -402,7 +397,6 @@ class MainActivity : Activity(), FullscreenHost {
             setImageResource(R.drawable.wallpaper)
         }, FrameLayout.LayoutParams(-1, -1))
         col.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
-        barCol = col
         col.addView(bar, LinearLayout.LayoutParams(-1, barH))
         root.addView(col, FrameLayout.LayoutParams(-1, -1))
 
@@ -436,9 +430,6 @@ class MainActivity : Activity(), FullscreenHost {
                 if (insets.isVisible(WindowInsets.Type.navigationBars()) || insets.isVisible(WindowInsets.Type.statusBars())) {
                     v.post { hideSystemBars() }
                 }
-                // Bàn phím hiện: cửa sổ trợ năng sẽ che hàng phím dưới cùng -> tạm đưa thanh dock về trong app; bàn phím ẩn thì đưa lại
-                val ime = insets.isVisible(WindowInsets.Type.ime())
-                v.post { if (ime) detachBarOverlay() else if (resumed) attachBarOverlay() }
                 insets
             }
         } else {
@@ -450,64 +441,6 @@ class MainActivity : Activity(), FullscreenHost {
             }
         }
         updateButtons()
-    }
-
-    // ===== Thanh dock trong cửa sổ trợ năng (TYPE_ACCESSIBILITY_OVERLAY) ở đáy màn hình: che luôn thanh điều hướng của hệ thống =====
-    // Dịch vụ trợ năng chưa bật / lỗi: thanh dock vẫn nằm trong app như cũ (đường dự phòng).
-    private fun navBarHeightPx(): Int {
-        val id = resources.getIdentifier("navigation_bar_height", "dimen", "android")
-        return if (id > 0) resources.getDimensionPixelSize(id) else 0
-    }
-
-    private fun setBarHeight(h: Int) {
-        barLayers?.setLayerInset(1, 0, 0, 0, h - dp(2))
-        barView.invalidate()
-    }
-
-    fun attachBarOverlay() {
-        if (barInOverlay || Build.VERSION.SDK_INT < 22 || !resumed || isFinishing) return
-        val svc = RemoteAccessibilityService.instance ?: return
-        try {
-            val idx = barCol.indexOfChild(barView)
-            if (idx < 0) return
-            val h = maxOf(barH, navBarHeightPx())
-            val ph = View(this)
-            barCol.removeViewAt(idx)
-            barCol.addView(ph, idx, LinearLayout.LayoutParams(-1, barH))   // nội dung phía trên giữ nguyên kích thước
-            barPlaceholder = ph
-            setBarHeight(h)
-            if (svc.showDock(barView, h)) {
-                barInOverlay = true
-                svc.onDockLost = { runOnUiThread { detachBarOverlay() } }
-                svc.setDockVisible(barView.visibility == View.VISIBLE)
-            } else {
-                setBarHeight(barH)
-                restoreBarToColumn()
-            }
-        } catch (e: Exception) {
-            try { restoreBarToColumn() } catch (e2: Exception) { }
-        }
-    }
-
-    fun detachBarOverlay() {
-        if (!barInOverlay && barPlaceholder == null) return
-        RemoteAccessibilityService.instance?.let { it.onDockLost = null; it.hideDock() }
-        barInOverlay = false
-        setBarHeight(barH)
-        restoreBarToColumn()
-    }
-
-    private fun restoreBarToColumn() {
-        barInOverlay = false
-        val ph = barPlaceholder
-        (barView.parent as? android.view.ViewGroup)?.let { if (it !== barCol) it.removeView(barView) }
-        if (barView.parent !== barCol) {
-            val idx = if (ph != null) barCol.indexOfChild(ph) else -1
-            if (ph != null && idx >= 0) barCol.removeViewAt(idx)
-            barCol.addView(barView, if (idx >= 0) idx else barCol.childCount, LinearLayout.LayoutParams(-1, barH))
-        } else if (ph != null) barCol.removeView(ph)
-        barPlaceholder = null
-        setBarHeight(barH)
     }
 
     private fun hideSystemBars() {
@@ -719,7 +652,6 @@ class MainActivity : Activity(), FullscreenHost {
     override fun setBarVisible(v: Boolean) {
         runOnUiThread {
             barView.visibility = if (v) View.VISIBLE else View.GONE
-            if (barInOverlay) RemoteAccessibilityService.instance?.setDockVisible(v)
             floatBack.visibility = if (v) View.GONE else View.VISIBLE
             (fullLayer.layoutParams as FrameLayout.LayoutParams).bottomMargin = if (v) barH else 0
             fullLayer.requestLayout()
@@ -1587,12 +1519,10 @@ class MainActivity : Activity(), FullscreenHost {
     override fun onStart() { super.onStart(); RemoteHub.host?.attach(hidden) }
     override fun onStop() { super.onStop(); RemoteHub.host?.detach() }
 
-    override fun onResume() { super.onResume(); resumed = true; RemoteHub.appVisible = true; RemoteAccessibilityService.instance?.hideCursor(); attachBarOverlay(); if (accPendingHome) { accPendingHome = false; ui.postDelayed({ maybeAskDefaultHome() }, 500) }; hideSystemBars(); refreshStatus(); if (mode == 1) tv?.onResume() else if (mode == 2) yt?.onResume() else if (mode == 3) files?.onResume() else if (mode == 4) aikara?.onResume(); consumePendingFile(); if (pendingAppRefresh) { pendingAppRefresh = false; if (menuOpen()) showAppMenu() } }
-    override fun onPause() { super.onPause(); resumed = false; RemoteHub.appVisible = false; detachBarOverlay(); tv?.onPause(); yt?.onPause(); files?.onPause(); aikara?.onPause(); browser?.onPause(); notes?.onPause() }
+    override fun onResume() { super.onResume(); resumed = true; RemoteHub.appVisible = true; RemoteAccessibilityService.instance?.hideCursor(); if (accPendingHome) { accPendingHome = false; ui.postDelayed({ maybeAskDefaultHome() }, 500) }; hideSystemBars(); refreshStatus(); if (mode == 1) tv?.onResume() else if (mode == 2) yt?.onResume() else if (mode == 3) files?.onResume() else if (mode == 4) aikara?.onResume(); consumePendingFile(); if (pendingAppRefresh) { pendingAppRefresh = false; if (menuOpen()) showAppMenu() } }
+    override fun onPause() { super.onPause(); resumed = false; RemoteHub.appVisible = false; tv?.onPause(); yt?.onPause(); files?.onPause(); aikara?.onPause(); browser?.onPause(); notes?.onPause() }
 
     override fun onDestroy() {
-        detachBarOverlay()
-        RemoteAccessibilityService.onConnected = null
         ui.removeCallbacksAndMessages(null)
         try { battReceiver?.let { unregisterReceiver(it) } } catch (e: Exception) { }
         RemoteHub.setActivity(null)
