@@ -104,7 +104,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         content.setBackgroundColor(Neon.BG)
         uiRoot = buildUi()
         content.addView(uiRoot, FrameLayout.LayoutParams(-1, -1))
-        content.addView(buildKbBar(), FrameLayout.LayoutParams(-1, -2, Gravity.TOP))   // bàn phím: màn hình ngang, bar nằm trên cùng
+        content.addView(buildKbBar(), FrameLayout.LayoutParams(-1, -1))   // bàn phím riêng: kín màn hình ngang
         setContentView(content)
 
         // Back chi dua app xuong nen (dich vu ket noi van chay), khong thoat han.
@@ -556,101 +556,29 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
     private lateinit var btnKb: TextView
 
     // ---------------------------------------------------------------- Ban phim go sang TV
-    // Ô gõ luôn bắt đầu bằng 1 ký tự đệm (U+200B) để bắt được cả phím xoá khi ô trống.
-    // Mỗi lần ô đổi: so với lần trước -> gửi {del, ins} (xoá del ký tự trước con trỏ TV rồi chèn ins), TV chèn tại vị trí con trỏ.
-    private lateinit var kbBar: LinearLayout
+    // Bàn phím riêng (PhoneKeyboard) vẽ kín màn hình NGANG, ẩn hết điều khiển khác. Mỗi phím gửi {del, ins}:
+    // TV xoá del ký tự trước con trỏ rồi chèn ins tại vị trí con trỏ của ô nhập đang chọn.
+    private lateinit var kbBar: View
+    private lateinit var kbBoard: PhoneKeyboard
     private lateinit var uiRoot: View
-    private lateinit var kbInput: EditText
-    private val kbPad = "\u200B"
-    private var kbPrev = "\u200B"
-    private var kbSkip = false
 
-    private fun buildKbBar(): LinearLayout {
-        kbBar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(0xFF0F1426.toInt()); setPadding(dp(12), dp(8), dp(12), dp(8))
-            visibility = View.GONE
-            isClickable = true
-        }
-        kbBar.addView(TextView(this).apply {
-            text = "GÕ SANG TV"; textSize = 10f; setTextColor(Neon.DIM); letterSpacing = 0.1f
-            typeface = Typeface.create("sans-serif-black", Typeface.BOLD)
-        }, LinearLayout.LayoutParams(-2, -2).also { it.rightMargin = dp(8) })
-        kbInput = EditText(this).apply {
-            setTextColor(Neon.TEXT); textSize = 17f
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            imeOptions = EditorInfo.IME_ACTION_SEND or EditorInfo.IME_FLAG_NO_EXTRACT_UI
-            isSingleLine = true
-            background = neon(Neon.PANEL, Neon.CYAN, 8f, glow = false)
-            setPadding(dp(12), dp(8), dp(12), dp(8))
-            setText(kbPad); setSelection(kbPad.length)
-            addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) {}
-                override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
-                override fun afterTextChanged(s: Editable?) { onKbChanged(s?.toString() ?: "") }
-            })
-            setOnEditorActionListener { _, actionId, ev ->
-                if (actionId == EditorInfo.IME_ACTION_SEND || (ev != null && ev.keyCode == android.view.KeyEvent.KEYCODE_ENTER)) { kbEnter(); true } else false
-            }
-        }
-        kbBar.addView(kbInput, LinearLayout.LayoutParams(0, -2, 1f))
-        kbBar.addView(TextView(this).apply {
-            text = "✕"; textSize = 18f; setTextColor(Neon.TEXT); gravity = Gravity.CENTER
-            contentDescription = "Đóng bàn phím"
-            setOnClickListener { Haptics.tick(this); hideKb() }
-        }, LinearLayout.LayoutParams(dp(44), dp(44)).also { it.leftMargin = dp(6) })
+    private fun buildKbBar(): View {
+        kbBoard = PhoneKeyboard(this,
+            { del, ins -> send(JSONObject().put("action", "text").put("del", del).put("ins", ins)) },
+            { send(JSONObject().put("action", "enter")) },
+            { hideKb() })
+        kbBar = kbBoard.view.also { it.visibility = View.GONE }
         return kbBar
     }
 
-    private fun kbReset() {
-        kbSkip = true
-        kbInput.setText(kbPad); kbInput.setSelection(kbPad.length)
-        kbPrev = kbPad
-        kbSkip = false
-    }
-
-    private fun onKbChanged(cur: String) {
-        if (kbSkip) return
-        val prev = kbPrev
-        var p = 0
-        val m = minOf(prev.length, cur.length)
-        while (p < m && prev[p] == cur[p]) p++
-        var del = prev.length - p
-        val ins = cur.substring(p)
-        // ký tự đệm bị xoá cùng: ô trống mà bấm xoá = xoá 1 ký tự bên TV
-        if (p == 0 && prev.isNotEmpty()) del = if (prev.length == 1 && ins.isEmpty()) 1 else del - 1
-        if (del > 0 || ins.isNotEmpty()) {
-            send(JSONObject().put("action", "text").put("del", del.coerceAtLeast(0)).put("ins", ins))
-        }
-        val fixed = if (cur.startsWith(kbPad)) cur else kbPad + cur
-        kbPrev = fixed
-        if (fixed != cur) {
-            kbSkip = true
-            kbInput.setText(fixed); kbInput.setSelection(fixed.length)
-            kbSkip = false
-        }
-    }
-
-    private fun kbEnter() {
-        send(JSONObject().put("action", "enter"))
-        kbReset()
-    }
-
     private fun showKb() {
-        kbReset()
-        // Chế độ bàn phím: xoay NGANG và ẩn hết các thành phần điều khiển còn lại, chỉ còn ô gõ + bàn phím
+        kbBoard.reset()
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         uiRoot.visibility = View.GONE
         kbBar.visibility = View.VISIBLE
-        kbInput.requestFocus()
-        ui.postDelayed({
-            try { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(kbInput, InputMethodManager.SHOW_IMPLICIT) } catch (e: Exception) { }
-        }, 350)
     }
 
     private fun hideKb() {
-        try { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(kbInput.windowToken, 0) } catch (e: Exception) { }
-        kbInput.clearFocus()
         kbBar.visibility = View.GONE
         uiRoot.visibility = View.VISIBLE
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT   // trả về dọc, hiện lại toàn bộ điều khiển
