@@ -335,13 +335,13 @@ class MainActivity : Activity(), FullscreenHost {
         val btnBack = barBtn("", ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat())).apply {
             contentDescription = "Thoát"; setOnClickListener { hideMenu(); goBack() }
         }
-        // 10 nút bằng nhau: Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát); OFF nằm cuối hàng, bên phải nút X
+        // 10 nút bằng nhau: Menu | TV | YouTube | Trình duyệt | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát); OFF nằm cuối hàng, bên phải nút X
         val group = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack).forEachIndexed { i, b ->
+        listOf(btnMenu, btnTv, btnYt, btnBrowser, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack).forEachIndexed { i, b ->
             group.addView(b, LinearLayout.LayoutParams(0, -1, 1f).also { if (i > 0) it.leftMargin = dp(4) })
         }
         bar.addView(group, LinearLayout.LayoutParams(0, -1, 1f))
-        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack, btnOff))
+        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnYt, btnBrowser, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack, btnOff))
 
         // Góc phải: giờ, ngày, âm lịch (cùng cỡ chữ 13sp, đậm), rồi nút X gỡ app
         val cluster = 13f
@@ -447,7 +447,7 @@ class MainActivity : Activity(), FullscreenHost {
             if (barFocus < 0) barFocus = if (menuOpen()) 0 else barIndexForMode(mode)
             armBarRelease(); updateButtons(); return true
         }
-        if (barFocus < 0 && mode == 0 && !menuOpen()) { barFocus = 3; updateButtons(); return true }   // trang trống: phím đầu tiên đưa ô chọn xuống thanh dưới
+        if (barFocus < 0 && mode == 0 && !menuOpen()) { barFocus = 2; updateButtons(); return true }   // trang trống: phím đầu tiên đưa ô chọn xuống thanh dưới
         if (barFocus >= 0) {
             armBarRelease()
             if (barItems.getOrNull(barFocus)?.visibility == View.GONE) {     // ô chọn đang trỏ vào nút đã ẩn: dời sang nút hiện gần nhất
@@ -1033,8 +1033,8 @@ class MainActivity : Activity(), FullscreenHost {
 
     // ---------------- Ẩn/hiện nút trên thanh dưới ----------------
 
-    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← | OFF
-    private val barNames = listOf("Menu", "TV", "Trình duyệt", "YouTube", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)", "OFF")
+    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | YouTube | Trình duyệt | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← | OFF
+    private val barNames = listOf("Menu", "TV", "YouTube", "Trình duyệt", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)", "OFF")
     private val rightNames = listOf("Pin", "Giờ", "Ngày dương", "Âm lịch")
     private fun rightViews() = listOf(tvBatt, tvTime, tvDate, tvLunar)
 
