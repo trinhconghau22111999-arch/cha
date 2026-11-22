@@ -13,6 +13,7 @@ import android.content.pm.PackageManager
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.RectF
 import android.net.Uri
 import android.os.BatteryManager
@@ -27,6 +28,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -382,6 +384,12 @@ class MainActivity : Activity(), FullscreenHost {
         }
 
         barView = bar
+        if (Build.VERSION.SDK_INT >= 29) {
+            // Chặn cử chỉ hệ thống (vuốt từ mép dưới lên) ngay trên vùng thanh dưới, để thanh đa nhiệm không đè lên
+            bar.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
+                v.systemGestureExclusionRects = listOf(Rect(0, 0, v.width, v.height))
+            }
+        }
         content = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         // Hình nền trang chủ (hiện khi chưa mở TV/YouTube); các khung TV/YouTube nằm phủ lên trên
         content.addView(android.widget.ImageView(this).apply {
@@ -416,10 +424,33 @@ class MainActivity : Activity(), FullscreenHost {
         hidden = FrameLayout(this)
         root.addView(hidden, FrameLayout.LayoutParams(1, 1))
         setContentView(root)
+        if (Build.VERSION.SDK_INT >= 30) {
+            // Thanh điều hướng/trạng thái vừa lộ ra (vuốt mép): ẩn lại ngay
+            window.decorView.setOnApplyWindowInsetsListener { v, insets ->
+                if (insets.isVisible(WindowInsets.Type.navigationBars()) || insets.isVisible(WindowInsets.Type.statusBars())) {
+                    v.post { hideSystemBars() }
+                }
+                insets
+            }
+        } else {
+            // Android 10 trở xuống: cờ toàn màn hình bị hệ thống gỡ khi vuốt mép -> ẩn lại ngay
+            window.decorView.setOnSystemUiVisibilityChangeListener { vis ->
+                if ((vis and View.SYSTEM_UI_FLAG_FULLSCREEN) == 0 || (vis and View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) == 0) {
+                    window.decorView.post { hideSystemBars() }
+                }
+            }
+        }
         updateButtons()
     }
 
     private fun hideSystemBars() {
+        if (Build.VERSION.SDK_INT >= 30) {
+            // Android 11+: cờ cũ đôi khi bị bỏ qua -> dùng WindowInsetsController; vuốt từ mép chỉ hiện thanh tạm thời
+            window.insetsController?.let { c ->
+                c.systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                c.hide(WindowInsets.Type.navigationBars() or WindowInsets.Type.statusBars())
+            }
+        }
         @Suppress("DEPRECATION")
         window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
             or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
