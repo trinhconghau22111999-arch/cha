@@ -267,7 +267,7 @@ class RemoteController(
         down.recycle()
     }
 
-    /** Nhấn giữ ~0,7 giây tại con trỏ (như chuột phải / chạm giữ). */
+    /** Nhấn giữ ~1 giây tại con trỏ (như chuột phải / chạm giữ). */
     private fun longTap(x: Float = cx, y: Float = cy) {
         val t = SystemClock.uptimeMillis()
         val down = MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, x, y, 0)
@@ -279,7 +279,7 @@ class RemoteController(
             val up = MotionEvent.obtain(t, u, MotionEvent.ACTION_UP, x, y, 0)
             up.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
             root.dispatchTouchEvent(up); up.recycle()
-        }, 700)
+        }, 1000)
     }
 
     private fun key(k: String) {
