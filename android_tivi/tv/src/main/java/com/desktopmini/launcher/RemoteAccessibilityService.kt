@@ -325,6 +325,17 @@ class RemoteAccessibilityService : AccessibilityService() {
     /** Mở menu nguồn của Android (có nút Tắt nguồn). App thường không tự tắt nguồn được, nên người dùng bấm xác nhận trong menu này. Chỉ Android 9 trở lên. */
     fun powerMenu(): Boolean = Build.VERSION.SDK_INT >= 28 && performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
 
+    /** Hiện / ẩn (vô hình) lớp giao diện phủ kín của app TV, không gỡ nó ra khỏi cửa sổ (nên không làm hiện thanh trạng thái/đa nhiệm). */
+    fun setUiVisible(v: Boolean) { uiBox?.visibility = if (v) View.VISIBLE else View.INVISIBLE }
+
+    /** Mở menu nguồn của Android; ẩn lớp giao diện của app trong lúc đó để menu không bị che (tự hiện lại sau 10 giây hoặc khi app nhận lại focus). */
+    fun powerMenuVisible(): Boolean {
+        if (!powerMenu()) return false
+        setUiVisible(false)
+        ui.postDelayed({ setUiVisible(true) }, 10000)
+        return true
+    }
+
     /**
      * Mở menu nguồn rồi tự bấm "Tắt nguồn" (và nút xác nhận nếu có). Menu nguồn là cửa sổ của hệ thống, nằm DƯỚI lớp giao diện
      * phủ kín của app TV nên người dùng không thấy/bấm được: ẩn lớp giao diện trong lúc chờ, tìm nút ở mọi cửa sổ (trừ của app) rồi bấm.

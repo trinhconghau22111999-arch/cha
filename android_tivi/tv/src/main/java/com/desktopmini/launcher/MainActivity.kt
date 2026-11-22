@@ -522,6 +522,7 @@ class MainActivity : Activity(), FullscreenHost {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) RemoteAccessibilityService.instance?.setUiVisible(true)     // menu nguồn đã đóng: hiện lại giao diện
         if (hasFocus) { hideSystemBars(); attachUiOverlay() } else detachUiOverlay()
     }
 
@@ -1355,12 +1356,9 @@ class MainActivity : Activity(), FullscreenHost {
 
     /** Tắt nguồn TV (nhấp đúp nút OFF): mở menu nguồn của Android (như bấm giữ nút nguồn), người dùng bấm "Tắt nguồn". */
     private fun shutdownTv() {
-        // Đưa giao diện về lại trong app (gỡ lớp phủ trợ năng) để menu nguồn của Android hiện lên trên cùng, rồi bấm "Tắt nguồn" bằng tay
-        detachUiOverlay()
-        ui.postDelayed({
-            if (RemoteAccessibilityService.instance?.powerMenu() != true)
-                Toast.makeText(this, "Cần bật Trợ năng cho app TV để mở menu nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
-        }, 300)
+        // Mở menu nguồn của Android (ẩn lớp giao diện phủ kín trong lúc đó, không gỡ ra nên thanh trạng thái/đa nhiệm không hiện); bấm "Tắt nguồn" bằng tay
+        if (RemoteAccessibilityService.instance?.powerMenuVisible() != true)
+            Toast.makeText(this, "Cần bật Trợ năng cho app TV để mở menu nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
     }
 
     /** (Không còn dùng cho nút OFF) Khung hỏi khởi động lại. Nút "Tắt nguồn" mở menu nguồn của hệ thống như trước. */
