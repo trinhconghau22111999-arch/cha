@@ -567,6 +567,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
             { del, ins -> send(JSONObject().put("action", "text").put("del", del).put("ins", ins)) },
             { send(JSONObject().put("action", "enter")) },
             { hideKb() })
+        kbBoard.onSwipe = { e -> padTouch(kbBoard.view, e) }       // vuốt trên bàn phím = vuốt chuột
         kbBar = kbBoard.view.also { it.visibility = View.GONE }
         return kbBar
     }
@@ -604,8 +605,12 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     @SuppressLint("ClickableViewAccessibility")
     private fun attachTouchpad(pad: View) {
-        pad.setOnTouchListener { _, e ->
-            if (!mouseOn) return@setOnTouchListener true      // chuột đang TẮT: bỏ qua mọi cử chỉ trên khung
+        pad.setOnTouchListener { _, e -> padTouch(pad, e) }
+    }
+
+    /** Xử lý cử chỉ chuột cảm ứng (dùng cho khung chuột và cho vuốt trên bàn phím). */
+    private fun padTouch(pad: View, e: MotionEvent): Boolean {
+            if (!mouseOn) return true      // chuột đang TẮT: bỏ qua mọi cử chỉ
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     lastX = e.x; lastY = e.y; startX = e.x; startY = e.y
@@ -656,8 +661,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
                     }
                 }
             }
-            true
-        }
+            return true
     }
 
     private fun avgY(e: MotionEvent): Float {

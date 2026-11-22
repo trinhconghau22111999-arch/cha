@@ -11,7 +11,9 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.LinearLayout
+import android.view.ViewConfiguration
 import android.widget.TextView
+import kotlin.math.abs
 
 /** Bộ gõ tiếng Việt kiểu Telex: ghép các phím đã gõ của TỪ đang gõ thành chữ có dấu. */
 object Telex {
@@ -109,7 +111,40 @@ class PhoneKeyboard(
     private var symbols = false
     private val echo = StringBuilder()          // chữ vừa gõ (chỉ để hiển thị trên điện thoại)
 
-    val view: LinearLayout = LinearLayout(ctx)
+    /** Vuốt 1 ngón trên bàn phím = vuốt chuột: nhận cử chỉ (đầu tiên là điểm chạm xuống, sau đó là các điểm vuốt). Chạm nhẹ vẫn là gõ phím. */
+    var onSwipe: ((MotionEvent) -> Unit)? = null
+
+    val view: LinearLayout = object : LinearLayout(ctx) {
+        private val slop = ViewConfiguration.get(ctx).scaledTouchSlop.toFloat() * 1.5f
+        private var x0 = 0f
+        private var y0 = 0f
+        private var swiping = false
+        private var down: MotionEvent? = null
+
+        override fun onInterceptTouchEvent(e: MotionEvent): Boolean {
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    x0 = e.x; y0 = e.y; swiping = false
+                    down?.recycle(); down = MotionEvent.obtain(e)
+                }
+                MotionEvent.ACTION_MOVE -> if (!swiping && (abs(e.x - x0) > slop || abs(e.y - y0) > slop)) {
+                    swiping = true                                  // vuốt: phím đang bị chạm nhận CANCEL, không gõ
+                    down?.let { onSwipe?.invoke(it) }
+                    onSwipe?.invoke(e)
+                    return true
+                }
+            }
+            return false
+        }
+
+        override fun onTouchEvent(e: MotionEvent): Boolean {
+            if (swiping) {
+                onSwipe?.invoke(e)
+                if (e.actionMasked == MotionEvent.ACTION_UP || e.actionMasked == MotionEvent.ACTION_CANCEL) swiping = false
+            }
+            return true
+        }
+    }
     private val body = LinearLayout(ctx)
     private val echoTv = TextView(ctx)
 
