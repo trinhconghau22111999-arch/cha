@@ -246,7 +246,8 @@ class MainActivity : Activity(), FullscreenHost {
     private val FOCUS_RING = 0xFFFFEA00.toInt()
 
     private fun activeBtn(b: TextView, on: Boolean, onColor: Int) {
-        val fill = if (on) onColor else BAR_BTN_BG
+        val isOff = b.tag == "off"
+        val fill = if (isOff) 0xFFD50000.toInt() else if (on) onColor else BAR_BTN_BG
         val focused = barFocus >= 0 && barItems.indexOf(b) == barFocus
         b.background = android.graphics.drawable.GradientDrawable().apply {
             cornerRadius = dp(6).toFloat()
@@ -254,10 +255,11 @@ class MainActivity : Activity(), FullscreenHost {
             when {
                 focused -> setStroke(dp(3), FOCUS_RING)                 // ô chọn (viền vàng)
                 on -> setStroke(dp(2), 0xCCFFFFFF.toInt())              // nút đang mở: viền sáng
+                isOff -> setStroke(dp(1), 0xFFFF8A80.toInt())
                 else -> setStroke(dp(1), BTN_EDGE)
             }
         }
-        b.setTextColor(if (on) Color.WHITE else BAR_TEXT)
+        b.setTextColor(if (on || isOff) Color.WHITE else BAR_TEXT)
     }
 
     private fun barBtn(text: String, arrow: ArrowLeftDrawable? = null): TextView = (if (arrow != null) ArrowButton(this, arrow) else TextView(this)).apply {
@@ -313,6 +315,9 @@ class MainActivity : Activity(), FullscreenHost {
                 Toast.makeText(this, "Cần bật Trợ năng cho app TV để tắt nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
         }
         val btnOff = barBtn("OFF").apply {
+            tag = "off"
+            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFD50000.toInt()); setStroke(dp(1), 0xFFFF8A80.toInt()) }
+            setTextColor(Color.WHITE)
             setOnClickListener {
                 hideMenu()
                 if (!ScreenAdmin.lock(this@MainActivity)) {
@@ -351,8 +356,8 @@ class MainActivity : Activity(), FullscreenHost {
         tvLunar = small("", cluster, true).apply { setTextColor(0xFFFFC400.toInt()) }
         bar.addView(tvLunar, LinearLayout.LayoutParams(-2, -1))
         val btnKill = barBtn("X").apply {
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFD50000.toInt()); setStroke(dp(1), 0xFFFF8A80.toInt()) }
-            setTextColor(Color.WHITE)
+            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFFFD600.toInt()); setStroke(dp(1), 0xFFFFF59D.toInt()) }
+            setTextColor(Color.BLACK)
             setOnClickListener { hideMenu(); confirmSelfRemove() }
             // Nhấn giữ 2 giây: bảng Ẩn/hiện nút (nhấn thường vẫn hỏi gỡ app như cũ)
             var held = false
