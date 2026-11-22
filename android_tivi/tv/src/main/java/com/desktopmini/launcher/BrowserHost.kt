@@ -618,7 +618,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         wv.addJavascriptInterface(BlobBridge(), "AndroidBlob")
 
         wv.setDownloadListener { dlUrl, userAgent, contentDisposition, mimeType, _ ->
-            val fileName = URLUtil.guessFileName(dlUrl, contentDisposition, mimeType)
+            val fileName = dlNameHints[dlUrl]?.let { cleanName(it) } ?: URLUtil.guessFileName(dlUrl, contentDisposition, mimeType)
             val startIt = { startOwnDownload(wv, dlUrl, userAgent, contentDisposition, mimeType) }
             // Cảnh báo khi tải trùng một tệp đang tải: hỏi xác nhận rồi mới tải thêm
             if (isDownloading(fileName)) {
@@ -903,6 +903,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
                     updateBookmarkBtn()
                 }
                 tab.loadedAt = System.currentTimeMillis()
+                if (url != null && url.startsWith("http")) view?.evaluateJavascript(DL_NAME_HOOK_JS, null)   // lấy tên tệp gốc của nút tải
                 if (url != null && url.startsWith("http")) view?.evaluateJavascript(VOICE_HOOK_JS, null)   // nối nút mic (Google, YouTube...)
                 if (!docStartScriptSupported && url != null && url.startsWith("http")) {
                     view?.evaluateJavascript(PW_JS, null)
@@ -1503,6 +1504,34 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
     private val ownDls = java.util.concurrent.ConcurrentHashMap<Long, OwnDl>()
     private val blobDls = java.util.concurrent.ConcurrentHashMap<String, OwnDl>()
     private val ownSeq = java.util.concurrent.atomic.AtomicLong(-System.currentTimeMillis())
+    /** Tên tệp gốc do trang đặt (thuộc tính download của thẻ <a>), khoá theo link tải. */
+    private val dlNameHints = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    private fun cleanName(n: String): String {
+        val bad = "\\/:*?\"<>|"
+        return n.map { if (it in bad) '_' else it }.joinToString("")
+    }
+
+    /** Đoán đuôi tệp theo nội dung (chữ ký đầu tệp) khi tên không có đuôi thật. */
+    private fun sniffExt(f: File): String? {
+        return try {
+            val b = ByteArray(8)
+            val n = java.io.FileInputStream(f).use { it.read(b) }
+            if (n < 4) return null
+            fun u(i: Int) = b[i].toInt() and 0xFF
+            when {
+                u(0) == 0x50 && u(1) == 0x4B && (u(2) == 3 || u(2) == 5) -> "zip"
+                u(0) == 0x25 && u(1) == 0x50 && u(2) == 0x44 && u(3) == 0x46 -> "pdf"
+                u(0) == 0x89 && u(1) == 0x50 && u(2) == 0x4E && u(3) == 0x47 -> "png"
+                u(0) == 0xFF && u(1) == 0xD8 && u(2) == 0xFF -> "jpg"
+                u(0) == 0x47 && u(1) == 0x49 && u(2) == 0x46 -> "gif"
+                u(0) == 0x52 && u(1) == 0x61 && u(2) == 0x72 && u(3) == 0x21 -> "rar"
+                u(0) == 0x37 && u(1) == 0x7A && u(2) == 0xBC && u(3) == 0xAF -> "7z"
+                u(0) == 0x1F && u(1) == 0x8B -> "gz"
+                else -> null
+            }
+        } catch (e: Throwable) { null }
+    }
 
     private fun newOwnDl(name: String, mime: String?): OwnDl {
         val od = OwnDl(ownSeq.decrementAndGet(), name, if (mime.isNullOrEmpty()) "application/octet-stream" else mime)
@@ -1541,6 +1570,22 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         od.out = null
         val ok = err == null && !od.cancelled
         if (ok) {
+            // Tên chỉ là UUID.bin -> đoán đuôi thật theo nội dung rồi đổi tên
+            val f0 = od.file
+            if (f0 != null && od.name.endsWith(".bin", true)) {
+                val ext = sniffExt(f0)
+                if (ext != null) {
+                    val stem = od.name.substring(0, od.name.length - 4)
+                    var nf = File(f0.parentFile, "$stem.$ext")
+                    var k = 1
+                    while (nf.exists()) { nf = File(f0.parentFile, "$stem ($k).$ext"); k++ }
+                    if (f0.renameTo(nf)) {
+                        od.file = nf
+                        od.name = nf.name
+                        ui.post { renameDownloadRecord(od.id, od.name) }
+                    }
+                }
+            }
             od.file?.setLastModified(System.currentTimeMillis())
             od.status = 1
         } else {
@@ -1556,7 +1601,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
 
     private fun startOwnDownload(wv: WebView, dlUrl: String, ua: String?, cd: String?, mime: String?) {
         val bad = "\\/:*?\"<>|"
-        val name = URLUtil.guessFileName(dlUrl, cd, mime).map { if (it in bad) '_' else it }.joinToString("")
+        val name = dlNameHints[dlUrl]?.let { cleanName(it) } ?: URLUtil.guessFileName(dlUrl, cd, mime).map { if (it in bad) '_' else it }.joinToString("")
         if (dlUrl.startsWith("blob:")) { startBlobDownload(wv, dlUrl, name, mime); return }
         val od = newOwnDl(name, mime)
         Toast.makeText(this, "Đang tải: $name", Toast.LENGTH_SHORT).show()
@@ -1638,6 +1683,9 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
     }
 
     private inner class BlobBridge {
+        @JavascriptInterface fun name(url: String, name: String) {
+            if (url.isNotEmpty() && name.isNotEmpty()) dlNameHints[url] = name
+        }
         @JavascriptInterface fun begin(token: String, size: Double, type: String) {
             val od = blobDls[token] ?: return
             try {
@@ -2548,3 +2596,10 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
 
     private var pwSavePromptShowing = false
 }
+
+private const val DL_NAME_HOOK_JS = "(function(){if(window.__wbDl)return;window.__wbDl=1;" +
+    "var P=HTMLAnchorElement.prototype,oc=P.click;" +
+    "function rec(a){try{if(a&&a.download&&a.href&&window.AndroidBlob&&AndroidBlob.name)AndroidBlob.name(a.href,a.download)}catch(e){}}" +
+    "P.click=function(){rec(this);return oc.apply(this,arguments)};" +
+    "document.addEventListener('click',function(e){var a=e.target&&e.target.closest?e.target.closest('a[download]'):null;rec(a)},true);})();"
+
