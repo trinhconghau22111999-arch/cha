@@ -149,7 +149,7 @@ function newNote(){
   ti.value=A().newTitle();
   ed.innerHTML='';unselect();saved=null;ed.focus();
 };
-$('bSave').onclick=function(){flush(true)};
+$('bSave').onclick=function(){flush(true);showList()};   /* lưu ngay (ghi tệp đồng bộ) rồi về trang danh sách */
 $('bCopy').onclick=function(){if(A())A().copy(ed.innerText||'',cleanHtml())};
 $('bPaste').onclick=function(){if(A())A().pasteImage()};
 
