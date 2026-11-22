@@ -1357,8 +1357,14 @@ class MainActivity : Activity(), FullscreenHost {
     /** Tắt nguồn TV (nhấp đúp nút OFF): mở menu nguồn của Android (như bấm giữ nút nguồn), người dùng bấm "Tắt nguồn". */
     private fun shutdownTv() {
         // Mở menu nguồn của Android (ẩn lớp giao diện phủ kín trong lúc đó, không gỡ ra nên thanh trạng thái/đa nhiệm không hiện); bấm "Tắt nguồn" bằng tay
-        if (RemoteAccessibilityService.instance?.powerMenuVisible() != true)
-            Toast.makeText(this, "Cần bật Trợ năng cho app TV để mở menu nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
+        val svc = RemoteAccessibilityService.instance
+        val info = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}"
+        when {
+            svc == null -> Toast.makeText(this, "Trợ năng của app TV chưa bật: không mở được menu nguồn. $info", Toast.LENGTH_LONG).show()
+            Build.VERSION.SDK_INT < 28 -> Toast.makeText(this, "Android dưới 9 không hỗ trợ mở menu nguồn từ app. $info", Toast.LENGTH_LONG).show()
+            !svc.powerMenuVisible() -> Toast.makeText(this, "Hệ thống từ chối mở menu nguồn (máy này không hỗ trợ). $info", Toast.LENGTH_LONG).show()
+            else -> Toast.makeText(this, "Đã gửi lệnh mở menu nguồn. $info", Toast.LENGTH_LONG).show()
+        }
     }
 
     /** (Không còn dùng cho nút OFF) Khung hỏi khởi động lại. Nút "Tắt nguồn" mở menu nguồn của hệ thống như trước. */
