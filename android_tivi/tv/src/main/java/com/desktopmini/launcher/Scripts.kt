@@ -464,16 +464,36 @@ const val HIDE_HOME_CHROME_JS = """
  */
 const val YT_PROFILE_HOLD_JS = """
 (function(){
- if(window.__wbProfileHold) return; window.__wbProfileHold=true;
- var SEL='ytm-home-logo,.mobile-topbar-logo,ytm-mobile-topbar-renderer a[href="/"],ytm-mobile-topbar-renderer #home-icon,ytd-masthead #logo,ytd-masthead a#logo,#logo-icon,a[aria-label="YouTube Home"],a[title="YouTube"]';
- var timer=null, fired=false, sx=0, sy=0;
- function onLogo(e){ try{ return e.target&&e.target.closest&&e.target.closest(SEL); }catch(x){ return null; } }
+ if(window.__wbProfileHold2) return; window.__wbProfileHold2=true;
+ var SEL='ytm-home-logo,.mobile-topbar-logo,ytm-mobile-topbar-renderer a[href="/"],ytm-mobile-topbar-renderer #home-icon,ytd-masthead #logo,ytd-masthead a#logo,#logo-icon,a[aria-label="YouTube Home"],a[title="YouTube"],a[aria-label="YouTube"],ytm-mobile-topbar-renderer ytm-home-logo,ytm-mobile-topbar-renderer c3-icon,ytm-mobile-topbar-renderer yt-icon';
+ var timer=null, fired=false, down=false, sx=0, sy=0;
+ // chặn bôi đen / menu giữ-lâu của hệ thống trên logo (menu này làm huỷ cú chạm nên trước đây giữ không ăn)
+ try{ var st=document.createElement('style'); st.textContent=SEL+'{-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;-webkit-tap-highlight-color:transparent!important}'; (document.head||document.documentElement).appendChild(st); }catch(e){}
+ function pt(e){ return (e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e; }
+ // Logo: khớp theo bộ chọn, hoặc (phòng YouTube đổi giao diện) theo vị trí: góc trái trên cùng của trang, ngoài khung video
+ function onLogo(e){
+   try{
+     var t=e.target; if(!t||!t.closest) return false;
+     if(t.closest(SEL)) return true;
+     var p=pt(e);
+     if(p && p.clientX<150 && p.clientY<60 && !t.closest('#movie_player,.html5-video-player,video,input,textarea')) return true;
+   }catch(x){}
+   return false;
+ }
  function clear(){ if(timer){ clearTimeout(timer); timer=null; } }
+ function onPageOk(){
+   try{
+     var pth=location.pathname||'';
+     if(pth.indexOf('/feed/you')<0&&pth.indexOf('/feed/library')<0) return false;
+     // trang đã có nội dung thật (không phải trang trắng)
+     var n=document.querySelectorAll('ytm-item-section-renderer,ytm-shelf-renderer,ytm-compact-video-renderer,ytm-video-with-context-renderer,ytm-playlist-renderer,ytm-channel-list-sub-menu-renderer,ytm-profile-icon,ytd-browse,ytm-account-section-list-renderer').length;
+     return n>0 || ((document.body&&document.body.innerText)||'').replace(/\s+/g,'').length>80;
+   }catch(e){ return true; }
+ }
+ function hardLoad(){ try{ sessionStorage.setItem('__wbYouTry','1'); }catch(e){} location.href='/feed/you'; }
  function go(){
-   timer=null; fired=true;
+   timer=null; fired=true; down=false;
    try{ if(navigator.vibrate) navigator.vibrate(40); }catch(e){}
-   // Bấm đúng tab "Bạn" ở thanh dưới của YouTube (điều hướng trong trang, giống tự bấm) -> hiện ngay trang "Bạn" có Video đã xem / Danh sách phát.
-   // Trước đây nạp lại cả trang bằng location.href nên có lúc ra trang trắng chưa có nội dung.
    var t=null;
    try{
      t=document.querySelector('ytm-pivot-bar-item-renderer .pivot-library')||document.querySelector('.pivot-library');
@@ -482,35 +502,43 @@ const val YT_PROFILE_HOLD_JS = """
    }catch(e){}
    if(t){
      try{ (t.querySelector&&t.querySelector('.pivot-bar-item-tab'))? t.querySelector('.pivot-bar-item-tab').click() : t.click(); }catch(e){}
-     // không vào được "Bạn" sau 1,5 giây (không có thanh dưới / bấm không ăn) thì nạp thẳng trang như cũ
-     setTimeout(function(){
-       try{ var pth=location.pathname||''; if(pth.indexOf('/feed/you')<0&&pth.indexOf('/feed/library')<0) location.href='/feed/you'; }catch(e){}
-     },1500);
+     // sau 1,6 giây vẫn chưa vào được trang "Bạn" (hoặc vào nhưng trắng) thì nạp thẳng trang
+     setTimeout(function(){ if(!onPageOk()) hardLoad(); },1600);
    } else {
-     location.href='/feed/you';
+     hardLoad();
    }
  }
+ // Vừa nạp thẳng /feed/you mà trang vẫn trắng sau 3 giây: nạp lại đúng 1 lần
+ try{
+   if(sessionStorage.getItem('__wbYouTry')==='1'){
+     sessionStorage.removeItem('__wbYouTry');
+     setTimeout(function(){ if((location.pathname||'').indexOf('/feed/you')===0 && !onPageOk()) location.reload(); },3000);
+   }
+ }catch(e){}
  function start(e){
    if(!onLogo(e)) return;
-   fired=false; clear();
-   var p=(e.touches&&e.touches[0])||e; sx=p.clientX; sy=p.clientY;
-   timer=setTimeout(go,1200);
+   fired=false; clear(); down=true;
+   var p=pt(e); sx=p.clientX; sy=p.clientY;
+   timer=setTimeout(function(){ if(down) go(); else timer=null; },1200);
  }
  function move(e){
    if(!timer) return;
-   var p=(e.touches&&e.touches[0])||e;
-   if(Math.abs(p.clientX-sx)>20||Math.abs(p.clientY-sy)>20) clear();
+   var p=pt(e);
+   if(Math.abs(p.clientX-sx)>20||Math.abs(p.clientY-sy)>20){ clear(); down=false; }
  }
+ function end(){ down=false; clear(); }
  document.addEventListener('touchstart',start,true);
  document.addEventListener('touchmove',move,true);
- document.addEventListener('touchend',clear,true);
- document.addEventListener('touchcancel',clear,true);
+ document.addEventListener('touchend',end,true);
+ // touchcancel: hệ thống huỷ cú chạm khi nhận ra "giữ lâu" -> KHÔNG huỷ bộ đếm (nếu thật sự là cuộn thì touchmove đã huỷ rồi)
+ document.addEventListener('pointerdown',function(e){ if(e.pointerType!=='mouse') start(e); },true);
+ document.addEventListener('pointermove',move,true);
+ document.addEventListener('pointerup',end,true);
  document.addEventListener('mousedown',start,true);
- document.addEventListener('mouseup',clear,true);
- // giữ đủ 2 giây thì chặn cú nhấp sinh ra khi nhả tay (khỏi nhảy về trang chủ)
+ document.addEventListener('mouseup',end,true);
+ // giữ đủ 1,2 giây thì chặn cú nhấp sinh ra khi nhả tay (khỏi nhảy về trang chủ)
  document.addEventListener('click',function(e){ if(fired&&onLogo(e)){ e.preventDefault(); e.stopPropagation(); fired=false; } },true);
- // chặn menu giữ-lâu của hệ thống trên logo
- document.addEventListener('contextmenu',function(e){ if(onLogo(e)) e.preventDefault(); },true);
+ document.addEventListener('contextmenu',function(e){ if(onLogo(e)||timer||fired) e.preventDefault(); },true);
 })();
 """
 
