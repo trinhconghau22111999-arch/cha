@@ -39,6 +39,7 @@ class NotesPane(private val act: Activity) {
     private var curTitle: String? = null
     private var pageReady = false
     private var pendingOpen: File? = null
+    private var listOnReady = false
 
     init {
         view.setBackgroundColor(0xFF05070D.toInt())
@@ -54,6 +55,12 @@ class NotesPane(private val act: Activity) {
     }
 
     fun onResume() { }
+
+    /** Bấm nút Ghi chú trên thanh dưới: mở thẳng danh sách ghi chú đã lưu. */
+    fun showList() {
+        if (!pageReady) { listOnReady = true; return }
+        web.evaluateJavascript("showList()", null)
+    }
 
     /** Rời trang hoặc app đi nền: lưu nốt những gì đang gõ. */
     fun onPause() { if (pageReady) web.evaluateJavascript("flush(false)", null) }
@@ -145,6 +152,7 @@ class NotesPane(private val act: Activity) {
                     curTitle = t; curFile = null
                     web.evaluateJavascript("loadNote(" + JSONObject.quote(t) + ",'')", null)
                 }
+                if (listOnReady) { listOnReady = false; web.evaluateJavascript("showList()", null) }
             }
         }
 

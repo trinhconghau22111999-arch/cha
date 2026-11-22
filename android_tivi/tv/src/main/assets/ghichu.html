@@ -44,7 +44,7 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
   <button class="d" id="dI">🗑 Xoá ảnh</button>
   <button id="xI">✔ Xong</button>
 </div>
-<div id="list"><div id="lh"><button class="n" id="bLs">✖ Đóng danh sách</button><span>Ghi chú đã lưu</span></div><div id="lb"></div></div>
+<div id="list"><div id="lh"><button class="n" id="bLsNew">➕ Ghi chú mới</button><button id="bLs">✖ Đóng danh sách</button><span>Ghi chú đã lưu</span></div><div id="lb"></div></div>
 <div id="wrap"><div id="ed" contenteditable="true" data-ph="Gõ ghi chú ở đây... Dán ảnh: ảnh nằm trái/phải thì chữ chạy bên cạnh ảnh"></div></div>
 <script>
 var ed=document.getElementById('ed'),ti=document.getElementById('title'),bar=document.getElementById('imgbar');
@@ -164,6 +164,7 @@ function showList(){
 function hideList(){$('list').classList.remove('on')}
 $('bList').onclick=showList;
 $('bLs').onclick=hideList;
+$('bLsNew').onclick=function(){hideList();$('bNew').onclick()};
 window.onload=function(){if(A())A().ready()};
 </script>
 </body></html>
