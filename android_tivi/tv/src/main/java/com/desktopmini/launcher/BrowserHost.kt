@@ -405,6 +405,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         }
         val sideCol = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         for ((name, _) in splitUrls) {
+            if (name in HIDDEN_SIDE_APPS) continue      // ẩn Telegram / Zalo / Facebook khỏi thanh ứng dụng bên trái
             val spec = sideIconSpec[name]
             val b = android.widget.ImageView(this).apply {
                 if (spec != null) {
@@ -1960,6 +1961,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         "Google" to Triple(R.drawable.ic_google, Color.WHITE, 6)
     )
     private val sideIcons = mutableMapOf<String, View>()
+    private val HIDDEN_SIDE_APPS = setOf("Telegram", "Zalo", "Facebook")
 
     // Icon tron theo mau thuong hieu; icon dang chia doi duoc vien dam, cac icon con lai mo di.
     private fun updateSideIcons() {
