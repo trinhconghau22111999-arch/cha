@@ -13,6 +13,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
@@ -23,6 +24,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import java.io.File
+import java.io.FileOutputStream
+import java.util.zip.ZipInputStream
 
 /**
  * Màn hình "Tệp": liệt kê mọi tệp nhận về (và ghi hình) còn trên máy, tức là trong vòng 1 giờ gần đây
@@ -41,6 +44,8 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
     private val list = ListView(act)
     private var items: List<File> = emptyList()
     private var sel = 0
+    private var longFired = false          // vừa nhấn giữ xong: bỏ qua cú nhả tay (không mở tệp)
+    private var extracting = false
 
     private fun dp(v: Int) = (v * act.resources.displayMetrics.density).toInt()
 
@@ -71,6 +76,8 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
                 cornerRadius = dp(8).toFloat(); setColor(0x4400E5FF); setStroke(dp(2), 0xFF00E5FF.toInt())
             } else null
             row.background = frame
+            if (isZip(f)) attachLongPress(row, i)
+            else row.setOnTouchListener(null)
             return row
         }
     }
@@ -90,7 +97,9 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
             dividerHeight = dp(4)
             setPadding(dp(10), dp(6), dp(10), dp(6)); clipToPadding = false
             isFocusable = false; isFocusableInTouchMode = false
-            setOnItemClickListener { _, _, pos, _ -> sel = pos; this@FilesPane.adapter.notifyDataSetChanged(); open(pos) }
+            setOnItemClickListener { _, _, pos, _ ->
+                if (longFired) { longFired = false; return@setOnItemClickListener }
+                sel = pos; this@FilesPane.adapter.notifyDataSetChanged(); open(pos) }
         }
         col.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
         view.addView(col, FrameLayout.LayoutParams(-1, -1))
@@ -99,6 +108,73 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
             setTextColor(0xFF90A4AE.toInt()); textSize = 18f; gravity = Gravity.CENTER
         }
         view.addView(empty, FrameLayout.LayoutParams(-1, -1))
+    }
+
+    private fun isZip(f: File) = f.name.endsWith(".zip", ignoreCase = true)
+
+    /** Nhấn giữ tệp .zip 1,2 giây thì tự giải nén. Trả false để cú chạm vẫn cuộn/bấm bình thường. */
+    private fun attachLongPress(row: View, pos: Int) {
+        var sx = 0f; var sy = 0f
+        val fire = Runnable {
+            longFired = true
+            items.getOrNull(pos)?.let { extractZip(it) }
+        }
+        row.setOnTouchListener { _, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { sx = ev.rawX; sy = ev.rawY; longFired = false; ui.postDelayed(fire, ZIP_HOLD_MS) }
+                MotionEvent.ACTION_MOVE -> if (Math.abs(ev.rawX - sx) > dp(12) || Math.abs(ev.rawY - sy) > dp(12)) ui.removeCallbacks(fire)
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> ui.removeCallbacks(fire)
+            }
+            false
+        }
+    }
+
+    /** Giải nén mọi tệp trong .zip ra cùng thư mục (danh sách Tệp phẳng nên bỏ cấu trúc thư mục con). Giữ nguyên tệp .zip. */
+    private fun extractZip(zip: File) {
+        if (extracting) { Toast.makeText(act, "Đang giải nén, đợi một chút", Toast.LENGTH_SHORT).show(); return }
+        if (!zip.isFile) { refresh(); return }
+        extracting = true
+        Toast.makeText(act, "Đang giải nén: " + zip.name, Toast.LENGTH_SHORT).show()
+        val dir = zip.parentFile ?: run { extracting = false; return }
+        Thread {
+            var count = 0
+            var err: String? = null
+            var firstName: String? = null
+            try {
+                ZipInputStream(java.io.BufferedInputStream(java.io.FileInputStream(zip))).use { zin ->
+                    while (true) {
+                        val e = zin.nextEntry ?: break
+                        if (e.isDirectory) { zin.closeEntry(); continue }
+                        var base = e.name.replace('\\', '/').substringAfterLast('/')
+                        if (base.isEmpty() || base.startsWith("._") || e.name.startsWith("__MACOSX")) { zin.closeEntry(); continue }
+                        base = base.map { if (it in "\\/:*?\"<>|") '_' else it }.joinToString("")
+                        var out = File(dir, base)
+                        if (out.exists()) {
+                            val dot = base.lastIndexOf('.')
+                            val stem = if (dot > 0) base.substring(0, dot) else base
+                            val ext = if (dot > 0) base.substring(dot) else ""
+                            var n = 1
+                            while (out.exists()) { out = File(dir, "$stem ($n)$ext"); n++ }
+                        }
+                        FileOutputStream(out).use { fo ->
+                            val buf = ByteArray(65536)
+                            while (true) { val r = zin.read(buf); if (r < 0) break; fo.write(buf, 0, r) }
+                        }
+                        out.setLastModified(System.currentTimeMillis())
+                        if (firstName == null) firstName = out.name
+                        count++
+                        zin.closeEntry()
+                    }
+                }
+            } catch (e: Throwable) { err = e.message ?: e.javaClass.simpleName }
+            ui.post {
+                extracting = false
+                if (err != null) Toast.makeText(act, "Giải nén lỗi: $err" + (if (count > 0) " (đã ra $count tệp)" else ""), Toast.LENGTH_LONG).show()
+                else if (count == 0) Toast.makeText(act, "Tệp .zip trống", Toast.LENGTH_SHORT).show()
+                else Toast.makeText(act, "Đã giải nén $count tệp ra trang Tệp", Toast.LENGTH_LONG).show()
+                refresh(firstName ?: items.getOrNull(sel)?.name)
+            }
+        }.start()
     }
 
     private fun isApk(f: File) = f.name.endsWith(".apk", ignoreCase = true)
@@ -121,6 +197,12 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
             sb.append("  •  ")
             val b = sb.length
             sb.append("OK để cài đặt")
+            sb.setSpan(ForegroundColorSpan(0xFF00E676.toInt()), b, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        if (isZip(f)) {
+            sb.append("  •  ")
+            val b = sb.length
+            sb.append("Nhấn giữ 1,2 giây để giải nén")
             sb.setSpan(ForegroundColorSpan(0xFF00E676.toInt()), b, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
         return sb
@@ -201,3 +283,5 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
         }
     }
 }
+
+private const val ZIP_HOLD_MS = 1200L
