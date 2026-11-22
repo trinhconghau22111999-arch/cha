@@ -4,9 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
-import android.app.DownloadManager
 import android.content.ClipData
-import android.content.ContentValues
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.ContextWrapper
@@ -25,7 +23,6 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.provider.MediaStore
 import android.util.Base64
 import android.text.InputType
 import android.text.TextUtils
@@ -1338,32 +1335,14 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         }
     }
 
-    /** Có mục nào cùng tên đang tải (đang chờ / đang chạy / tạm dừng) trong DownloadManager không. */
-    private fun isDownloading(name: String): Boolean {
-        if (ownDls.values.any { it.name == name && it.status == 0 }) return true
-        val ids = readDownloads().filter { it.second == name }.map { it.first }
-        if (ids.isEmpty()) return false
-        return try {
-            val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-            var busy = false
-            dm.query(DownloadManager.Query().setFilterById(*ids.toLongArray()))?.use { c ->
-                val iSt = c.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                while (c.moveToNext()) {
-                    val st = c.getInt(iSt)
-                    if (st == DownloadManager.STATUS_RUNNING || st == DownloadManager.STATUS_PENDING || st == DownloadManager.STATUS_PAUSED) busy = true
-                }
-            }
-            busy
-        } catch (e: Exception) { false }
-    }
+    /** Có mục nào cùng tên đang tải không. */
+    private fun isDownloading(name: String): Boolean = ownDls.values.any { it.name == name && it.status == 0 }
 
-    /** Huỷ thật một mục đang tải: DownloadManager.remove xoá cả tệp tải dở, rồi bỏ khỏi danh sách. */
+    /** Huỷ một mục đang tải (bộ tải tự dừng và xoá tệp dở), rồi bỏ khỏi danh sách. */
     private fun cancelDownload(id: Long) {
-        if (id < 0) ownDls[id]?.cancelled = true
-        else try { (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).remove(id) } catch (e: Exception) { }
-        val list = readDownloads().filter { it.first != id }
+        ownDls[id]?.cancelled = true
         val arr = JSONArray()
-        for (e in list) arr.put(JSONObject().put("id", e.first).put("name", e.second))
+        for (e in readDownloads().filter { it.first != id }) arr.put(JSONObject().put("id", e.first).put("name", e.second))
         prefs.edit().putString("downloads", arr.toString()).apply()
         populateDownloads()
     }
@@ -1501,7 +1480,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
                 textSize = 28f
                 gravity = Gravity.CENTER
                 visibility = View.GONE
-                setOnClickListener { if (id < 0) (act as? MainActivity)?.showFilesPage() else openDownloadsFolder() }
+                setOnClickListener { (act as? MainActivity)?.showFilesPage() }
             }
             row.addView(folder, LinearLayout.LayoutParams(dp(56), dp(56)))
             dlRows.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
@@ -1510,74 +1489,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         refreshDownloads()
     }
 
-    private fun refreshDownloads() {
-        if (dlRowViews.isEmpty()) return
-        refreshOwnRows()
-        val dmIds = dlRowViews.keys.filter { it > 0 }
-        if (dmIds.isEmpty()) return
-        val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val seen = mutableSetOf<Long>()
-        try {
-            dm.query(DownloadManager.Query().setFilterById(*dmIds.toLongArray()))?.use { c ->
-                val iId = c.getColumnIndex(DownloadManager.COLUMN_ID)
-                val iSt = c.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                val iGot = c.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-                val iTot = c.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
-                while (c.moveToNext()) {
-                    val id = c.getLong(iId)
-                    val r = dlRowViews[id] ?: continue
-                    seen.add(id)
-                    val got = c.getLong(iGot)
-                    val tot = c.getLong(iTot)
-                    r.folder.visibility = View.GONE
-                    val stNow = c.getInt(iSt)
-                    r.cancel?.visibility = if (stNow == DownloadManager.STATUS_SUCCESSFUL || stNow == DownloadManager.STATUS_FAILED) View.GONE else View.VISIBLE
-                    when (stNow) {
-                        DownloadManager.STATUS_SUCCESSFUL -> {
-                            r.bar.visibility = View.GONE
-                            r.status.text = "✅ Đã tải xuống"
-                            r.status.setTextColor(0xFF2E7D32.toInt())
-                            r.folder.visibility = View.VISIBLE
-                        }
-                        DownloadManager.STATUS_FAILED -> {
-                            r.bar.visibility = View.GONE
-                            r.status.text = "❌ Tải xuống lỗi"
-                            r.status.setTextColor(0xFFC62828.toInt())
-                        }
-                        DownloadManager.STATUS_PAUSED -> {
-                            r.bar.visibility = View.VISIBLE
-                            r.status.text = "⏸ Tạm dừng"
-                        }
-                        DownloadManager.STATUS_PENDING -> {
-                            r.bar.visibility = View.VISIBLE
-                            r.bar.isIndeterminate = true
-                            r.status.text = "Đang chờ…"
-                        }
-                        else -> {
-                            r.bar.visibility = View.VISIBLE
-                            if (tot > 0) {
-                                val pct = (got * 100 / tot).toInt()
-                                r.bar.isIndeterminate = false
-                                r.bar.progress = pct
-                                r.status.text = "Đang tải $pct%  (" + fmtMb(got) + " / " + fmtMb(tot) + ")"
-                            } else {
-                                r.bar.isIndeterminate = true
-                                r.status.text = "Đang tải… " + fmtMb(got)
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) { }
-        for ((id, r) in dlRowViews) if (id > 0 && id !in seen) {
-            r.cancel?.visibility = View.GONE
-            r.bar.visibility = View.GONE
-            r.folder.visibility = View.GONE
-            r.status.text = "Tệp không còn trong danh sách tải"
-        }
-    }
-
-    // ====================== Bộ tải xuống riêng của app (không phụ thuộc DownloadManager của máy) ======================
+    // ====================== Bộ tải xuống riêng của app (không dùng DownloadManager của máy) ======================
 
     private class OwnDl(val id: Long, var name: String, var mime: String) {
         @Volatile var got = 0L
@@ -1586,7 +1498,6 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         @Volatile var error: String? = null
         @Volatile var cancelled = false
         var out: java.io.OutputStream? = null
-        var uri: Uri? = null
         var file: File? = null
     }
     private val ownDls = java.util.concurrent.ConcurrentHashMap<Long, OwnDl>()
@@ -1755,10 +1666,9 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         @JavascriptInterface fun fail(token: String, msg: String) { val od = blobDls.remove(token) ?: return; finishOwn(od, msg) }
     }
 
-    /** Cập nhật các dòng của tải riêng (id âm) trong trang Tải xuống. */
-    private fun refreshOwnRows() {
+    /** Cập nhật các dòng trong trang Tải xuống theo trạng thái của bộ tải. */
+    private fun refreshDownloads() {
         for ((id, r) in dlRowViews) {
-            if (id >= 0) continue
             val od = ownDls[id]
             if (od == null) {
                 r.cancel?.visibility = View.GONE; r.bar.visibility = View.GONE; r.folder.visibility = View.GONE
@@ -1813,25 +1723,6 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
     private fun closeDownloads() {
         dlScrim.visibility = View.GONE
         dlHandler.removeCallbacks(dlTick)
-    }
-
-    // Nut ben phai muc "Da tai xuong": mo thu muc Download tren may.
-    private fun openDownloadsFolder() {
-        try {
-            val i = Intent(Intent.ACTION_VIEW)
-                .setDataAndType(
-                    Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload"),
-                    "vnd.android.document/directory"
-                )
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(i)
-        } catch (e: Exception) {
-            try {
-                startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            } catch (e2: Exception) {
-                Toast.makeText(this, "Không mở được thư mục tải xuống", Toast.LENGTH_SHORT).show()
-            }
-        }
     }
 
     // ====================== Cắt ảnh màn hình (giống Win+Shift+S) ======================
