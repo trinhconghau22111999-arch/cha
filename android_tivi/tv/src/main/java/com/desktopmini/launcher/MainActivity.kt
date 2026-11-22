@@ -342,23 +342,17 @@ class MainActivity : Activity(), FullscreenHost {
         btnFiles = barBtn("Tệp").apply { setOnClickListener { hideMenu(); onModeButton(3) } }
         val btnHome = barBtn("Home").apply { setOnClickListener { hideMenu(); goTvHome() } }
         val btnUpdate = barBtn("Cập nhật").apply { setOnClickListener { hideMenu(); Updater.start(this@MainActivity) } }
-        // OFF: nhấp 1 lần = tắt hình TV (khóa màn hình); nhấp 2 lần liên tiếp (double click) = tắt nguồn TV
-        val offSingle = Runnable {
-            if (!ScreenAdmin.lock(this@MainActivity)) {
-                Toast.makeText(this@MainActivity, "Cần bật Quản trị thiết bị cho app TV để tắt màn hình", Toast.LENGTH_LONG).show()
-                ScreenAdmin.requestActivation(this@MainActivity)
-            }
-        }
-        var offPending = false
-        val offTimer = Runnable { offPending = false; offSingle.run() }
+        // OFF: nhấp 1 lần = tắt hình TV (khóa màn hình), tắt ngay
         val btnOff = barBtn("OFF").apply {
             tag = "off"
             background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFD50000.toInt()); setStroke(dp(1), 0xFFFF8A80.toInt()) }
             setTextColor(Color.WHITE)
             setOnClickListener {
                 hideMenu()
-                if (offPending) { offPending = false; ui.removeCallbacks(offTimer); shutdownTv() }
-                else { offPending = true; ui.postDelayed(offTimer, 400) }
+                if (!ScreenAdmin.lock(this@MainActivity)) {
+                    Toast.makeText(this@MainActivity, "Cần bật Quản trị thiết bị cho app TV để tắt màn hình", Toast.LENGTH_LONG).show()
+                    ScreenAdmin.requestActivation(this@MainActivity)
+                }
             }
         }
         val btnBack = barBtn("", ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat())).apply {
@@ -522,7 +516,6 @@ class MainActivity : Activity(), FullscreenHost {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) RemoteAccessibilityService.instance?.setUiVisible(true)     // menu nguồn đã đóng: hiện lại giao diện
         if (hasFocus) { hideSystemBars(); attachUiOverlay() } else detachUiOverlay()
     }
 
@@ -1351,19 +1344,6 @@ class MainActivity : Activity(), FullscreenHost {
                 }
             }
             w.clearFlags(android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
-        }
-    }
-
-    /** Tắt nguồn TV (nhấp đúp nút OFF): mở menu nguồn của Android (như bấm giữ nút nguồn), người dùng bấm "Tắt nguồn". */
-    private fun shutdownTv() {
-        // Mở menu nguồn của Android (ẩn lớp giao diện phủ kín trong lúc đó, không gỡ ra nên thanh trạng thái/đa nhiệm không hiện); bấm "Tắt nguồn" bằng tay
-        val svc = RemoteAccessibilityService.instance
-        val info = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}), ${Build.MANUFACTURER} ${Build.MODEL}"
-        when {
-            svc == null -> Toast.makeText(this, "Trợ năng của app TV chưa bật: không mở được menu nguồn. $info", Toast.LENGTH_LONG).show()
-            Build.VERSION.SDK_INT < 28 -> Toast.makeText(this, "Android dưới 9 không hỗ trợ mở menu nguồn từ app. $info", Toast.LENGTH_LONG).show()
-            !svc.powerMenuVisible() -> Toast.makeText(this, "Hệ thống từ chối mở menu nguồn (máy này không hỗ trợ). $info", Toast.LENGTH_LONG).show()
-            else -> Toast.makeText(this, "Đã gửi lệnh mở menu nguồn. $info", Toast.LENGTH_LONG).show()
         }
     }
 
