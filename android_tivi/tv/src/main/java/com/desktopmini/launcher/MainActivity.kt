@@ -29,6 +29,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
+import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -721,22 +722,22 @@ class MainActivity : Activity(), FullscreenHost {
     }
 
     // Khoa cam ung: nuot moi cham tren man hinh TV. Chuot ao cua remote gui thang vao root nen van hoat dong.
-    // Cử chỉ vuốt từ mép dưới lên: giao diện không phản ứng với nó (không kéo, không bấm nhầm nút).
-    // Chạm thường trên thanh dưới vẫn bấm được; chỉ khi ngón tay bắt đầu ở mép dưới rồi vuốt lên đủ xa thì huỷ.
+    // Cử chỉ vuốt lên bắt đầu từ mép đáy màn hình (0-1dp): giao diện không phản ứng với nó.
+    // Chạm thường (không di chuyển) vẫn bấm được các nút trên thanh dưới.
     private var edgeStartY = -1f
     private var edgeSwallow = false
 
     override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
         if (::remote.isInitialized && remote.touchLocked) return true
         if (ev != null) {
-            val edgeBand = window.decorView.height - dp(40)
+            val edgeBand = window.decorView.height - dp(1)
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     edgeSwallow = false
                     edgeStartY = if (ev.rawY > edgeBand) ev.rawY else -1f
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (edgeStartY >= 0f && !edgeSwallow && edgeStartY - ev.rawY > dp(24)) {
+                    if (edgeStartY >= 0f && !edgeSwallow && edgeStartY - ev.rawY > ViewConfiguration.get(this).scaledTouchSlop) {
                         edgeSwallow = true
                         // Huỷ cử chỉ đang được các nút nhận, để nút không bị bấm nhầm khi vuốt
                         val cancel = MotionEvent.obtain(ev)
