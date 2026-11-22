@@ -29,7 +29,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
-import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -737,7 +736,7 @@ class MainActivity : Activity(), FullscreenHost {
                     edgeStartY = if (ev.rawY > edgeBand) ev.rawY else -1f
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    if (edgeStartY >= 0f && !edgeSwallow && edgeStartY - ev.rawY > ViewConfiguration.get(this).scaledTouchSlop) {
+                    if (edgeStartY >= 0f && !edgeSwallow && edgeStartY - ev.rawY > dp(1)) {
                         edgeSwallow = true
                         // Huỷ cử chỉ đang được các nút nhận, để nút không bị bấm nhầm khi vuốt
                         val cancel = MotionEvent.obtain(ev)
