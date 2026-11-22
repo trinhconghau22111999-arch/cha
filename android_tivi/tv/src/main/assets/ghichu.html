@@ -19,12 +19,14 @@ body{display:flex;flex-direction:column;position:relative}
 #pbox button{font-size:18px;padding:12px}
 #pMain,#pConfirm{display:flex;flex-direction:column;gap:10px}
 #pConfirm{display:none}
+#top button{white-space:nowrap;flex:0 0 auto}
+#bSave{margin-left:auto}
 #top,#imgbar{background:#0a0d16;padding:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:2px solid #00e5ff55}
 #imgbar{display:none;background:#14213d}
 #imgbar span{color:#9ee;font-size:15px;font-weight:bold}
 button{font-size:16px;font-weight:bold;border:0;border-radius:8px;padding:10px 14px;color:#fff;background:#263248}
 button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e44ad}button.i{background:#ef6c00}button.d{background:#c62828}
-#title{flex:1;min-width:150px;font-size:16px;padding:9px 10px;border-radius:8px;border:1px solid #00e5ff66;background:#10162a;color:#fff}
+#title{flex:1 1 150px;min-width:120px;font-size:16px;padding:9px 10px;border-radius:8px;border:1px solid #00e5ff66;background:#10162a;color:#fff}
 #wrap{flex:1;overflow:auto;padding:10px 10px 0;display:flex;flex-direction:column;min-height:0}
 #ed{flex:1 0 auto;box-sizing:border-box;margin-bottom:0;background:#fff;color:#111;border-radius:10px;padding:14px;font-size:19px;line-height:1.45;outline:none;word-wrap:break-word}
 #ed:empty:before{content:attr(data-ph);color:#999}
@@ -37,11 +39,11 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
 </style></head><body>
 <div id="top">
   <button class="n" id="bNew">➕ Ghi chú mới</button>
-  <button class="s" id="bSave">💾 Lưu</button>
   <button class="c" id="bCopy">📋 Copy ghi chú</button>
   <button class="i" id="bPaste">🖼 Dán ảnh</button>
-  <input id="title" placeholder="Tiêu đề">
   <button class="i" id="bList">📂 Danh sách</button>
+  <input id="title" placeholder="Tiêu đề">
+  <button class="s" id="bSave">💾 Lưu</button>
 </div>
 <div id="imgbar">
   <span>Ảnh:</span>
