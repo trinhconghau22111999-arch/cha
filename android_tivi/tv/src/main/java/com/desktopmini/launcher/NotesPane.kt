@@ -177,7 +177,14 @@ class NotesPane(private val act: Activity) {
         /** Lưu (tự động hoặc bấm Lưu) vào thư mục Ghi chú. Trang vẫn mở, không thoát. Ghi chú trống thì không tạo tệp. */
         @JavascriptInterface fun save(title: String, html: String, text: String, hasImg: Int, manual: Int) {
             if (text.isBlank() && hasImg == 0) {
-                if (manual == 1) ui.post { Toast.makeText(act, "Ghi chú đang trống", Toast.LENGTH_SHORT).show() }
+                // Ghi chú trống: nếu đây là ghi chú đã lưu thì coi như đã xoá (không cần bấm Lưu).
+                // Gõ lại chữ vào trang thì ghi chú được lưu lại như mới.
+                val old = curFile
+                if (old != null) {
+                    try { old.delete() } catch (e: Exception) { }
+                    curFile = null
+                    if (manual == 1) toastMsg("Ghi chú trống nên đã xoá")
+                } else if (manual == 1) toastMsg("Ghi chú đang trống")
                 return
             }
             try {
