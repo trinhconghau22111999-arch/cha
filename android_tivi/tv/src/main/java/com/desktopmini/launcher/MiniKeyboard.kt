@@ -98,10 +98,13 @@ class MiniKeyboard(
     private val onClose: () -> Unit,
     private val onMoved: (Int, Int) -> Unit
 ) {
-    companion object { @Volatile var vnMode = true }
+    companion object {
+        @Volatile var vnMode = true
+        const val SCALE = 1.1f          // phóng to bàn phím (1.1 = +10%)
+    }
 
     private val density = ctx.resources.displayMetrics.density
-    private fun dp(v: Int) = (v * density).toInt()
+    private fun dp(v: Int) = (v * density * SCALE).toInt()
     private val h = Handler(Looper.getMainLooper())
 
     private val raw = StringBuilder()
@@ -122,7 +125,7 @@ class MiniKeyboard(
 
     private fun key(label: String, weight: Float, base: Int = 0xFF1B2340.toInt(), sp: Float = 13f, click: () -> Unit): TextView =
         TextView(ctx).apply {
-            text = label; textSize = sp; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            text = label; textSize = sp * SCALE; setTextColor(Color.WHITE); gravity = Gravity.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
             isFocusable = false; isFocusableInTouchMode = false
             background = keyBg(base)
@@ -176,11 +179,11 @@ class MiniKeyboard(
 
         // Thanh trên: kéo để di chuyển, ✕ để đóng
         val title = TextView(ctx).apply {
-            text = "⠿  Bàn phím"; textSize = 11f; setTextColor(0xFFB0BEC5.toInt()); gravity = Gravity.CENTER_VERTICAL
+            text = "⠿  Bàn phím"; textSize = 11f * SCALE; setTextColor(0xFFB0BEC5.toInt()); gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(4), 0, 0, 0)
         }
         val close = TextView(ctx).apply {
-            text = "✕"; textSize = 14f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+            text = "✕"; textSize = 14f * SCALE; setTextColor(Color.WHITE); gravity = Gravity.CENTER
             background = rect(0xFFD50000.toInt(), 6)
             setOnClickListener { onClose() }
         }
