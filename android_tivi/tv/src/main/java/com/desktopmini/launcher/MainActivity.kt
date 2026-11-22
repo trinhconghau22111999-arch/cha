@@ -516,6 +516,7 @@ class MainActivity : Activity(), FullscreenHost {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) RemoteAccessibilityService.instance?.hideCursor()     // hộp thoại đã đóng: bỏ con trỏ phủ, dùng lại con trỏ của app
         if (hasFocus) { hideSystemBars(); attachUiOverlay() } else detachUiOverlay()
     }
 
@@ -845,7 +846,10 @@ class MainActivity : Activity(), FullscreenHost {
         }
         if (try { JSONObject(json).optString("action") == "home" } catch (e: Exception) { false }) { remoteHome(); return }
         if (backBurst(json)) return
-        if (resumed || isFinishing) { remote.handle(json); return }
+        // Có hộp thoại (vd bảng Ẩn/hiện nút) đang nổi trên app: con trỏ trong app nằm DƯỚI hộp thoại nên không thấy / không bấm được
+        // -> dùng con trỏ của dịch vụ trợ năng (cửa sổ phủ trên cùng, chạm theo toạ độ màn hình) cho tới khi hộp thoại đóng
+        val dialogOnTop = resumed && !hasWindowFocus() && svc != null && !isFinishing
+        if ((resumed || isFinishing) && !dialogOnTop) { remote.handle(json); return }
         val action = try { JSONObject(json).optString("action") } catch (e: Exception) { "" }
         when (action) {
             "move", "click", "longclick", "scroll", "key", "back" -> if (svc != null) svc.handle(json) else remote.handle(json)
