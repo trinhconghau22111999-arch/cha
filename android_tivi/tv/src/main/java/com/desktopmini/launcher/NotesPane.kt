@@ -200,6 +200,26 @@ class NotesPane(private val act: Activity) {
             return arr.toString()
         }
 
+        /** Copy một ghi chú trong danh sách (giữ 1,2 giây): chữ + HTML có ảnh, như nút Copy ghi chú. */
+        @JavascriptInterface fun copyNote(name: String) {
+            Thread {
+                try {
+                    val raw = File(dir(), "$name.ghichu.html").readText()
+                    val a = raw.indexOf("<!--NOTE-->")
+                    val b = raw.indexOf("<!--/NOTE-->")
+                    if (a < 0 || b <= a) throw Exception("ghi chú trống")
+                    val body = raw.substring(a + 11, b)
+                    val text = android.text.Html.fromHtml(body, android.text.Html.FROM_HTML_MODE_LEGACY).toString().trim()
+                    ui.post {
+                        clipboard().setPrimaryClip(ClipData.newHtmlText("Ghi chú", text, body))
+                        Toast.makeText(act, "Đã copy ghi chú: $name", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Throwable) {
+                    ui.post { Toast.makeText(act, "Copy ghi chú lỗi: " + (e.message ?: ""), Toast.LENGTH_SHORT).show() }
+                }
+            }.start()
+        }
+
         /** Mở một ghi chú trong danh sách (trang đang gõ đã được lưu trước đó bằng flush). */
         @JavascriptInterface fun open(name: String) {
             ui.post {

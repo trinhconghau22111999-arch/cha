@@ -156,12 +156,38 @@ function showList(){
   arr.forEach(function(n){
     var x=document.createElement('button');
     x.textContent='📝 '+n.name+'   ('+n.time+')';
-    x.onclick=function(){A().open(n.name)};
+    bindPress(x,n.name);
     b.appendChild(x);
   });
   $('list').classList.add('on');
 }
 function hideList(){$('list').classList.remove('on')}
+
+/* Dòng trong danh sách: bấm = mở ghi chú; giữ 1,2 giây = copy ghi chú (chuột/cảm ứng và phím OK của remote) */
+function bindPress(x,name){
+  var t=null,fired=false;
+  function start(){fired=false;clearTimeout(t);t=setTimeout(function(){t=null;fired=true;if(A())A().copyNote(name)},1200)}
+  function cancel(){clearTimeout(t);t=null}
+  x.addEventListener('pointerdown',function(e){if(e.pointerType==='mouse'&&e.button!==0)return;start()});
+  x.addEventListener('pointerup',cancel);
+  x.addEventListener('pointerleave',cancel);
+  x.addEventListener('pointercancel',cancel);
+  x.addEventListener('click',function(e){
+    if(fired){fired=false;e.preventDefault();e.stopPropagation();return}
+    hideList();if(A())A().open(name);
+  });
+  x.addEventListener('keydown',function(e){
+    if(e.key!=='Enter'&&e.key!==' ')return;
+    e.preventDefault();          /* tự xử lý: giữ lâu thì copy, bấm nhanh thì mở */
+    if(!e.repeat)start();
+  });
+  x.addEventListener('keyup',function(e){
+    if(e.key!=='Enter'&&e.key!==' ')return;
+    e.preventDefault();
+    if(t!==null){cancel();x.click()}   /* bấm nhanh: mở */
+    else fired=false;
+  });
+}
 $('bList').onclick=showList;
 $('bLs').onclick=hideList;
 $('bLsNew').onclick=function(){hideList();$('bNew').onclick()};
