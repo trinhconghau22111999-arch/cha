@@ -144,35 +144,22 @@ jobs:
           ls -la release
 
       - name: Create Release (1 trang, 3 file APK)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "Build #${{ github.run_number }}"
+          make_latest: true
+          body: |
+            Build #${{ github.run_number }} gồm 3 app Android:
+
+            - DK-TV-Gop.apk: app điều khiển từ xa tổng hợp (DK TV + DK TV 2), cài trên điện thoại Android.
+            - Tivi-TV.apk: app tivi cài trên TV (nhận tệp từ điện thoại, nút Tệp để cài APK).
+            - ScreenCast.apk: app "Ái-kara" (Tube for me) cài trên điện thoại, chiếu hình lên TV qua WiFi (WebRTC).
+
+            Link tải cố định (luôn là bản mới nhất):
+            - https://github.com/${{ github.repository }}/releases/latest/download/DK-TV-Gop.apk
+            - https://github.com/${{ github.repository }}/releases/latest/download/Tivi-TV.apk
+            - https://github.com/${{ github.repository }}/releases/latest/download/ScreenCast.apk
+          files: release/*
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          set -u
-          TAG="build-${{ github.run_number }}"
-          cat > notes.md <<'NOTES'
-          Build #${{ github.run_number }} gồm 3 app Android:
-
-          - DK-TV-Gop.apk: app điều khiển từ xa tổng hợp (DK TV + DK TV 2), cài trên điện thoại Android.
-          - Tivi-TV.apk: app tivi cài trên TV (nhận tệp từ điện thoại, nút Tệp để cài APK).
-          - ScreenCast.apk: app "Ái-kara" (Tube for me) cài trên điện thoại, chiếu hình lên TV qua WiFi (WebRTC).
-
-          Link tải cố định (luôn là bản mới nhất):
-          - https://github.com/${{ github.repository }}/releases/latest/download/DK-TV-Gop.apk
-          - https://github.com/${{ github.repository }}/releases/latest/download/Tivi-TV.apk
-          - https://github.com/${{ github.repository }}/releases/latest/download/ScreenCast.apk
-          NOTES
-          cd release
-          # GitHub đôi khi trả lỗi tạm thời (release vừa tạo chưa tìm thấy theo tag, trả về trang 404):
-          # thử lại tối đa 5 lần. Đã có release thì tải tệp lên đè, chưa có thì tạo mới cùng lúc với tệp.
-          ok=0
-          for i in 1 2 3 4 5; do
-            if gh release view "$TAG" >/dev/null 2>&1; then
-              if gh release upload "$TAG" ./*.apk --clobber; then ok=1; break; fi
-            else
-              if gh release create "$TAG" ./*.apk --title "Build #${{ github.run_number }}" --notes-file ../notes.md --latest; then ok=1; break; fi
-            fi
-            echo "Chưa xong (lần $i), thử lại sau 20 giây..."
-            sleep 20
-          done
-          if [ "$ok" != 1 ]; then echo "::error::Không tạo/cập nhật được release $TAG"; exit 1; fi
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
