@@ -178,6 +178,7 @@ function setKb(on){
     ed.blur();ti.blur();
   }
 }
+$('bKb').addEventListener('mousedown',function(e){e.preventDefault()});
 $('bKb').onclick=function(){setKb(!kbOn)};
 kbUI();
 $('bSave').onclick=function(){flush(true);showList()};   /* lưu ngay (ghi tệp đồng bộ) rồi về trang danh sách */
