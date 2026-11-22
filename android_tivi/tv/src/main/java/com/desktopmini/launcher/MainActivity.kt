@@ -334,16 +334,16 @@ class MainActivity : Activity(), FullscreenHost {
         // 11 nút bằng nhau: Menu | TV | Trình duyệt | YouTube | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | OFF | ← (Thoát)
         val group = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnOff, btnBack).forEachIndexed { i, b ->
-            group.addView(b, LinearLayout.LayoutParams(0, -1, 1f).also { if (i > 0) it.leftMargin = dp(4) })
+            if (b === btnOff) b.minWidth = 0      // OFF thu còn 60% bề ngang so với nút thường
+            group.addView(b, LinearLayout.LayoutParams(0, -1, if (b === btnOff) 0.6f else 1f).also { if (i > 0) it.leftMargin = dp(4) })
         }
         bar.addView(group, LinearLayout.LayoutParams(0, -1, 1f))
         barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnBrowser, btnYt, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnOff, btnBack))
 
         // Góc phải: giờ, ngày, âm lịch (cùng cỡ chữ 13sp, đậm), rồi nút X gỡ app
         val cluster = 13f
-        // Pin nằm bên trái giờ: "Pin 25%"; đang sạc thì "10W Pin 25%"
-        tvBatt = small("", cluster, true).apply { setTextColor(0xFF69F0AE.toInt()); setPadding(dp(14), 0, 0, 0) }
-        bar.addView(tvBatt, LinearLayout.LayoutParams(-2, -1))
+        // Pin: "Pin 25%"; đang sạc thì "10W Pin 25%" (đặt cuối hàng, sau nút X)
+        tvBatt = small("", cluster, true).apply { setTextColor(0xFF69F0AE.toInt()); setPadding(dp(10), 0, 0, 0) }
         tvTime = small("--:--", cluster, true).apply { setTextColor(NEON_CYAN); setPadding(dp(14), 0, dp(12), 0) }
         bar.addView(tvTime, LinearLayout.LayoutParams(-2, -1))
         tvDate = small("", cluster, true).apply { setTextColor(0xFFB0BEC5.toInt()); setPadding(0, 0, dp(12), 0) }
@@ -366,6 +366,8 @@ class MainActivity : Activity(), FullscreenHost {
             }
         }
         bar.addView(btnKill, LinearLayout.LayoutParams(dp(44), -1).also { it.leftMargin = dp(10) })
+        // Pin nằm cuối hàng, bên phải nút X
+        bar.addView(tvBatt, LinearLayout.LayoutParams(-2, -1))
 
         barView = bar
         content = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
