@@ -200,7 +200,18 @@ class NotesPane(private val act: Activity) {
             return arr.toString()
         }
 
-        /** Copy một ghi chú trong danh sách (giữ 1,2 giây): chữ + HTML có ảnh, như nút Copy ghi chú. */
+        /** Xoá một ghi chú trong danh sách. Trả true nếu đó là ghi chú đang mở trong trang soạn (trang sẽ đổi sang ghi chú trống). */
+        @JavascriptInterface fun delete(name: String): Boolean {
+            if (name.isEmpty() || name.contains('/') || name.contains('\\')) return false
+            val f = File(dir(), "$name.ghichu.html")
+            val wasOpen = curFile?.absolutePath == f.absolutePath
+            try { f.delete() } catch (e: Exception) { }
+            if (wasOpen) { curFile = null; curTitle = null }
+            ui.post { Toast.makeText(act, "Đã xoá ghi chú: $name", Toast.LENGTH_SHORT).show() }
+            return wasOpen
+        }
+
+        /** Copy một ghi chú trong danh sách: chữ + HTML có ảnh, như nút Copy ghi chú. */
         @JavascriptInterface fun copyNote(name: String) {
             Thread {
                 try {
