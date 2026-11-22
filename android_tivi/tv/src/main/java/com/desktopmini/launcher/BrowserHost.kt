@@ -113,6 +113,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
     private lateinit var tabBar: LinearLayout
     private lateinit var urlBar: EditText
     private lateinit var bookmarkBtn: android.widget.ImageView
+    private var dlBtn: android.widget.ImageView? = null
     private lateinit var progress: ProgressBar
     // Gọn khi khung ngang: hai thanh trên cùng thấp bằng thanh tiêu đề có 3 nút ✕ − ＋
     private var compact = false
@@ -333,7 +334,8 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         bar.addView(iconBtn(R.drawable.ic_shot, "Chụp màn hình") { takeScreenshot() })
         bookmarkBtn = iconBtn(R.drawable.ic_star_off, "Dấu trang") { toggleBookmark() }
         bar.addView(bookmarkBtn)
-        bar.addView(iconBtn(R.drawable.ic_download, "Tải xuống") { openDownloads() })
+        dlBtn = iconBtn(R.drawable.ic_download, "Tải xuống") { openDownloads() }
+        bar.addView(dlBtn)
         bar.addView(iconBtn(R.drawable.ic_close, "Màn hình chính", tint = 0xFFFF9A9A.toInt(), fill = 0x33FF6B6B) { goHome() }.apply {
             (layoutParams as LinearLayout.LayoutParams).leftMargin = dp(6)
         })
@@ -1342,6 +1344,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
     /** Huỷ một mục đang tải (bộ tải tự dừng và xoá tệp dở), rồi bỏ khỏi danh sách. */
     private fun cancelDownload(id: Long) {
         ownDls[id]?.cancelled = true
+        updateDlBtn()
         val arr = JSONArray()
         for (e in readDownloads().filter { it.first != id }) arr.put(JSONObject().put("id", e.first).put("name", e.second))
         prefs.edit().putString("downloads", arr.toString()).apply()
@@ -1537,7 +1540,19 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         val od = OwnDl(ownSeq.decrementAndGet(), name, if (mime.isNullOrEmpty()) "application/octet-stream" else mime)
         ownDls[od.id] = od
         addDownloadRecord(od.id, name)
+        updateDlBtn()
         return od
+    }
+
+    /** Nút Tải xuống trên thanh: nền xanh lá trong lúc còn tệp đang tải, hết tải thì trở lại như cũ. */
+    private fun updateDlBtn() {
+        ui.post {
+            val b = dlBtn ?: return@post
+            val busy = ownDls.values.any { it.status == 0 && !it.cancelled }
+            val fill = if (busy) 0xFF2ECC71.toInt() else 0x00000000
+            b.tag = fill
+            b.background = rippleBg(fill, (if (compact) 24 else 40) / 2)
+        }
     }
 
     private fun renameDownloadRecord(id: Long, newName: String) {
@@ -1592,6 +1607,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
             od.file?.let { try { it.delete() } catch (e: Throwable) { } }
             if (od.cancelled) od.status = 3 else { od.status = 2; od.error = err }
         }
+        updateDlBtn()
         ui.post {
             if (ok) Toast.makeText(this, "Đã tải xong: " + od.name + " (xem trong mục Tệp)", Toast.LENGTH_LONG).show()
             else if (!od.cancelled) Toast.makeText(this, "Tải lỗi: " + err, Toast.LENGTH_LONG).show()
