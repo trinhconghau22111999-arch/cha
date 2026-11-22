@@ -56,6 +56,8 @@ class RemoteAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        // Cho phép đọc cả cửa sổ hệ thống (menu nguồn) nằm dưới lớp giao diện phủ kín màn hình của app
+        try { serviceInfo = serviceInfo.apply { flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS } } catch (e: Exception) { }
         wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         onConnected?.invoke()
     }
@@ -323,23 +325,45 @@ class RemoteAccessibilityService : AccessibilityService() {
     /** Mở menu nguồn của Android (có nút Tắt nguồn). App thường không tự tắt nguồn được, nên người dùng bấm xác nhận trong menu này. Chỉ Android 9 trở lên. */
     fun powerMenu(): Boolean = Build.VERSION.SDK_INT >= 28 && performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
 
-    /** Mở menu nguồn rồi tự bấm "Tắt nguồn" (và nút xác nhận nếu có). Trả false nếu không mở được menu. */
+    /**
+     * Mở menu nguồn rồi tự bấm "Tắt nguồn" (và nút xác nhận nếu có). Menu nguồn là cửa sổ của hệ thống, nằm DƯỚI lớp giao diện
+     * phủ kín của app TV nên người dùng không thấy/bấm được: ẩn lớp giao diện trong lúc chờ, tìm nút ở mọi cửa sổ (trừ của app) rồi bấm.
+     * Trả false nếu không mở được menu.
+     */
     fun powerOffAuto(): Boolean {
         if (!powerMenu()) return false
         val labels = listOf("Tắt nguồn", "Tắt máy", "Power off", "Shut down", "Turn off")
+        val box = uiBox
+        box?.visibility = View.INVISIBLE
         var clicks = 0
-        fun clickOne(): Boolean {
-            val root = try { rootInActiveWindow } catch (e: Exception) { null } ?: return false
+        fun roots(): List<AccessibilityNodeInfo> {
+            val out = ArrayList<AccessibilityNodeInfo>()
             try {
-                for (t in labels) {
-                    for (n in root.findAccessibilityNodeInfosByText(t)) {
-                        var x: AccessibilityNodeInfo? = n
-                        var depth = 0
-                        while (x != null && !x.isClickable && depth < 5) { x = x.parent; depth++ }
-                        if (x != null && x.isClickable && x.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
-                    }
+                for (w in windows) {
+                    if (w.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY) continue
+                    w.root?.let { out.add(it) }
                 }
             } catch (e: Exception) { }
+            if (out.isEmpty()) try { rootInActiveWindow?.let { out.add(it) } } catch (e: Exception) { }
+            return out
+        }
+        fun clickOne(): Boolean {
+            for (root in roots()) {
+                try {
+                    if (root.packageName?.toString() == packageName) continue
+                    for (t in labels) {
+                        for (n in root.findAccessibilityNodeInfosByText(t)) {
+                            var x: AccessibilityNodeInfo? = n
+                            var depth = 0
+                            while (x != null && !x.isClickable && depth < 5) { x = x.parent; depth++ }
+                            if (x != null && x.isClickable && x.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+                            // Không có nút bấm được: chạm vào giữa chữ
+                            val r = android.graphics.Rect(); n.getBoundsInScreen(r)
+                            if (!r.isEmpty) { gesture(r.exactCenterX(), r.exactCenterY(), r.exactCenterX(), r.exactCenterY(), 80); return true }
+                        }
+                    }
+                } catch (e: Exception) { }
+            }
             return false
         }
         val step = object : Runnable {
@@ -347,10 +371,11 @@ class RemoteAccessibilityService : AccessibilityService() {
             override fun run() {
                 tries++
                 if (clickOne()) clicks++
-                if (tries < 12 && clicks < 2) ui.postDelayed(this, 500)
+                if (tries < 14 && clicks < 2) ui.postDelayed(this, 500)
+                else box?.visibility = View.VISIBLE      // xong (hoặc không tìm thấy nút): hiện lại giao diện
             }
         }
-        ui.postDelayed(step, 600)
+        ui.postDelayed(step, 700)
         return true
     }
 }
