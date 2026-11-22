@@ -158,7 +158,12 @@ ed.addEventListener('mousedown',blockKb);
 ti.addEventListener('mousedown',blockKb);
 ed.addEventListener('blur',function(){kbOn=false});
 ti.addEventListener('blur',function(){kbOn=false});
-$('bKb').onclick=function(){kbOn=true;ed.focus()};
+function setKb(on){
+  kbOn=on;
+  $('bKb').textContent=on?'⌨ Tắt bàn phím':'⌨ Bàn phím';
+  if(on){ed.focus()}else{ed.blur();ti.blur()}
+}
+$('bKb').onclick=function(){setKb(!kbOn)};
 $('bSave').onclick=function(){flush(true);showList()};   /* lưu ngay (ghi tệp đồng bộ) rồi về trang danh sách */
 $('bCopy').onclick=function(){if(A())A().copy(ed.innerText||'',cleanHtml())};
 $('bPaste').onclick=function(){if(A())A().pasteImage()};
