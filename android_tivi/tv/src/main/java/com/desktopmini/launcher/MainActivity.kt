@@ -1335,23 +1335,11 @@ class MainActivity : Activity(), FullscreenHost {
         dlg.show()
     }
 
-    /** Tắt nguồn TV (nhấn giữ nút OFF 1 giây): thử tắt hẳn (máy có quyền hệ thống/root); không được thì mở menu nguồn của hệ thống để chọn "Tắt nguồn". */
+    /** Tắt nguồn TV (nhấn giữ nút OFF 1 giây): mở menu nguồn của hệ thống rồi tự bấm "Tắt nguồn" qua Trợ năng (máy không root). */
     private fun shutdownTv() {
-        Thread {
-            // su có thể tồn tại nhưng không cấp quyền (thoát với mã lỗi) -> phải kiểm tra mã thoát, không coi là xong
-            val ok = try {
-                val p = Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot -p"))
-                var code: Int? = null
-                for (i in 0 until 30) { try { code = p.exitValue(); break } catch (e: IllegalThreadStateException) { Thread.sleep(100) } }
-                code == null || code == 0
-            } catch (e: Throwable) { false }
-            if (ok) return@Thread
-            ui.post {
-                // Không root: mở menu nguồn rồi tự bấm "Tắt nguồn" qua Trợ năng
-                if (RemoteAccessibilityService.instance?.powerOffAuto() != true)
-                    Toast.makeText(this, "Cần bật Trợ năng cho app TV để tắt nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
-            }
-        }.start()
+        // Máy không root: mở menu nguồn của hệ thống rồi tự bấm "Tắt nguồn" (+ xác nhận) qua Trợ năng
+        if (RemoteAccessibilityService.instance?.powerOffAuto() != true)
+            Toast.makeText(this, "Cần bật Trợ năng cho app TV để tắt nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
     }
 
     /** (Không còn dùng cho nút OFF) Khung hỏi khởi động lại. Nút "Tắt nguồn" mở menu nguồn của hệ thống như trước. */
