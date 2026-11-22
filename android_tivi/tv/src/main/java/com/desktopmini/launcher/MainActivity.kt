@@ -1326,7 +1326,31 @@ class MainActivity : Activity(), FullscreenHost {
             setLayout((dm.widthPixels * 0.82f).toInt().coerceAtMost(dp(900)), (dm.heightPixels * 0.92f).toInt())
             setDimAmount(0.7f)
         }
+        showDialogImmersive(dlg)
+    }
+
+    /**
+     * Hiện hộp thoại mà KHÔNG làm hiện thanh trạng thái / thanh đa nhiệm: cửa sổ hộp thoại mặc định không có cờ toàn màn hình,
+     * nên vừa hiện là hệ thống kéo hai thanh đó ra. Đặt cờ toàn màn hình cho cửa sổ hộp thoại trước khi nó nhận focus.
+     */
+    @Suppress("DEPRECATION")
+    private fun showDialogImmersive(dlg: android.app.Dialog) {
+        val w = dlg.window
+        w?.setFlags(android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
         dlg.show()
+        if (w != null) {
+            w.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+            if (Build.VERSION.SDK_INT >= 30) {
+                w.insetsController?.let { c ->
+                    c.systemBarsBehavior = android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    c.hide(WindowInsets.Type.navigationBars() or WindowInsets.Type.statusBars())
+                }
+            }
+            w.clearFlags(android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+        }
     }
 
     /** Tắt nguồn TV (nhấp đúp nút OFF): mở menu nguồn của hệ thống rồi tự bấm "Tắt nguồn" qua Trợ năng (máy không root). */
