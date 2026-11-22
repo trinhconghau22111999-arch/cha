@@ -10,7 +10,6 @@ body{display:flex;flex-direction:column;position:relative;box-sizing:border-box;
 #lh{background:#0a0d16;padding:8px;display:flex;gap:8px;align-items:center;border-bottom:2px solid #00e5ff55}
 #lh span{color:#9ee;font-size:16px;font-weight:bold}
 #lh{position:relative}
-#bLs{margin-left:auto}
 #bLsNew{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
 #lb{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
 #lb button{text-align:left;background:#10162a;border:1px solid #00e5ff66;font-weight:normal;font-size:17px}
@@ -53,7 +52,7 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
   <button class="d" id="dI">🗑 Xoá ảnh</button>
   <button id="xI">✔ Xong</button>
 </div>
-<div id="list"><div id="lh"><span>Ghi chú đã lưu</span><button class="n" id="bLsNew">➕ Ghi chú mới</button><button id="bLs">✖ Đóng danh sách</button></div><div id="lb"></div></div>
+<div id="list"><div id="lh"><span>Ghi chú đã lưu</span><button class="n" id="bLsNew">➕ Ghi chú mới</button></div><div id="lb"></div></div>
 <div id="wrap"><div id="ed" contenteditable="true" data-ph="Gõ ghi chú ở đây... Dán ảnh: ảnh nằm trái/phải thì chữ chạy bên cạnh ảnh"></div></div>
 <script>
 var ed=document.getElementById('ed'),ti=document.getElementById('title'),bar=document.getElementById('imgbar');
@@ -197,7 +196,6 @@ function doDelete(name){
   showList();
 }
 $('bList').onclick=showList;
-$('bLs').onclick=hideList;
 $('bLsNew').onclick=function(){hideList();newNote()};
 window.onload=function(){if(A())A().ready()};
 </script>
