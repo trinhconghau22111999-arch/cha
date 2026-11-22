@@ -167,14 +167,7 @@ function showList(){
     var c=document.createElement('button');c.className='c';c.textContent='📋 Copy';
     c.onclick=function(){if(A())A().copyNote(n.name)};
     var d=document.createElement('button');d.className='d';d.textContent='🗑 Xoá';
-    d.onclick=function(){
-      if(d.dataset.armed!=='1'){           /* bấm lần 1: hỏi lại; bấm lần 2 trong 3 giây: xoá */
-        d.dataset.armed='1';d.textContent='🗑 Bấm lại';
-        setTimeout(function(){d.dataset.armed='';d.textContent='🗑 Xoá'},3000);
-        return;
-      }
-      doDelete(n.name);
-    };
+    d.onclick=function(){doDelete(n.name)};
     row.appendChild(x);row.appendChild(c);row.appendChild(d);
     b.appendChild(row);
   });
@@ -185,12 +178,14 @@ function hideList(){$('list').classList.remove('on')}
 /* Xoá một ghi chú trong danh sách */
 function doDelete(name){
   if(!A()||!name)return;
-  clearTimeout(tmr);
-  var wasOpen=A().delete(name);
-  if(wasOpen){ /* đang soạn đúng ghi chú vừa xoá: làm trống trang, không lưu lại */
-    ed.innerHTML='';ti.value='';unselect();saved=null;
-    ti.value=A().newTitle();
-  }
+  try{
+    clearTimeout(tmr);
+    var wasOpen=A().delete(name);
+    if(wasOpen){ /* đang soạn đúng ghi chú vừa xoá: làm trống trang, không lưu lại */
+      ed.innerHTML='';ti.value='';unselect();saved=null;
+      ti.value=A().newTitle();
+    }
+  }catch(e){ try{A().toast('Lỗi xoá: '+e)}catch(_){} }
   showList();
 }
 $('bList').onclick=showList;

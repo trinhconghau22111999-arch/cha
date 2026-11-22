@@ -136,6 +136,8 @@ class NotesPane(private val act: Activity) {
         "img{max-width:100%}img.l{float:left;margin:2px 14px 6px 0}img.r{float:right;margin:2px 0 6px 14px}" +
         "img.b{display:block;margin:8px auto}</style></head><body>\n<!--NOTE-->" + body + "<!--/NOTE-->\n</body></html>"
 
+    private fun toastMsg(m: String) { ui.post { Toast.makeText(act, m, Toast.LENGTH_SHORT).show() } }
+
     private fun clipboard() = act.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
 
     // ---------------- cầu nối với trang soạn thảo ----------------
@@ -200,14 +202,19 @@ class NotesPane(private val act: Activity) {
             return arr.toString()
         }
 
-        /** Xoá một ghi chú trong danh sách. Trả true nếu đó là ghi chú đang mở trong trang soạn (trang sẽ đổi sang ghi chú trống). */
+        /** Hiện thông báo ngắn (cho JS báo lỗi/kết quả). */
+        @JavascriptInterface fun toast(m: String) { toastMsg(m) }
+
+        /** Xoá một ghi chú trong danh sách. Trả true nếu đó là ghi chú đang mở trong trang soạn (trang sẽ làm trống). */
         @JavascriptInterface fun delete(name: String): Boolean {
-            if (name.isEmpty() || name.contains('/') || name.contains('\\')) return false
+            if (name.isEmpty() || name.contains('/') || name.contains('\\')) { toastMsg("Tên ghi chú không hợp lệ"); return false }
             val f = File(dir(), "$name.ghichu.html")
+            if (!f.exists()) { toastMsg("Không tìm thấy ghi chú: $name"); return false }
             val wasOpen = curFile?.absolutePath == f.absolutePath
-            try { f.delete() } catch (e: Exception) { }
+            val ok = try { f.delete() } catch (e: Exception) { false }
+            if (!ok && f.exists()) { toastMsg("Không xoá được: $name"); return false }
             if (wasOpen) { curFile = null; curTitle = null }
-            ui.post { Toast.makeText(act, "Đã xoá ghi chú: $name", Toast.LENGTH_SHORT).show() }
+            toastMsg("Đã xoá ghi chú: $name")
             return wasOpen
         }
 
