@@ -840,11 +840,11 @@ class MainActivity : Activity(), FullscreenHost {
             "text", "enter" -> { phoneText(jo); return }
         }
         when (jo.optString("action")) {
-            "move", "click", "scroll" -> if (mouseFlag == false) return
+            "move", "click", "longclick", "scroll" -> if (mouseFlag == false) return
             else -> { }
         }
         when (jo.optString("action")) {
-            "move", "click" -> if (!allowPointerInput(force = mouseFlag == true)) return      // chuột TẮT/đang dùng phím (bản cũ): bỏ chuột
+            "move", "click", "longclick" -> if (!allowPointerInput(force = mouseFlag == true)) return      // chuột TẮT/đang dùng phím (bản cũ): bỏ chuột
             "key" -> if (!allowKeyInput(force = mouseFlag == false)) return                    // chuột BẬT và đang dùng chuột: tạm bỏ phím
         }
         val svc = RemoteAccessibilityService.instance
@@ -856,7 +856,7 @@ class MainActivity : Activity(), FullscreenHost {
         if (resumed || isFinishing) { remote.handle(json); return }
         val action = try { JSONObject(json).optString("action") } catch (e: Exception) { "" }
         when (action) {
-            "move", "click", "scroll", "key", "back" -> if (svc != null) svc.handle(json) else remote.handle(json)
+            "move", "click", "longclick", "scroll", "key", "back" -> if (svc != null) svc.handle(json) else remote.handle(json)
             "media" -> systemMedia(try { JSONObject(json).optString("cmd") } catch (e: Exception) { "" })
             else -> remote.handle(json)       // volume, screen (tắt/bật màn hình)... tác động toàn hệ thống nên giữ nguyên
         }

@@ -199,6 +199,7 @@ class RemoteAccessibilityService : AccessibilityService() {
                     showCursor()
                 }
                 "click" -> { showCursor(); gesture(cx, cy, cx, cy, 50) }
+                "longclick" -> { showCursor(); gesture(cx, cy, cx, cy, 700) }       // chuột phải / nhấn giữ
                 "scroll" -> {
                     scrollAccum += -o.optInt("dy") * 2 * resources.displayMetrics.density * 6f
                     showCursor(); pumpScroll(dm)

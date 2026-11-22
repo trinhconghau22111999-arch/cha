@@ -97,7 +97,9 @@ class PhoneKeyboard(
     private val ctx: Context,
     private val send: (Int, String) -> Unit,
     private val enter: () -> Unit,
-    private val onClose: () -> Unit
+    private val onClose: () -> Unit,
+    private val onClick: () -> Unit = {},
+    private val onLongClick: () -> Unit = {}
 ) {
     companion object { @Volatile var vnMode = true }
 
@@ -234,7 +236,10 @@ class PhoneKeyboard(
         body.addView(row(*"1234567890".map { d -> key(d.toString(), 1f) { typeOther(d.toString()) } }.toTypedArray()))
         if (!symbols) {
             body.addView(row(*chars("qwertyuiop")))
-            body.addView(row(spacer(0.5f), *chars("asdfghjkl"), spacer(0.5f)))
+            // 2 ô đầu/cuối hàng asdfghjkl: bên trái = click chuột, bên phải = chuột phải / nhấn giữ (tại vị trí con trỏ trên TV)
+            val clickKey = key("CLICK", 0.5f, TEAL, 9f) { onClick() }
+            val rightKey = key("PHẢI", 0.5f, TEAL, 9f) { onLongClick() }
+            body.addView(row(clickKey, *chars("asdfghjkl"), rightKey))
             val shiftKey = key("⇧", 1.5f, if (shift) 0xFF7C4DFF.toInt() else TEAL, 32f) { shift = !shift; rebuild() }
             body.addView(row(shiftKey, *chars("zxcvbnm"), bsKey(1.5f)))
         } else {

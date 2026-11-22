@@ -113,6 +113,7 @@ class RemoteController(
                 showCursor()
             }
             "click" -> { showCursor(); tap() }
+            "longclick" -> { showCursor(); longTap() }       // chuột phải / nhấn giữ tại con trỏ
             "scroll" -> {
                 val dy = o.optInt("dy")
                 if (onScroll?.invoke(-dy * 2) != true) queueScroll(-dy * 2)
@@ -264,6 +265,21 @@ class RemoteController(
         root.dispatchTouchEvent(down)
         ui.postDelayed({ root.dispatchTouchEvent(up); up.recycle() }, 60)
         down.recycle()
+    }
+
+    /** Nhấn giữ ~0,7 giây tại con trỏ (như chuột phải / chạm giữ). */
+    private fun longTap(x: Float = cx, y: Float = cy) {
+        val t = SystemClock.uptimeMillis()
+        val down = MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, x, y, 0)
+        down.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+        root.dispatchTouchEvent(down)
+        down.recycle()
+        ui.postDelayed({
+            val u = SystemClock.uptimeMillis()
+            val up = MotionEvent.obtain(t, u, MotionEvent.ACTION_UP, x, y, 0)
+            up.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+            root.dispatchTouchEvent(up); up.recycle()
+        }, 700)
     }
 
     private fun key(k: String) {

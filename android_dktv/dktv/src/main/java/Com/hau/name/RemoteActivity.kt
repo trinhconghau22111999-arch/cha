@@ -566,7 +566,9 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         kbBoard = PhoneKeyboard(this,
             { del, ins -> send(JSONObject().put("action", "text").put("del", del).put("ins", ins)) },
             { send(JSONObject().put("action", "enter")) },
-            { hideKb() })
+            { hideKb() },
+            { send(JSONObject().put("action", "click")) },
+            { send(JSONObject().put("action", "longclick")) })
         kbBoard.onSwipe = { e -> padTouch(kbBoard.view, e) }       // vuốt trên bàn phím = vuốt chuột
         kbBar = kbBoard.view.also { it.visibility = View.GONE }
         return kbBar
@@ -871,7 +873,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     private fun send(cmd: JSONObject, warn: Boolean = true) {
         // Lệnh phím / chuột kèm trạng thái nút chuột để TV biết ưu tiên bên nào
-        when (cmd.optString("action")) { "key", "move", "click", "scroll" -> cmd.put("mouse", mouseOn) }
+        when (cmd.optString("action")) { "key", "move", "click", "longclick", "scroll" -> cmd.put("mouse", mouseOn) }
         val json = cmd.put("type", "remote").toString()
         sender.execute {
             val n = CameraStreamService.instance?.sendRemoteCommand(json) ?: 0
