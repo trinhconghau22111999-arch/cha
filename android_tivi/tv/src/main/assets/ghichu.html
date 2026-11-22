@@ -13,13 +13,10 @@ body{display:flex;flex-direction:column;position:relative;box-sizing:border-box;
 #lb{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
 #lb button{text-align:left;background:#10162a;border:1px solid #00e5ff66;font-weight:normal;font-size:17px}
 #lb .e{color:#9ee;font-size:16px;padding:20px}
-#pop{display:none;position:absolute;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:6;align-items:center;justify-content:center}
-#pop.on{display:flex}
-#pbox{background:#0a0d16;border:2px solid #00e5ff;border-radius:12px;padding:16px;min-width:300px;max-width:90%;display:flex;flex-direction:column;gap:10px}
-#pbox .t{color:#9ee;font-size:17px;font-weight:bold;word-break:break-all}
-#pbox button{font-size:18px;padding:12px}
-#pMain,#pConfirm{display:flex;flex-direction:column;gap:10px}
-#pConfirm{display:none}
+.row{display:flex;gap:8px;align-items:stretch}
+#lb .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lb button.c{background:#8e44ad;border-color:transparent}
+#lb button.d{background:#c62828;border-color:transparent}
 #top button{white-space:nowrap;flex:0 0 auto}
 #bSave{margin-left:auto}
 #top,#imgbar{background:#0a0d16;padding:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:2px solid #00e5ff55}
@@ -54,19 +51,6 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
   <button id="xI">✔ Xong</button>
 </div>
 <div id="list"><div id="lh"><span>Ghi chú đã lưu</span><button class="n" id="bLsNew">➕ Ghi chú mới</button><button id="bLs">✖ Đóng danh sách</button></div><div id="lb"></div></div>
-<div id="pop"><div id="pbox">
-  <div class="t" id="popT"></div>
-  <div id="pMain">
-    <button class="c" id="pCopy">📋 Copy ghi chú</button>
-    <button class="d" id="pDel">🗑 Xoá ghi chú</button>
-    <button id="pCancel">✖ Huỷ</button>
-  </div>
-  <div id="pConfirm">
-    <div class="t">Xoá vĩnh viễn ghi chú này?</div>
-    <button class="d" id="pYes">🗑 Xoá luôn</button>
-    <button id="pNo">✖ Không xoá</button>
-  </div>
-</div></div>
 <div id="wrap"><div id="ed" contenteditable="true" data-ph="Gõ ghi chú ở đây... Dán ảnh: ảnh nằm trái/phải thì chữ chạy bên cạnh ảnh"></div></div>
 <script>
 var ed=document.getElementById('ed'),ti=document.getElementById('title'),bar=document.getElementById('imgbar');
@@ -176,73 +160,38 @@ function showList(){
   var b=$('lb');b.innerHTML='';
   if(!arr.length){var p=document.createElement('div');p.className='e';p.textContent='Chưa có ghi chú nào.';b.appendChild(p)}
   arr.forEach(function(n){
-    var x=document.createElement('button');
+    var row=document.createElement('div');row.className='row';
+    var x=document.createElement('button');x.className='nm';
     x.textContent='📝 '+n.name+'   ('+n.time+')';
-    bindPress(x,n.name);
-    b.appendChild(x);
+    x.onclick=function(){hideList();if(A())A().open(n.name)};
+    var c=document.createElement('button');c.className='c';c.textContent='📋 Copy';
+    c.onclick=function(){if(A())A().copyNote(n.name)};
+    var d=document.createElement('button');d.className='d';d.textContent='🗑 Xoá';
+    d.onclick=function(){
+      if(d.dataset.armed!=='1'){           /* bấm lần 1: hỏi lại; bấm lần 2 trong 3 giây: xoá */
+        d.dataset.armed='1';d.textContent='🗑 Bấm lại';
+        setTimeout(function(){d.dataset.armed='';d.textContent='🗑 Xoá'},3000);
+        return;
+      }
+      doDelete(n.name);
+    };
+    row.appendChild(x);row.appendChild(c);row.appendChild(d);
+    b.appendChild(row);
   });
   $('list').classList.add('on');
 }
 function hideList(){$('list').classList.remove('on')}
 
-/* Hộp chọn khi giữ 1,2 giây một ô ghi chú: Copy / Xoá */
-var popName=null;
-function showPop(name){
-  popName=name;
-  $('popT').textContent='📝 '+name;
-  setPopMain();
-  $('pop').classList.add('on');
-  setTimeout(function(){$('pCopy').focus()},50);
-}
-function setPopMain(){$('pMain').style.display='flex';$('pConfirm').style.display='none'}
-function hidePop(){$('pop').classList.remove('on');popName=null}
-function askDelete(){
-  $('pMain').style.display='none';$('pConfirm').style.display='flex';
-  setTimeout(function(){$('pNo').focus()},50);
-}
-function doCopy(){var n=popName;hidePop();if(A()&&n)A().copyNote(n)}
-function doDelete(){
-  var n=popName;hidePop();
-  if(!A()||!n)return;
+/* Xoá một ghi chú trong danh sách */
+function doDelete(name){
+  if(!A()||!name)return;
   clearTimeout(tmr);
-  var wasOpen=A().delete(n);
-  if(wasOpen){ /* đang soạn đúng ghi chú vừa xoá: xoá luôn nội dung trên trang, không lưu lại */
+  var wasOpen=A().delete(name);
+  if(wasOpen){ /* đang soạn đúng ghi chú vừa xoá: làm trống trang, không lưu lại */
     ed.innerHTML='';ti.value='';unselect();saved=null;
     ti.value=A().newTitle();
   }
   showList();
-}
-$('pCopy').onclick=doCopy;
-$('pDel').onclick=askDelete;
-$('pCancel').onclick=hidePop;
-$('pYes').onclick=doDelete;
-$('pNo').onclick=setPopMain;
-$('pop').addEventListener('click',function(e){if(e.target===this)hidePop()});
-
-/* Dòng trong danh sách: bấm = mở ghi chú; giữ 1,2 giây = copy ghi chú (chuột/cảm ứng và phím OK của remote) */
-function bindPress(x,name){
-  var t=null,fired=false;
-  function start(){fired=false;clearTimeout(t);t=setTimeout(function(){t=null;fired=true;showPop(name)},1200)}
-  function cancel(){clearTimeout(t);t=null}
-  x.addEventListener('pointerdown',function(e){if(e.pointerType==='mouse'&&e.button!==0)return;start()});
-  x.addEventListener('pointerup',cancel);
-  x.addEventListener('pointerleave',cancel);
-  x.addEventListener('pointercancel',cancel);
-  x.addEventListener('click',function(e){
-    if(fired){fired=false;e.preventDefault();e.stopPropagation();return}
-    hideList();if(A())A().open(name);
-  });
-  x.addEventListener('keydown',function(e){
-    if(e.key!=='Enter'&&e.key!==' ')return;
-    e.preventDefault();          /* tự xử lý: giữ lâu thì copy, bấm nhanh thì mở */
-    if(!e.repeat)start();
-  });
-  x.addEventListener('keyup',function(e){
-    if(e.key!=='Enter'&&e.key!==' ')return;
-    e.preventDefault();
-    if(t!==null){cancel();x.click()}   /* bấm nhanh: mở */
-    else fired=false;
-  });
 }
 $('bList').onclick=showList;
 $('bLs').onclick=hideList;
