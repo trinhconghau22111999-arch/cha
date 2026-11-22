@@ -630,7 +630,7 @@ class MainActivity : Activity(), FullscreenHost {
         return true
     }
 
-    // Bàn phím / remote vật lý nối với TV: giữ ▼ đúng 1 giây = nhảy xuống thanh dưới (YouTube, TV đều dùng được)
+    // Bàn phím / remote vật lý nối với TV: giữ ▼ đúng 1,5 giây = nhảy xuống thanh dưới (YouTube, TV đều dùng được)
     private var downHoldPending = false
     private var downHoldFired = false
     private val downHold = Runnable { downHoldPending = false; downHoldFired = true; handleRemoteKey("bar") }
@@ -656,8 +656,8 @@ class MainActivity : Activity(), FullscreenHost {
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && barFocus < 0) {
             if (!allowKeyInput()) return true
-            // Đang ở trang: ▼ nhấn nhanh = đi xuống như thường (xử lý lúc nhả phím); giữ 1 giây = xuống thanh dưới
-            if (event?.repeatCount == 0) { downHoldFired = false; downHoldPending = true; ui.removeCallbacks(downHold); ui.postDelayed(downHold, 1000) }
+            // Đang ở trang: ▼ nhấn nhanh = đi xuống như thường (xử lý lúc nhả phím); giữ 1,5 giây = xuống thanh dưới
+            if (event?.repeatCount == 0) { downHoldFired = false; downHoldPending = true; ui.removeCallbacks(downHold); ui.postDelayed(downHold, 1500) }
             return true
         }
         val k = keyName(keyCode)
