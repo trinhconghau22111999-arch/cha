@@ -1723,17 +1723,27 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
     }
 
     private fun openDrawer() {
-        val list = readList("bookmarks")
-        drawerList.adapter = rowAdapter(list)
-        drawerEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
-        drawerScrim.visibility = View.VISIBLE
-        drawerPanel.translationX = dp(300).toFloat()
-        drawerPanel.animate().translationX(0f).setDuration(200).start()
+        try {
+            val list = readList("bookmarks")
+            drawerList.adapter = rowAdapter(list)
+            drawerEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+            drawerPanel.animate().cancel()          // huỷ hiệu ứng đóng còn dang dở (nếu không, end-action của nó ẩn luôn bảng vừa mở)
+            drawerScrim.visibility = View.VISIBLE
+            drawerScrim.bringToFront()
+            drawerPanel.translationX = dp(300).toFloat()
+            drawerPanel.animate().translationX(0f).setDuration(200).start()
+        } catch (e: Throwable) {
+            // Bảng trượt lỗi thì mở danh sách dấu trang dạng hộp thoại
+            drawerScrim.visibility = View.GONE
+            Toast.makeText(this, "Bảng dấu trang lỗi (" + e.javaClass.simpleName + "), mở dạng danh sách", Toast.LENGTH_SHORT).show()
+            showList("Dấu trang", "bookmarks", false)
+        }
     }
 
     private fun closeDrawer() {
+        drawerPanel.animate().cancel()
         drawerPanel.animate().translationX(dp(300).toFloat()).setDuration(180)
-            .withEndAction { drawerScrim.visibility = View.GONE }.start()
+            .withEndAction { if (drawerPanel.translationX >= dp(300).toFloat() - 1f) drawerScrim.visibility = View.GONE }.start()
     }
 
     private fun showList(title: String, key: String, clearable: Boolean) {
