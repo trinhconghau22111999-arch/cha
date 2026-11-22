@@ -342,11 +342,11 @@ class MainActivity : Activity(), FullscreenHost {
         btnFiles = barBtn("Tệp").apply { setOnClickListener { hideMenu(); onModeButton(3) } }
         val btnHome = barBtn("Home").apply { setOnClickListener { hideMenu(); goTvHome() } }
         val btnUpdate = barBtn("Cập nhật").apply { setOnClickListener { hideMenu(); Updater.start(this@MainActivity) } }
-        // OFF: nhấn thường = tắt hình TV (khóa màn hình); nhấn giữ 1 giây = hiện khung hỏi khởi động lại TV
+        // OFF: nhấn thường = tắt hình TV (khóa màn hình); nhấn giữ 1 giây = tắt nguồn TV
         var offHeld = false
         val offFire = Runnable {
             offHeld = true; hideMenu()
-            confirmRestart()
+            shutdownTv()
         }
         val btnOff = barBtn("OFF").apply {
             tag = "off"
@@ -1335,7 +1335,16 @@ class MainActivity : Activity(), FullscreenHost {
         dlg.show()
     }
 
-    /** Khung hỏi khởi động lại (hiện khi nhấn giữ nút OFF 1 giây). Nút "Tắt nguồn" mở menu nguồn của hệ thống như trước. */
+    /** Tắt nguồn TV (nhấn giữ nút OFF 1 giây): thử tắt hẳn (máy có quyền hệ thống/root); không được thì mở menu nguồn của hệ thống để chọn "Tắt nguồn". */
+    private fun shutdownTv() {
+        try { Runtime.getRuntime().exec(arrayOf("su", "-c", "reboot -p")); return } catch (e: Throwable) { }
+        if (RemoteAccessibilityService.instance?.powerMenu() == true)
+            Toast.makeText(this, "Chọn \"Tắt nguồn\" trong menu nguồn", Toast.LENGTH_LONG).show()
+        else
+            Toast.makeText(this, "Cần bật Trợ năng cho app TV để tắt nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
+    }
+
+    /** (Không còn dùng cho nút OFF) Khung hỏi khởi động lại. Nút "Tắt nguồn" mở menu nguồn của hệ thống như trước. */
     private fun confirmRestart() {
         AlertDialog.Builder(this)
             .setTitle("Khởi động lại TV?")
