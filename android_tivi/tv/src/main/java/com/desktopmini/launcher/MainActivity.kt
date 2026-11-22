@@ -58,6 +58,7 @@ class MainActivity : Activity(), FullscreenHost {
     private lateinit var menuLayer: FrameLayout
     private lateinit var btnTv: TextView
     private lateinit var btnBrowser: TextView
+    private lateinit var btnNotes: TextView
     private lateinit var btnYt: TextView
     private lateinit var btnFiles: TextView
     private lateinit var tvTime: TextView
@@ -68,11 +69,12 @@ class MainActivity : Activity(), FullscreenHost {
     private lateinit var remote: RemoteController
     private var connWake: PowerManager.WakeLock? = null
 
-    private var mode = 0                  // 0 = trang trống, 1 = TV, 2 = YouTube, 3 = Tệp, 4 = Ái Kara, 5 = Trình duyệt
+    private var mode = 0                  // 0 = trang trống, 1 = TV, 2 = YouTube, 3 = Tệp, 4 = Ái Kara, 5 = Trình duyệt, 6 = Ghi chú
     private var tv: TvPane? = null
     private var yt: YouTubePane? = null
     private var files: FilesPane? = null
     private var aikara: AiKaraPane? = null
+    private var notes: NotesPane? = null      // Ghi chú (mode 6), tạo khi mở lần đầu
     private var browser: BrowserHost? = null   // Trình duyệt (mode 5), tạo khi mở lần đầu
     private val barItems = ArrayList<TextView>()
     private var barFocus = -1                // ô chọn trên thanh dưới: 0 Menu,1 TV,2 YouTube,3 Ái Kara,4 Cài đặt,5 Tệp,6 Home,7 Cập nhật,8 ←; -1 = đang điều khiển trang. Mở app: nằm sẵn ở YouTube
@@ -301,6 +303,7 @@ class MainActivity : Activity(), FullscreenHost {
         btnMenu = barBtn("Menu").apply { setOnClickListener { toggleMenu() } }
         btnTv = barBtn("TV").apply { setOnClickListener { hideMenu(); onModeButton(1) } }
         btnBrowser = barBtn("Trình duyệt").apply { setOnClickListener { hideMenu(); onModeButton(5) } }
+        btnNotes = barBtn("Ghi chú").apply { setOnClickListener { hideMenu(); onModeButton(6) } }
         btnYt = barBtn("YouTube").apply { setOnClickListener { hideMenu(); onModeButton(2) } }
         btnAi = barBtn("Ái Kara").apply { setOnClickListener { hideMenu(); onModeButton(4) } }
         val btnSettings = barBtn("Cài đặt").apply { setOnClickListener { hideMenu(); openTvSettings() } }
@@ -335,13 +338,13 @@ class MainActivity : Activity(), FullscreenHost {
         val btnBack = barBtn("", ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat())).apply {
             contentDescription = "Thoát"; setOnClickListener { hideMenu(); goBack() }
         }
-        // 10 nút bằng nhau: Menu | TV | YouTube | Trình duyệt | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát); OFF nằm cuối hàng, bên phải nút X
+        // 10 nút bằng nhau: Menu | TV | YouTube | Trình duyệt | Ghi chú | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát); OFF nằm cuối hàng, bên phải nút X
         val group = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf(btnMenu, btnTv, btnYt, btnBrowser, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack).forEachIndexed { i, b ->
+        listOf(btnMenu, btnTv, btnYt, btnBrowser, btnNotes, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack).forEachIndexed { i, b ->
             group.addView(b, LinearLayout.LayoutParams(0, -1, 1f).also { if (i > 0) it.leftMargin = dp(4) })
         }
         bar.addView(group, LinearLayout.LayoutParams(0, -1, 1f))
-        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnYt, btnBrowser, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack, btnOff))
+        barItems.clear(); barItems.addAll(listOf(btnMenu, btnTv, btnYt, btnBrowser, btnNotes, btnAi, btnSettings, btnFiles, btnHome, btnUpdate, btnBack, btnOff))
 
         // Góc phải: giờ, ngày, âm lịch (cùng cỡ chữ 13sp, đậm), rồi nút X gỡ app
         val cluster = 13f
@@ -404,7 +407,7 @@ class MainActivity : Activity(), FullscreenHost {
             setOnClickListener { goBack() }
         }
         root.addView(floatBack, FrameLayout.LayoutParams(-2, -2).also { it.leftMargin = dp(8); it.topMargin = dp(8) })
-        remote = RemoteController(this, root, { if (mode == 1) tv?.activeWeb else if (mode == 2) yt?.web else if (mode == 4) aikara?.web else if (mode == 5) browser?.currentWebView else null }, { remoteVoice(it) })
+        remote = RemoteController(this, root, { if (mode == 1) tv?.activeWeb else if (mode == 2) yt?.web else if (mode == 4) aikara?.web else if (mode == 5) browser?.currentWebView else if (mode == 6) notes?.web else null }, { remoteVoice(it) })
         remote.onNext = { mode == 1 && (tv?.nextChannel() == true) }
         remote.onBack = { goBack() }
         remote.onScroll = { d -> mode == 1 && tv?.scrollList(d) == true }
@@ -436,7 +439,8 @@ class MainActivity : Activity(), FullscreenHost {
         activeBtn(btnAi, mode == 4, 0xFF8E44AD.toInt())
         activeBtn(btnFiles, mode == 3, 0xFF00B85C.toInt())
         activeBtn(btnBrowser, mode == 5, 0xFF1E88E5.toInt())
-        for (b in barItems) if (b !== btnMenu && b !== btnTv && b !== btnYt && b !== btnAi && b !== btnFiles && b !== btnBrowser) activeBtn(b, false, 0)
+        activeBtn(btnNotes, mode == 6, 0xFFFFA000.toInt())
+        for (b in barItems) if (b !== btnMenu && b !== btnTv && b !== btnYt && b !== btnAi && b !== btnFiles && b !== btnBrowser && b !== btnNotes) activeBtn(b, false, 0)
     }
 
     // ---------------- Phím ▲▼◀▶ OK từ remote: thanh dưới cùng / trang đang mở ----------------
@@ -631,6 +635,7 @@ class MainActivity : Activity(), FullscreenHost {
         files?.let { content.removeView(it.view); it.onPause() }
         aikara?.let { content.removeView(it.view); it.onPause() }
         browser?.let { content.removeView(it.root); it.onPause() }
+        notes?.let { content.removeView(it.view); it.onPause() }
         hideMenu()
         mode = m
         when (m) {
@@ -645,13 +650,18 @@ class MainActivity : Activity(), FullscreenHost {
             3 -> {
                 val p = files ?: FilesPane(this) { RemoteHub.host?.recentFiles() ?: emptyList() }.also { fp ->
                     fp.onOpenIpynb = { f -> openIpynbInBrowser(f) }
-                    fp.onExitDown = { barFocus = 6; updateButtons() }      // ▼ ở dòng cuối: xuống thanh dưới
+                    fp.onOpenNote = { f -> openNoteFile(f) }
+                    fp.onExitDown = { barFocus = 7; updateButtons() }      // ▼ ở dòng cuối: xuống thanh dưới
                     files = fp
                 }
                 content.addView(p.view, FrameLayout.LayoutParams(-1, -1)); p.onResume()
             }
             4 -> {
                 val p = aikara ?: AiKaraPane(this).also { aikara = it }
+                content.addView(p.view, FrameLayout.LayoutParams(-1, -1)); p.onResume()
+            }
+            6 -> {
+                val p = notes ?: NotesPane(this).also { notes = it }
                 content.addView(p.view, FrameLayout.LayoutParams(-1, -1)); p.onResume()
             }
             5 -> {
@@ -674,6 +684,7 @@ class MainActivity : Activity(), FullscreenHost {
             2 -> { if (fullView != null) { hideFull(); return }; yt?.back() }
             3 -> setMode(2)                        // Tệp -> quay lại YouTube
             4 -> aikara?.home()
+            6 -> setMode(2)                        // Ghi chú -> quay lại YouTube
             5 -> if (browser?.back() != true) setMode(0)     // trình duyệt: lùi trang/đóng thẻ trước, hết thì về trang chủ
         }
     }
@@ -792,6 +803,13 @@ class MainActivity : Activity(), FullscreenHost {
 
     /** Mở trang "Tệp" (BrowserHost gọi khi bấm 📂 ở mục tải xuống). */
     fun showFilesPage() { hideMenu(); onModeButton(3) }
+
+    /** Trang Tệp mở một ghi chú (.ghichu.html): sang trang Ghi chú để xem/sửa tiếp. */
+    private fun openNoteFile(f: java.io.File) {
+        hideMenu()
+        if (mode != 6) { hideFull(); setMode(6) }
+        notes?.openFile(f)
+    }
 
     /** Trang Tệp mở tệp .ipynb: sang Trình duyệt, vào Colab và nhét tệp vào mục "Tải sổ tay lên". */
     private fun openIpynbInBrowser(f: java.io.File) {
@@ -1033,8 +1051,8 @@ class MainActivity : Activity(), FullscreenHost {
 
     // ---------------- Ẩn/hiện nút trên thanh dưới ----------------
 
-    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | YouTube | Trình duyệt | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← | OFF
-    private val barNames = listOf("Menu", "TV", "YouTube", "Trình duyệt", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)", "OFF")
+    // Thứ tự phải KHỚP barItems (xem buildUi): Menu | TV | YouTube | Trình duyệt | Ghi chú | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← | OFF
+    private val barNames = listOf("Menu", "TV", "YouTube", "Trình duyệt", "Ghi chú", "Ái Kara", "Cài đặt", "Tệp", "Home", "Cập nhật", "← (Thoát)", "OFF")
     private val rightNames = listOf("Pin", "Giờ", "Ngày dương", "Âm lịch")
     private fun rightViews() = listOf(tvBatt, tvTime, tvDate, tvLunar)
 
@@ -1441,7 +1459,7 @@ class MainActivity : Activity(), FullscreenHost {
     override fun onStop() { super.onStop(); RemoteHub.host?.detach() }
 
     override fun onResume() { super.onResume(); resumed = true; RemoteHub.appVisible = true; RemoteAccessibilityService.instance?.hideCursor(); if (accPendingHome) { accPendingHome = false; ui.postDelayed({ maybeAskDefaultHome() }, 500) }; hideSystemBars(); refreshStatus(); if (mode == 1) tv?.onResume() else if (mode == 2) yt?.onResume() else if (mode == 3) files?.onResume() else if (mode == 4) aikara?.onResume(); consumePendingFile(); if (pendingAppRefresh) { pendingAppRefresh = false; if (menuOpen()) showAppMenu() } }
-    override fun onPause() { super.onPause(); resumed = false; RemoteHub.appVisible = false; tv?.onPause(); yt?.onPause(); files?.onPause(); aikara?.onPause(); browser?.onPause() }
+    override fun onPause() { super.onPause(); resumed = false; RemoteHub.appVisible = false; tv?.onPause(); yt?.onPause(); files?.onPause(); aikara?.onPause(); browser?.onPause(); notes?.onPause() }
 
     override fun onDestroy() {
         ui.removeCallbacksAndMessages(null)
@@ -1449,7 +1467,7 @@ class MainActivity : Activity(), FullscreenHost {
         RemoteHub.setActivity(null)
         RemoteHub.host?.let { it.onTextEdit = { _, _ -> }; it.pickFile = { cb, _ -> cb?.onReceiveValue(null); true }; it.detach() }
         try { connWake?.let { if (it.isHeld) it.release() } } catch (e: Exception) { }
-        tv?.destroy(); yt?.destroy(); files?.destroy(); aikara?.destroy(); browser?.destroy()
+        tv?.destroy(); yt?.destroy(); files?.destroy(); aikara?.destroy(); browser?.destroy(); notes?.destroy()
         super.onDestroy()
     }
 }

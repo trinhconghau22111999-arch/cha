@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ghi chú</title>
+<style>
+html,body{margin:0;height:100%;background:#05070d;font-family:sans-serif}
+body{display:flex;flex-direction:column}
+#top,#imgbar{background:#0a0d16;padding:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:2px solid #00e5ff55}
+#imgbar{display:none;background:#14213d}
+#imgbar span{color:#9ee;font-size:15px;font-weight:bold}
+button{font-size:16px;font-weight:bold;border:0;border-radius:8px;padding:10px 14px;color:#fff;background:#263248}
+button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e44ad}button.i{background:#ef6c00}button.d{background:#c62828}
+#title{flex:1;min-width:150px;font-size:16px;padding:9px 10px;border-radius:8px;border:1px solid #00e5ff66;background:#10162a;color:#fff}
+#wrap{flex:1;overflow:auto;padding:10px}
+#ed{min-height:92%;box-sizing:border-box;background:#fff;color:#111;border-radius:10px;padding:14px;font-size:19px;line-height:1.45;outline:none;word-wrap:break-word}
+#ed:empty:before{content:attr(data-ph);color:#999}
+#ed:after{content:"";display:block;clear:both}
+#ed img{max-width:100%;cursor:pointer}
+#ed img.l{float:left;margin:2px 14px 6px 0}
+#ed img.r{float:right;margin:2px 0 6px 14px}
+#ed img.b{display:block;float:none;margin:8px auto}
+#ed img.sel{outline:3px solid #00e5ff}
+</style></head><body>
+<div id="top">
+  <button class="n" id="bNew">➕ Ghi chú mới</button>
+  <button class="s" id="bSave">💾 Lưu</button>
+  <button class="c" id="bCopy">📋 Copy ghi chú</button>
+  <button class="i" id="bPaste">🖼 Dán ảnh</button>
+  <input id="title" placeholder="Tiêu đề">
+</div>
+<div id="imgbar">
+  <span>Ảnh:</span>
+  <button id="pL">◀ Trái</button><button id="pB">▣ Giữa</button><button id="pR">Phải ▶</button>
+  <button id="zM">− Nhỏ</button><button id="zP">+ Lớn</button>
+  <button class="c" id="cI">📋 Copy ảnh</button>
+  <button class="d" id="dI">🗑 Xoá ảnh</button>
+  <button id="xI">✔ Xong</button>
+</div>
+<div id="wrap"><div id="ed" contenteditable="true" data-ph="Gõ ghi chú ở đây... Dán ảnh: ảnh nằm trái/phải thì chữ chạy bên cạnh ảnh"></div></div>
+<script>
+var ed=document.getElementById('ed'),ti=document.getElementById('title'),bar=document.getElementById('imgbar');
+var sel=null,saved=null,tmr=null;
+function A(){return window.AndroidNote}
+function $(id){return document.getElementById(id)}
+
+document.addEventListener('selectionchange',function(){
+  var s=getSelection();
+  if(s.rangeCount&&ed.contains(s.anchorNode))saved=s.getRangeAt(0).cloneRange();
+});
+
+function cleanHtml(){
+  var c=ed.cloneNode(true);
+  c.querySelectorAll('img.sel').forEach(function(i){i.classList.remove('sel')});
+  return c.innerHTML;
+}
+function schedule(){clearTimeout(tmr);tmr=setTimeout(function(){flush(false)},1500)}
+function flush(manual){
+  clearTimeout(tmr);
+  if(!A())return;
+  A().save(ti.value,cleanHtml(),ed.innerText||'',ed.querySelector('img')?1:0,manual?1:0);
+}
+
+function unselect(){if(sel)sel.classList.remove('sel');sel=null;bar.style.display='none'}
+function select(img){
+  if(sel)sel.classList.remove('sel');
+  sel=img;img.classList.add('sel');bar.style.display='flex';
+}
+
+/* thu nhỏ ảnh quá lớn trước khi chèn */
+function shrink(src,cb){
+  var im=new Image();
+  im.onload=function(){
+    var M=1280,w=im.naturalWidth,h=im.naturalHeight;
+    if(w<=M&&h<=M&&src.length<900000){cb(src);return}
+    var k=Math.min(1,M/Math.max(w,h)),c=document.createElement('canvas');
+    c.width=Math.round(w*k);c.height=Math.round(h*k);
+    var x=c.getContext('2d');x.drawImage(im,0,0,c.width,c.height);
+    var png=/^data:image\/png/.test(src);
+    cb(png?c.toDataURL('image/png'):c.toDataURL('image/jpeg',0.85));
+  };
+  im.onerror=function(){cb(src)};
+  im.src=src;
+}
+function insertImg(src){
+  shrink(src,function(s){
+    ed.focus();
+    var g=getSelection();
+    if(saved){g.removeAllRanges();g.addRange(saved)}
+    document.execCommand('insertHTML',false,'<img class="l" style="width:30%" src="'+s+'">');
+    schedule();
+  });
+}
+
+ed.addEventListener('input',schedule);
+ti.addEventListener('input',schedule);
+ed.addEventListener('paste',function(e){
+  var cd=e.clipboardData;if(!cd)return;
+  var files=[];
+  for(var i=0;i<cd.items.length;i++){var it=cd.items[i];if(it.kind==='file'&&it.type.indexOf('image/')===0)files.push(it.getAsFile())}
+  e.preventDefault();
+  if(files.length){
+    files.forEach(function(f){var r=new FileReader();r.onload=function(){insertImg(r.result)};r.readAsDataURL(f)});
+    return;
+  }
+  var t=cd.getData('text/plain');
+  if(t)document.execCommand('insertText',false,t);
+  else if(A())A().pasteImage();
+  schedule();
+});
+ed.addEventListener('click',function(e){
+  if(e.target&&e.target.tagName==='IMG')select(e.target);else unselect();
+});
+
+function setPos(p){if(!sel)return;sel.className=p+' sel';schedule()}
+function size(d){
+  if(!sel)return;
+  var w=parseFloat(sel.style.width)||30;
+  sel.style.width=Math.max(8,Math.min(100,w+d))+'%';schedule();
+}
+$('pL').onclick=function(){setPos('l')};
+$('pR').onclick=function(){setPos('r')};
+$('pB').onclick=function(){setPos('b')};
+$('zM').onclick=function(){size(-8)};
+$('zP').onclick=function(){size(8)};
+$('xI').onclick=unselect;
+$('dI').onclick=function(){if(sel){sel.remove();unselect();schedule()}};
+$('cI').onclick=function(){if(sel&&A())A().copyImage(sel.src)};
+
+$('bNew').onclick=function(){
+  flush(false);
+  if(!A())return;
+  ti.value=A().newTitle();
+  ed.innerHTML='';unselect();saved=null;ed.focus();
+};
+$('bSave').onclick=function(){flush(true)};
+$('bCopy').onclick=function(){if(A())A().copy(ed.innerText||'',cleanHtml())};
+$('bPaste').onclick=function(){if(A())A().pasteImage()};
+
+/* gọi từ ứng dụng */
+function loadNote(title,html){ti.value=title;ed.innerHTML=html;unselect();saved=null}
+window.onload=function(){if(A())A().ready()};
+</script>
+</body></html>

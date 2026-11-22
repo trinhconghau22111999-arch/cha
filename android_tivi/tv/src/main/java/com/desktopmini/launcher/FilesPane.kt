@@ -41,6 +41,9 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
     /** Mở tệp .ipynb: MainActivity chuyển sang Trình duyệt, mở Colab và nhét tệp vào "Tải sổ tay lên". */
     var onOpenIpynb: (File) -> Unit = { }
 
+    /** Mở ghi chú (.ghichu.html) bằng trang Ghi chú để sửa tiếp. */
+    var onOpenNote: (File) -> Unit = { }
+
     private val ui = Handler(Looper.getMainLooper())
     private val header = TextView(act)
     private val empty = TextView(act)
@@ -73,7 +76,7 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
             }
             val f = items[i]
             val apk = isApk(f)
-            (row.getChildAt(0) as TextView).text = (if (apk) "📦 " else "") + f.name
+            (row.getChildAt(0) as TextView).text = if (isNote(f)) "📝 " + f.name.removeSuffix(".ghichu.html") else (if (apk) "📦 " else "") + f.name
             (row.getChildAt(1) as TextView).text = describe(f, apk)
             val frame = if (i == sel) GradientDrawable().apply {          // dòng đang chọn: nền xanh neon mờ + viền sáng
                 cornerRadius = dp(8).toFloat(); setColor(0x4400E5FF); setStroke(dp(2), 0xFF00E5FF.toInt())
@@ -112,6 +115,8 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
         }
         view.addView(empty, FrameLayout.LayoutParams(-1, -1))
     }
+
+    private fun isNote(f: File) = f.name.endsWith(".ghichu.html", ignoreCase = true)
 
     private fun isZip(f: File) = f.name.endsWith(".zip", ignoreCase = true)
 
@@ -202,6 +207,12 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
             sb.append("OK để cài đặt")
             sb.setSpan(ForegroundColorSpan(0xFF00E676.toInt()), b, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
+        if (isNote(f)) {
+            sb.append("  •  ")
+            val b = sb.length
+            sb.append("OK để mở ghi chú")
+            sb.setSpan(ForegroundColorSpan(0xFF00E676.toInt()), b, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
         if (f.name.endsWith(".ipynb", ignoreCase = true)) {
             sb.append("  •  ")
             val b = sb.length
@@ -255,6 +266,7 @@ class FilesPane(private val act: Activity, private val source: () -> List<File>)
         val f = items.getOrNull(pos) ?: return
         if (!f.isFile) { refresh(); return }
         if (isApk(f)) installApk(f)
+        else if (isNote(f)) onOpenNote(f)
         else if (f.name.endsWith(".ipynb", ignoreCase = true)) onOpenIpynb(f)
         else openOther(f)
     }
