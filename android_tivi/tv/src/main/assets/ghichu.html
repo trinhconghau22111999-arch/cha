@@ -150,20 +150,36 @@ function newNote(){
   ti.value=A().newTitle();
   ed.innerHTML='';unselect();saved=null;
 };
-/* Con trỏ (chuột remote) bấm vào ô không được làm bật bàn phím: chặn việc lấy tiêu điểm.
-   Chỉ khi bấm nút ⌨ Bàn phím thì mới cho phép gõ. */
+/* Con trỏ (chuột remote) vẫn đặt con trỏ / chọn chữ bình thường trong ô.
+   Bàn phím chỉ hiện khi bấm nút ⌨ Bàn phím; khi tắt thì mọi lần lấy tiêu điểm đều ẩn bàn phím. */
 var kbOn=false;
-function blockKb(e){if(!kbOn)e.preventDefault()}
-ed.addEventListener('mousedown',blockKb);
-ti.addEventListener('mousedown',blockKb);
-ed.addEventListener('blur',function(){kbOn=false});
-ti.addEventListener('blur',function(){kbOn=false});
+function kbUI(){
+  var m=kbOn?'text':'none';
+  ed.setAttribute('inputmode',m);ti.setAttribute('inputmode',m);
+  $('bKb').textContent=kbOn?'⌨ Tắt bàn phím':'⌨ Bàn phím';
+}
+function leftEditing(){
+  setTimeout(function(){
+    if(document.activeElement!==ed&&document.activeElement!==ti){kbOn=false;kbUI()}
+  },0);
+}
+function onEditFocus(){ if(!kbOn&&A()) try{A().hideIme()}catch(e){} }
+ed.addEventListener('focus',onEditFocus);
+ti.addEventListener('focus',onEditFocus);
+ed.addEventListener('blur',leftEditing);
+ti.addEventListener('blur',leftEditing);
 function setKb(on){
-  kbOn=on;
-  $('bKb').textContent=on?'⌨ Tắt bàn phím':'⌨ Bàn phím';
-  if(on){ed.focus()}else{ed.blur();ti.blur()}
+  kbOn=on;kbUI();
+  if(on){
+    ed.focus();
+    if(A()) try{A().showIme()}catch(e){}
+  }else{
+    if(A()) try{A().hideIme()}catch(e){}
+    ed.blur();ti.blur();
+  }
 }
 $('bKb').onclick=function(){setKb(!kbOn)};
+kbUI();
 $('bSave').onclick=function(){flush(true);showList()};   /* lưu ngay (ghi tệp đồng bộ) rồi về trang danh sách */
 $('bCopy').onclick=function(){if(A())A().copy(ed.innerText||'',cleanHtml())};
 $('bPaste').onclick=function(){if(A())A().pasteImage()};

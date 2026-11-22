@@ -221,6 +221,26 @@ class NotesPane(private val act: Activity) {
         /** Hiện thông báo ngắn (cho JS báo lỗi/kết quả). */
         @JavascriptInterface fun toast(m: String) { toastMsg(m) }
 
+        /** Ẩn bàn phím của máy (khi ô đang lấy tiêu điểm mà chế độ gõ đang tắt). */
+        @JavascriptInterface fun hideIme() {
+            ui.post {
+                try {
+                    val imm = act.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.hideSoftInputFromWindow(web.windowToken, 0)
+                } catch (e: Exception) { }
+            }
+        }
+
+        /** Hiện bàn phím của máy (khi bấm ⌨ Bàn phím). */
+        @JavascriptInterface fun showIme() {
+            ui.post {
+                try {
+                    val imm = act.getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.showSoftInput(web, 0)
+                } catch (e: Exception) { }
+            }
+        }
+
         /** JS báo trang danh sách đang mở (true) hay đã đóng (false). */
         @JavascriptInterface fun listState(open: Boolean) { listOpen = open }
 
