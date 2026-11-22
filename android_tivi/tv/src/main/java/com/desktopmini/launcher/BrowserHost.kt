@@ -618,24 +618,11 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
         s.userAgentString = mobileUa
         wv.addJavascriptInterface(VoiceBridge(), "AndroidVoice")
+        wv.addJavascriptInterface(BlobBridge(), "AndroidBlob")
 
         wv.setDownloadListener { dlUrl, userAgent, contentDisposition, mimeType, _ ->
             val fileName = URLUtil.guessFileName(dlUrl, contentDisposition, mimeType)
-            val startIt = {
-                try {
-                    val req = DownloadManager.Request(Uri.parse(dlUrl))
-                    req.setMimeType(mimeType)
-                    req.addRequestHeader("User-Agent", userAgent)
-                    CookieManager.getInstance().getCookie(dlUrl)?.let { req.addRequestHeader("Cookie", it) }
-                    req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                    req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-                    val dlId = (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(req)
-                    addDownloadRecord(dlId, fileName)
-                    Toast.makeText(this, "Đang tải: $fileName", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
-                    Toast.makeText(this, "Không tải được: " + e.message, Toast.LENGTH_LONG).show()
-                }
-            }
+            val startIt = { startOwnDownload(wv, dlUrl, userAgent, contentDisposition, mimeType) }
             // Cảnh báo khi tải trùng một tệp đang tải: hỏi xác nhận rồi mới tải thêm
             if (isDownloading(fileName)) {
                 android.app.AlertDialog.Builder(this)
@@ -1353,6 +1340,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
 
     /** Có mục nào cùng tên đang tải (đang chờ / đang chạy / tạm dừng) trong DownloadManager không. */
     private fun isDownloading(name: String): Boolean {
+        if (ownDls.values.any { it.name == name && it.status == 0 }) return true
         val ids = readDownloads().filter { it.second == name }.map { it.first }
         if (ids.isEmpty()) return false
         return try {
@@ -1371,7 +1359,8 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
 
     /** Huỷ thật một mục đang tải: DownloadManager.remove xoá cả tệp tải dở, rồi bỏ khỏi danh sách. */
     private fun cancelDownload(id: Long) {
-        try { (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).remove(id) } catch (e: Exception) { }
+        if (id < 0) ownDls[id]?.cancelled = true
+        else try { (getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).remove(id) } catch (e: Exception) { }
         val list = readDownloads().filter { it.first != id }
         val arr = JSONArray()
         for (e in list) arr.put(JSONObject().put("id", e.first).put("name", e.second))
@@ -1523,10 +1512,13 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
 
     private fun refreshDownloads() {
         if (dlRowViews.isEmpty()) return
+        refreshOwnRows()
+        val dmIds = dlRowViews.keys.filter { it > 0 }
+        if (dmIds.isEmpty()) return
         val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val seen = mutableSetOf<Long>()
         try {
-            dm.query(DownloadManager.Query().setFilterById(*dlRowViews.keys.toLongArray()))?.use { c ->
+            dm.query(DownloadManager.Query().setFilterById(*dmIds.toLongArray()))?.use { c ->
                 val iId = c.getColumnIndex(DownloadManager.COLUMN_ID)
                 val iSt = c.getColumnIndex(DownloadManager.COLUMN_STATUS)
                 val iGot = c.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
@@ -1577,11 +1569,245 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
                 }
             }
         } catch (e: Exception) { }
-        for ((id, r) in dlRowViews) if (id !in seen) {
+        for ((id, r) in dlRowViews) if (id > 0 && id !in seen) {
             r.cancel?.visibility = View.GONE
             r.bar.visibility = View.GONE
             r.folder.visibility = View.GONE
             r.status.text = "Tệp không còn trong danh sách tải"
+        }
+    }
+
+    // ====================== Bộ tải xuống riêng của app (không phụ thuộc DownloadManager của máy) ======================
+
+    private class OwnDl(val id: Long, var name: String, var mime: String) {
+        @Volatile var got = 0L
+        @Volatile var total = -1L
+        @Volatile var status = 0          // 0 đang tải, 1 xong, 2 lỗi, 3 huỷ
+        @Volatile var error: String? = null
+        @Volatile var cancelled = false
+        var out: java.io.OutputStream? = null
+        var uri: Uri? = null
+        var file: File? = null
+    }
+    private val ownDls = java.util.concurrent.ConcurrentHashMap<Long, OwnDl>()
+    private val blobDls = java.util.concurrent.ConcurrentHashMap<String, OwnDl>()
+    private val ownSeq = java.util.concurrent.atomic.AtomicLong(-System.currentTimeMillis())
+
+    private fun newOwnDl(name: String, mime: String?): OwnDl {
+        val od = OwnDl(ownSeq.decrementAndGet(), name, if (mime.isNullOrEmpty()) "application/octet-stream" else mime)
+        ownDls[od.id] = od
+        addDownloadRecord(od.id, name)
+        return od
+    }
+
+    private fun renameDownloadRecord(id: Long, newName: String) {
+        val arr = JSONArray()
+        for (e in readDownloads()) arr.put(JSONObject().put("id", e.first).put("name", if (e.first == id) newName else e.second))
+        prefs.edit().putString("downloads", arr.toString()).apply()
+        if (dlScrim.visibility == View.VISIBLE) populateDownloads()
+    }
+
+    /** Mở chỗ ghi tệp: Android 10+ ghi vào Tải xuống qua MediaStore; cũ hơn ghi thẳng thư mục Download (không được thì thư mục riêng của app). */
+    private fun openOwnOut(od: OwnDl): java.io.OutputStream {
+        if (Build.VERSION.SDK_INT >= 29) {
+            val cv = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, od.name)
+                put(MediaStore.Downloads.MIME_TYPE, od.mime)
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val u = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv)
+                ?: throw Exception("không tạo được tệp trong Tải xuống")
+            od.uri = u
+            return contentResolver.openOutputStream(u) ?: throw Exception("không ghi được tệp")
+        }
+        var dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        if (!(dir.exists() || dir.mkdirs()) || !dir.canWrite()) dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
+        dir.mkdirs()
+        var f = File(dir, od.name)
+        if (f.exists()) {
+            val dot = od.name.lastIndexOf('.')
+            val base = if (dot > 0) od.name.substring(0, dot) else od.name
+            val ext = if (dot > 0) od.name.substring(dot) else ""
+            var n = 1
+            while (f.exists()) { f = File(dir, "$base ($n)$ext"); n++ }
+        }
+        od.file = f
+        return FileOutputStream(f)
+    }
+
+    /** Kết thúc một lượt tải (err = null là thành công); dọn tệp dở nếu lỗi/huỷ. */
+    private fun finishOwn(od: OwnDl, err: String?) {
+        try { od.out?.flush(); od.out?.close() } catch (e: Throwable) { }
+        od.out = null
+        val ok = err == null && !od.cancelled
+        if (ok) {
+            if (Build.VERSION.SDK_INT >= 29) od.uri?.let {
+                try { contentResolver.update(it, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null) } catch (e: Throwable) { }
+            } else od.file?.let {
+                try { android.media.MediaScannerConnection.scanFile(this, arrayOf(it.absolutePath), null, null) } catch (e: Throwable) { }
+            }
+            od.status = 1
+        } else {
+            od.uri?.let { try { contentResolver.delete(it, null, null) } catch (e: Throwable) { } }
+            od.file?.let { try { it.delete() } catch (e: Throwable) { } }
+            if (od.cancelled) od.status = 3 else { od.status = 2; od.error = err }
+        }
+        ui.post {
+            if (ok) Toast.makeText(this, "Đã tải xong: " + od.name, Toast.LENGTH_LONG).show()
+            else if (!od.cancelled) Toast.makeText(this, "Tải lỗi: " + err, Toast.LENGTH_LONG).show()
+            if (dlScrim.visibility == View.VISIBLE) refreshDownloads()
+        }
+    }
+
+    private fun startOwnDownload(wv: WebView, dlUrl: String, ua: String?, cd: String?, mime: String?) {
+        val bad = "\\/:*?\"<>|"
+        val name = URLUtil.guessFileName(dlUrl, cd, mime).map { if (it in bad) '_' else it }.joinToString("")
+        if (dlUrl.startsWith("blob:")) { startBlobDownload(wv, dlUrl, name, mime); return }
+        val od = newOwnDl(name, mime)
+        Toast.makeText(this, "Đang tải: $name", Toast.LENGTH_SHORT).show()
+        val referer: String? = wv.url
+        Thread {
+            var err: String? = null
+            var conn: java.net.HttpURLConnection? = null
+            try {
+                if (dlUrl.startsWith("data:")) {
+                    val comma = dlUrl.indexOf(',')
+                    if (comma < 0) throw Exception("dữ liệu không hợp lệ")
+                    val meta = dlUrl.substring(5, comma)
+                    val payload = dlUrl.substring(comma + 1)
+                    val bytes = if (meta.endsWith(";base64")) Base64.decode(payload, Base64.DEFAULT) else Uri.decode(payload).toByteArray()
+                    od.total = bytes.size.toLong()
+                    od.out = openOwnOut(od)
+                    od.out!!.write(bytes)
+                    od.got = bytes.size.toLong()
+                } else {
+                    var cur = dlUrl
+                    var hops = 0
+                    while (true) {
+                        val c = java.net.URL(cur).openConnection() as java.net.HttpURLConnection
+                        conn = c
+                        c.instanceFollowRedirects = false
+                        c.connectTimeout = 20000
+                        c.readTimeout = 30000
+                        if (!ua.isNullOrEmpty()) c.setRequestProperty("User-Agent", ua)
+                        CookieManager.getInstance().getCookie(cur)?.let { c.setRequestProperty("Cookie", it) }
+                        if (!referer.isNullOrEmpty()) c.setRequestProperty("Referer", referer)
+                        c.setRequestProperty("Accept-Encoding", "identity")
+                        val code = c.responseCode
+                        if (code in 300..399 && code != 304) {
+                            val loc = c.getHeaderField("Location") ?: throw Exception("chuyển hướng lỗi")
+                            cur = java.net.URL(java.net.URL(cur), loc).toString()
+                            c.disconnect()
+                            if (++hops > 10) throw Exception("chuyển hướng quá nhiều")
+                            continue
+                        }
+                        if (code != 200 && code != 206) throw Exception("máy chủ trả mã HTTP $code")
+                        od.total = c.getHeaderField("Content-Length")?.toLongOrNull() ?: -1L
+                        od.out = openOwnOut(od)
+                        c.inputStream.use { ins ->
+                            val buf = ByteArray(65536)
+                            while (true) {
+                                if (od.cancelled) break
+                                val n = ins.read(buf)
+                                if (n < 0) break
+                                od.out!!.write(buf, 0, n)
+                                od.got += n
+                            }
+                        }
+                        break
+                    }
+                }
+            } catch (e: Throwable) {
+                err = e.message ?: e.javaClass.simpleName
+            } finally {
+                try { conn?.disconnect() } catch (e: Throwable) { }
+            }
+            finishOwn(od, err)
+        }.start()
+    }
+
+    /** Tệp blob: chỉ đọc được từ trong trang -> chạy JS đọc blob rồi gửi từng mảnh (base64) về app ghi ra tệp. */
+    private fun startBlobDownload(wv: WebView, blobUrl: String, name: String, mime: String?) {
+        val od = newOwnDl(name, mime)
+        val token = java.util.UUID.randomUUID().toString().replace("-", "")
+        blobDls[token] = od
+        Toast.makeText(this, "Đang tải: $name", Toast.LENGTH_SHORT).show()
+        val js = "(function(u,t){try{var x=new XMLHttpRequest();x.open('GET',u);x.responseType='blob';" +
+            "x.onload=function(){var b=x.response,CH=786432,off=0;AndroidBlob.begin(t,b.size,b.type||'');" +
+            "function nx(){if(off>=b.size){AndroidBlob.done(t);return;}var fr=new FileReader();" +
+            "fr.onload=function(){var s=fr.result;AndroidBlob.chunk(t,s.substring(s.indexOf(',')+1));off+=CH;nx();};" +
+            "fr.onerror=function(){AndroidBlob.fail(t,'đọc dữ liệu lỗi');};fr.readAsDataURL(b.slice(off,off+CH));}nx();};" +
+            "x.onerror=function(){AndroidBlob.fail(t,'không đọc được tệp trong trang');};x.send();}" +
+            "catch(e){AndroidBlob.fail(t,String(e));}})(" + JSONObject.quote(blobUrl) + "," + JSONObject.quote(token) + ")"
+        wv.evaluateJavascript(js, null)
+    }
+
+    private inner class BlobBridge {
+        @JavascriptInterface fun begin(token: String, size: Double, type: String) {
+            val od = blobDls[token] ?: return
+            try {
+                od.total = size.toLong()
+                if (type.isNotEmpty() && od.mime == "application/octet-stream") od.mime = type
+                if (od.name.endsWith(".bin") || od.name.startsWith("downloadfile")) {
+                    val ext = android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(od.mime)
+                    if (ext != null) {
+                        od.name = "download_" + System.currentTimeMillis() + "." + ext
+                        ui.post { renameDownloadRecord(od.id, od.name) }
+                    }
+                }
+                od.out = openOwnOut(od)
+            } catch (e: Throwable) { blobDls.remove(token); finishOwn(od, e.message ?: "lỗi") }
+        }
+        @JavascriptInterface fun chunk(token: String, b64: String) {
+            val od = blobDls[token] ?: return
+            if (od.cancelled) { blobDls.remove(token); finishOwn(od, null); return }
+            try {
+                val b = Base64.decode(b64, Base64.DEFAULT)
+                od.out!!.write(b)
+                od.got += b.size
+            } catch (e: Throwable) { blobDls.remove(token); finishOwn(od, e.message ?: "lỗi ghi tệp") }
+        }
+        @JavascriptInterface fun done(token: String) { val od = blobDls.remove(token) ?: return; finishOwn(od, null) }
+        @JavascriptInterface fun fail(token: String, msg: String) { val od = blobDls.remove(token) ?: return; finishOwn(od, msg) }
+    }
+
+    /** Cập nhật các dòng của tải riêng (id âm) trong trang Tải xuống. */
+    private fun refreshOwnRows() {
+        for ((id, r) in dlRowViews) {
+            if (id >= 0) continue
+            val od = ownDls[id]
+            if (od == null) {
+                r.cancel?.visibility = View.GONE; r.bar.visibility = View.GONE; r.folder.visibility = View.GONE
+                r.status.text = "Tệp không còn trong danh sách tải"
+                continue
+            }
+            when (od.status) {
+                1 -> {
+                    r.cancel?.visibility = View.GONE; r.bar.visibility = View.GONE; r.folder.visibility = View.VISIBLE
+                    r.status.text = "✅ Đã tải xuống"; r.status.setTextColor(0xFF2E7D32.toInt())
+                }
+                2 -> {
+                    r.cancel?.visibility = View.GONE; r.bar.visibility = View.GONE; r.folder.visibility = View.GONE
+                    r.status.text = "❌ Tải xuống lỗi: " + (od.error ?: ""); r.status.setTextColor(0xFFC62828.toInt())
+                }
+                3 -> {
+                    r.cancel?.visibility = View.GONE; r.bar.visibility = View.GONE; r.folder.visibility = View.GONE
+                    r.status.text = "Đã huỷ"; r.status.setTextColor(0xFF555555.toInt())
+                }
+                else -> {
+                    r.cancel?.visibility = View.VISIBLE; r.folder.visibility = View.GONE; r.bar.visibility = View.VISIBLE
+                    r.status.setTextColor(0xFF555555.toInt())
+                    if (od.total > 0) {
+                        val pct = (od.got * 100 / od.total).toInt()
+                        r.bar.isIndeterminate = false; r.bar.progress = pct
+                        r.status.text = "Đang tải $pct%  (" + fmtMb(od.got) + " / " + fmtMb(od.total) + ")"
+                    } else {
+                        r.bar.isIndeterminate = true
+                        r.status.text = "Đang tải… " + fmtMb(od.got)
+                    }
+                }
+            }
         }
     }
 
