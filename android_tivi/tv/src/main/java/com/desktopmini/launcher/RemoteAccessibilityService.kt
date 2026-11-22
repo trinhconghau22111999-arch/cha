@@ -322,4 +322,35 @@ class RemoteAccessibilityService : AccessibilityService() {
 
     /** Mở menu nguồn của Android (có nút Tắt nguồn). App thường không tự tắt nguồn được, nên người dùng bấm xác nhận trong menu này. Chỉ Android 9 trở lên. */
     fun powerMenu(): Boolean = Build.VERSION.SDK_INT >= 28 && performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
+
+    /** Mở menu nguồn rồi tự bấm "Tắt nguồn" (và nút xác nhận nếu có). Trả false nếu không mở được menu. */
+    fun powerOffAuto(): Boolean {
+        if (!powerMenu()) return false
+        val labels = listOf("Tắt nguồn", "Tắt máy", "Power off", "Shut down", "Turn off")
+        var clicks = 0
+        fun clickOne(): Boolean {
+            val root = try { rootInActiveWindow } catch (e: Exception) { null } ?: return false
+            try {
+                for (t in labels) {
+                    for (n in root.findAccessibilityNodeInfosByText(t)) {
+                        var x: AccessibilityNodeInfo? = n
+                        var depth = 0
+                        while (x != null && !x.isClickable && depth < 5) { x = x.parent; depth++ }
+                        if (x != null && x.isClickable && x.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return true
+                    }
+                }
+            } catch (e: Exception) { }
+            return false
+        }
+        val step = object : Runnable {
+            var tries = 0
+            override fun run() {
+                tries++
+                if (clickOne()) clicks++
+                if (tries < 12 && clicks < 2) ui.postDelayed(this, 500)
+            }
+        }
+        ui.postDelayed(step, 600)
+        return true
+    }
 }
