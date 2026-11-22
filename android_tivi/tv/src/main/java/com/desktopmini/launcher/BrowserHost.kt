@@ -1501,7 +1501,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
                 textSize = 28f
                 gravity = Gravity.CENTER
                 visibility = View.GONE
-                setOnClickListener { openDownloadsFolder() }
+                setOnClickListener { if (id < 0) (act as? MainActivity)?.showFilesPage() else openDownloadsFolder() }
             }
             row.addView(folder, LinearLayout.LayoutParams(dp(56), dp(56)))
             dlRows.addView(row, LinearLayout.LayoutParams(MATCH, WRAP))
@@ -1607,30 +1607,18 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         if (dlScrim.visibility == View.VISIBLE) populateDownloads()
     }
 
-    /** Mở chỗ ghi tệp: Android 10+ ghi vào Tải xuống qua MediaStore; cũ hơn ghi thẳng thư mục Download (không được thì thư mục riêng của app). */
+    /** Mọi tệp tải xuống ghi vào đúng thư mục mà trang "Tệp" của app liệt kê (TruyenTep trong thư mục Download riêng của app). */
     private fun openOwnOut(od: OwnDl): java.io.OutputStream {
-        if (Build.VERSION.SDK_INT >= 29) {
-            val cv = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, od.name)
-                put(MediaStore.Downloads.MIME_TYPE, od.mime)
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                put(MediaStore.Downloads.IS_PENDING, 1)
-            }
-            val u = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv)
-                ?: throw Exception("không tạo được tệp trong Tải xuống")
-            od.uri = u
-            return contentResolver.openOutputStream(u) ?: throw Exception("không ghi được tệp")
-        }
-        var dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        if (!(dir.exists() || dir.mkdirs()) || !dir.canWrite()) dir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
+        val base = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
+        val dir = File(base, "TruyenTep")
         dir.mkdirs()
         var f = File(dir, od.name)
         if (f.exists()) {
             val dot = od.name.lastIndexOf('.')
-            val base = if (dot > 0) od.name.substring(0, dot) else od.name
+            val stem = if (dot > 0) od.name.substring(0, dot) else od.name
             val ext = if (dot > 0) od.name.substring(dot) else ""
             var n = 1
-            while (f.exists()) { f = File(dir, "$base ($n)$ext"); n++ }
+            while (f.exists()) { f = File(dir, "$stem ($n)$ext"); n++ }
         }
         od.file = f
         return FileOutputStream(f)
@@ -1642,19 +1630,14 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         od.out = null
         val ok = err == null && !od.cancelled
         if (ok) {
-            if (Build.VERSION.SDK_INT >= 29) od.uri?.let {
-                try { contentResolver.update(it, ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }, null, null) } catch (e: Throwable) { }
-            } else od.file?.let {
-                try { android.media.MediaScannerConnection.scanFile(this, arrayOf(it.absolutePath), null, null) } catch (e: Throwable) { }
-            }
+            od.file?.setLastModified(System.currentTimeMillis())
             od.status = 1
         } else {
-            od.uri?.let { try { contentResolver.delete(it, null, null) } catch (e: Throwable) { } }
             od.file?.let { try { it.delete() } catch (e: Throwable) { } }
             if (od.cancelled) od.status = 3 else { od.status = 2; od.error = err }
         }
         ui.post {
-            if (ok) Toast.makeText(this, "Đã tải xong: " + od.name, Toast.LENGTH_LONG).show()
+            if (ok) Toast.makeText(this, "Đã tải xong: " + od.name + " (xem trong mục Tệp)", Toast.LENGTH_LONG).show()
             else if (!od.cancelled) Toast.makeText(this, "Tải lỗi: " + err, Toast.LENGTH_LONG).show()
             if (dlScrim.visibility == View.VISIBLE) refreshDownloads()
         }

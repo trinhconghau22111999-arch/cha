@@ -789,6 +789,9 @@ class MainActivity : Activity(), FullscreenHost {
 
     // ---------------- Cài đặt, về màn hình chính TV, tự gỡ ----------------
 
+    /** Mở trang "Tệp" (BrowserHost gọi khi bấm 📂 ở mục tải xuống). */
+    fun showFilesPage() { hideMenu(); onModeButton(3) }
+
     private fun hideMenu() { if (::menuLayer.isInitialized) menuLayer.visibility = View.GONE; updateButtons() }
 
     private fun toggleMenu() {
