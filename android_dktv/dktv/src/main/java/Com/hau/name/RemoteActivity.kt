@@ -101,8 +101,10 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         val content = FrameLayout(this)
-        content.addView(buildUi(), FrameLayout.LayoutParams(-1, -1))
-        content.addView(buildKbBar(), FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        content.setBackgroundColor(Neon.BG)
+        uiRoot = buildUi()
+        content.addView(uiRoot, FrameLayout.LayoutParams(-1, -1))
+        content.addView(buildKbBar(), FrameLayout.LayoutParams(-1, -2, Gravity.TOP))   // bàn phím: màn hình ngang, bar nằm trên cùng
         setContentView(content)
 
         // Back chi dua app xuong nen (dich vu ket noi van chay), khong thoat han.
@@ -557,6 +559,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
     // Ô gõ luôn bắt đầu bằng 1 ký tự đệm (U+200B) để bắt được cả phím xoá khi ô trống.
     // Mỗi lần ô đổi: so với lần trước -> gửi {del, ins} (xoá del ký tự trước con trỏ TV rồi chèn ins), TV chèn tại vị trí con trỏ.
     private lateinit var kbBar: LinearLayout
+    private lateinit var uiRoot: View
     private lateinit var kbInput: EditText
     private val kbPad = "\u200B"
     private var kbPrev = "\u200B"
@@ -635,17 +638,22 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     private fun showKb() {
         kbReset()
+        // Chế độ bàn phím: xoay NGANG và ẩn hết các thành phần điều khiển còn lại, chỉ còn ô gõ + bàn phím
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        uiRoot.visibility = View.GONE
         kbBar.visibility = View.VISIBLE
         kbInput.requestFocus()
         ui.postDelayed({
             try { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(kbInput, InputMethodManager.SHOW_IMPLICIT) } catch (e: Exception) { }
-        }, 120)
+        }, 350)
     }
 
     private fun hideKb() {
         try { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).hideSoftInputFromWindow(kbInput.windowToken, 0) } catch (e: Exception) { }
         kbInput.clearFocus()
         kbBar.visibility = View.GONE
+        uiRoot.visibility = View.VISIBLE
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT   // trả về dọc, hiện lại toàn bộ điều khiển
     }
 
     private fun refreshMouseButton() {
