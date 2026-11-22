@@ -25,6 +25,7 @@ internal class Tab(var webView: WebView, val button: TextView, val holder: View 
 internal class PageScripts {
     var oneTap: ScriptHandler? = null
     var yt: ScriptHandler? = null
+    var dl: ScriptHandler? = null
 }
 
 internal class DlRow(val bar: ProgressBar, val status: TextView, val folder: TextView, val cancel: TextView? = null)

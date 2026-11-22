@@ -685,6 +685,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         wv.addJavascriptInterface(BlobBridge(), "AndroidBlob")
 
         wv.setDownloadListener { dlUrl, userAgent, contentDisposition, mimeType, _ ->
+            if (handledBlobs.remove(dlUrl)) return@setDownloadListener      // đã được trang tự đẩy sang app qua AndroidBlob.open
             val fileName = dlNameHints[dlUrl]?.let { cleanName(it) } ?: URLUtil.guessFileName(dlUrl, contentDisposition, mimeType)
             val startIt = { startOwnDownload(wv, dlUrl, userAgent, contentDisposition, mimeType) }
             // Cảnh báo khi tải trùng một tệp đang tải: hỏi xác nhận rồi mới tải thêm
@@ -1772,7 +1773,27 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         wv.evaluateJavascript(js, null)
     }
 
+    private val handledBlobs: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
     private inner class BlobBridge {
+        /** Trang tự bấm tải một Blob: tạo lượt tải (ở luồng giao diện) rồi trả mã để trang đẩy dữ liệu qua begin/chunk/done. */
+        @JavascriptInterface fun open(url: String, name: String, mime: String): String {
+            val token = java.util.UUID.randomUUID().toString().replace("-", "")
+            val latch = java.util.concurrent.CountDownLatch(1)
+            var ok = false
+            ui.post {
+                try {
+                    val od = newOwnDl(cleanName(if (name.isEmpty()) "download" else name), mime)
+                    blobDls[token] = od
+                    handledBlobs.add(url)
+                    Toast.makeText(this@BrowserHost, "Đang tải: " + od.name, Toast.LENGTH_SHORT).show()
+                    ok = true
+                } catch (e: Throwable) { }
+                latch.countDown()
+            }
+            latch.await(3, java.util.concurrent.TimeUnit.SECONDS)
+            return if (ok) token else ""
+        }
         @JavascriptInterface fun name(url: String, name: String) {
             if (url.isNotEmpty() && name.isNotEmpty()) dlNameHints[url] = name
         }
@@ -2128,6 +2149,9 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         try { h.yt?.remove() } catch (e: Exception) { }
         h.oneTap = try {
             WebViewCompat.addDocumentStartJavaScript(wv, oneTapScript(oneTapOn), setOf("*"))
+        } catch (e: Exception) { null }
+        if (h.dl == null) h.dl = try {
+            WebViewCompat.addDocumentStartJavaScript(wv, DL_NAME_HOOK_JS, setOf("*"))     // cả trong iframe: bắt Blob ngay lúc trang tạo ra
         } catch (e: Exception) { null }
         h.yt = try {
             WebViewCompat.addDocumentStartJavaScript(wv, ytScript(adSkipOn), setOf("https://*.youtube.com", "https://youtube.com"))
@@ -2698,9 +2722,15 @@ private const val DL_NAME_HOOK_JS = "(function(){if(window.__wbDl)return;window.
     "var oc=URL.createObjectURL;URL.createObjectURL=function(o){var u=oc.apply(this,arguments);" +
     "try{if(o instanceof Blob){B[u]=o;K.push(u);while(K.length>8){delete B[K.shift()];}}}catch(e){}return u;};" +
     "var orv=URL.revokeObjectURL;URL.revokeObjectURL=function(){var a=arguments,t=this;setTimeout(function(){try{orv.apply(t,a)}catch(e){}},60000);};" +
-    "var P=HTMLAnchorElement.prototype,pc=P.click;" +
-    "function rec(a){try{if(a&&a.download&&a.href&&window.AndroidBlob&&AndroidBlob.name)AndroidBlob.name(a.href,a.download)}catch(e){}}" +
-    "P.click=function(){rec(this);return pc.apply(this,arguments)};" +
+    "function push(a){try{var u=a.href;if(!u||u.indexOf('blob:')!==0||!a.download)return;var b=B[u];" +
+    "if(!b||!window.AndroidBlob||!AndroidBlob.open)return;var t=AndroidBlob.open(u,a.download,b.type||'');if(!t)return;" +
+    "var CH=786432,off=0;AndroidBlob.begin(t,b.size,b.type||'');" +
+    "(function nx(){if(off>=b.size){AndroidBlob.done(t);return;}var fr=new FileReader();" +
+    "fr.onload=function(){var s=fr.result;AndroidBlob.chunk(t,s.substring(s.indexOf(',')+1));off+=CH;nx();};" +
+    "fr.onerror=function(){AndroidBlob.fail(t,'đọc dữ liệu lỗi');};fr.readAsDataURL(b.slice(off,off+CH));})();}catch(e){}}" +
+    "function rec(a){try{if(!a||!a.download||!a.href)return;var n=Date.now();if(a.__wbT&&n-a.__wbT<1500)return;a.__wbT=n;" +
+    "if(window.AndroidBlob&&AndroidBlob.name)AndroidBlob.name(a.href,a.download);push(a);}catch(e){}}" +
+    "var P=HTMLAnchorElement.prototype,pc=P.click;P.click=function(){rec(this);return pc.apply(this,arguments)};" +
     "var de=EventTarget.prototype.dispatchEvent;EventTarget.prototype.dispatchEvent=function(ev){" +
     "try{if(this instanceof HTMLAnchorElement&&ev&&ev.type==='click')rec(this)}catch(e){}return de.apply(this,arguments);};" +
     "document.addEventListener('click',function(e){var a=e.target&&e.target.closest?e.target.closest('a[download]'):null;rec(a)},true);})();"
