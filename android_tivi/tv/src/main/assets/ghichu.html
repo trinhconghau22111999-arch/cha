@@ -4,7 +4,14 @@
 <title>Ghi chú</title>
 <style>
 html,body{margin:0;height:100%;background:#05070d;font-family:sans-serif}
-body{display:flex;flex-direction:column}
+body{display:flex;flex-direction:column;position:relative}
+#list{display:none;position:absolute;left:0;top:0;right:0;bottom:0;background:#05070d;z-index:5;flex-direction:column}
+#list.on{display:flex}
+#lh{background:#0a0d16;padding:8px;display:flex;gap:8px;align-items:center;border-bottom:2px solid #00e5ff55}
+#lh span{color:#9ee;font-size:16px;font-weight:bold}
+#lb{flex:1;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+#lb button{text-align:left;background:#10162a;border:1px solid #00e5ff66;font-weight:normal;font-size:17px}
+#lb .e{color:#9ee;font-size:16px;padding:20px}
 #top,#imgbar{background:#0a0d16;padding:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:2px solid #00e5ff55}
 #imgbar{display:none;background:#14213d}
 #imgbar span{color:#9ee;font-size:15px;font-weight:bold}
@@ -24,6 +31,7 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
 <div id="top">
   <button class="n" id="bNew">➕ Ghi chú mới</button>
   <button class="s" id="bSave">💾 Lưu</button>
+  <button class="i" id="bList">📂 Danh sách</button>
   <button class="c" id="bCopy">📋 Copy ghi chú</button>
   <button class="i" id="bPaste">🖼 Dán ảnh</button>
   <input id="title" placeholder="Tiêu đề">
@@ -36,6 +44,7 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
   <button class="d" id="dI">🗑 Xoá ảnh</button>
   <button id="xI">✔ Xong</button>
 </div>
+<div id="list"><div id="lh"><button class="n" id="bLs">✖ Đóng danh sách</button><span>Ghi chú đã lưu</span></div><div id="lb"></div></div>
 <div id="wrap"><div id="ed" contenteditable="true" data-ph="Gõ ghi chú ở đây... Dán ảnh: ảnh nằm trái/phải thì chữ chạy bên cạnh ảnh"></div></div>
 <script>
 var ed=document.getElementById('ed'),ti=document.getElementById('title'),bar=document.getElementById('imgbar');
@@ -137,7 +146,24 @@ $('bCopy').onclick=function(){if(A())A().copy(ed.innerText||'',cleanHtml())};
 $('bPaste').onclick=function(){if(A())A().pasteImage()};
 
 /* gọi từ ứng dụng */
-function loadNote(title,html){ti.value=title;ed.innerHTML=html;unselect();saved=null}
+function loadNote(title,html){hideList();ti.value=title;ed.innerHTML=html;unselect();saved=null}
+function showList(){
+  if(!A())return;
+  flush(false);
+  var arr=[];try{arr=JSON.parse(A().list())}catch(e){}
+  var b=$('lb');b.innerHTML='';
+  if(!arr.length){var p=document.createElement('div');p.className='e';p.textContent='Chưa có ghi chú nào.';b.appendChild(p)}
+  arr.forEach(function(n){
+    var x=document.createElement('button');
+    x.textContent='📝 '+n.name+'   ('+n.time+')';
+    x.onclick=function(){A().open(n.name)};
+    b.appendChild(x);
+  });
+  $('list').classList.add('on');
+}
+function hideList(){$('list').classList.remove('on')}
+$('bList').onclick=showList;
+$('bLs').onclick=hideList;
 window.onload=function(){if(A())A().ready()};
 </script>
 </body></html>

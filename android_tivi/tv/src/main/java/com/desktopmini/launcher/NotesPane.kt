@@ -26,7 +26,8 @@ import java.util.Locale
 
 /**
  * Trang "Ghi chú": gõ chữ, dán ảnh (ảnh nằm trái/phải thì chữ chạy bên cạnh ảnh).
- * Ghi chú lưu thành tệp .ghichu.html trong thư mục của trang Tệp (tự xoá sau 1 giờ như mọi tệp ở đó).
+ * Ghi chú lưu thành tệp .ghichu.html trong thư mục riêng GhiChu của app (KHÔNG nằm trong trang Tệp, không tự xoá).
+ * Xem lại ghi chú đã lưu bằng nút 📂 Danh sách ngay trong trang Ghi chú.
  * Giao diện soạn thảo là assets/ghichu.html; lưu tự động sau khi ngừng gõ 1,5 giây, rời trang, hoặc bấm Lưu.
  */
 class NotesPane(private val act: Activity) {
@@ -49,6 +50,7 @@ class NotesPane(private val act: Activity) {
         web.webViewClient = object : WebViewClient() {}
         web.loadUrl("file:///android_asset/ghichu.html")
         view.addView(web, FrameLayout.LayoutParams(-1, -1))
+        migrateOldNotes()
     }
 
     fun onResume() { }
@@ -78,11 +80,24 @@ class NotesPane(private val act: Activity) {
 
     // ---------------- tệp ----------------
 
+    /** Thư mục riêng của ghi chú (trong bộ nhớ app, không dùng chung với trang Tệp). */
     private fun dir(): File {
-        val base = act.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: act.filesDir
-        val d = File(base, "TruyenTep")
+        val d = File(act.filesDir, "GhiChu")
         d.mkdirs()
         return d
+    }
+
+    /** Ghi chú cũ đã lưu nhầm vào trang Tệp: chuyển sang thư mục Ghi chú để không mất. */
+    private fun migrateOldNotes() {
+        try {
+            val base = act.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: act.filesDir
+            File(base, "TruyenTep").listFiles()?.forEach { f ->
+                if (f.isFile && f.name.endsWith(".ghichu.html", ignoreCase = true)) {
+                    val t = File(dir(), f.name)
+                    if (!t.exists()) f.renameTo(t)
+                }
+            }
+        } catch (e: Exception) { }
     }
 
     private fun safeName(t: String): String {
@@ -140,7 +155,7 @@ class NotesPane(private val act: Activity) {
             return t
         }
 
-        /** Lưu (tự động hoặc bấm Lưu) vào trang Tệp. Ghi chú trống thì không tạo tệp. */
+        /** Lưu (tự động hoặc bấm Lưu) vào thư mục Ghi chú. Trang vẫn mở, không thoát. Ghi chú trống thì không tạo tệp. */
         @JavascriptInterface fun save(title: String, html: String, text: String, hasImg: Int, manual: Int) {
             if (text.isBlank() && hasImg == 0) {
                 if (manual == 1) ui.post { Toast.makeText(act, "Ghi chú đang trống", Toast.LENGTH_SHORT).show() }
@@ -157,9 +172,31 @@ class NotesPane(private val act: Activity) {
                 if (old != null && old != target) { try { old.delete() } catch (e: Exception) { } }
                 curFile = target
                 curTitle = t
-                if (manual == 1) ui.post { Toast.makeText(act, "Đã lưu vào trang Tệp: " + target.name.removeSuffix(".ghichu.html") + " (giữ 1 giờ)", Toast.LENGTH_LONG).show() }
+                if (manual == 1) ui.post { Toast.makeText(act, "Đã lưu ghi chú: " + target.name.removeSuffix(".ghichu.html"), Toast.LENGTH_SHORT).show() }
             } catch (e: Throwable) {
                 ui.post { Toast.makeText(act, "Lưu ghi chú lỗi: " + (e.message ?: ""), Toast.LENGTH_LONG).show() }
+            }
+        }
+
+        /** Danh sách ghi chú đã lưu, mới nhất trước: JSON [{name, time}]. */
+        @JavascriptInterface fun list(): String {
+            val arr = org.json.JSONArray()
+            val fmt = SimpleDateFormat("dd-MM HH'h'mm", Locale("vi"))
+            dir().listFiles()
+                ?.filter { it.isFile && it.name.endsWith(".ghichu.html", ignoreCase = true) }
+                ?.sortedByDescending { it.lastModified() }
+                ?.forEach { f ->
+                    arr.put(JSONObject().put("name", f.name.removeSuffix(".ghichu.html"))
+                        .put("time", fmt.format(Date(f.lastModified()))))
+                }
+            return arr.toString()
+        }
+
+        /** Mở một ghi chú trong danh sách (trang đang gõ đã được lưu trước đó bằng flush). */
+        @JavascriptInterface fun open(name: String) {
+            ui.post {
+                val f = File(dir(), "$name.ghichu.html")
+                if (f.isFile) loadFromFile(f) else Toast.makeText(act, "Không tìm thấy ghi chú", Toast.LENGTH_SHORT).show()
             }
         }
 
