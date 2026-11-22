@@ -868,6 +868,7 @@ class MainActivity : Activity(), FullscreenHost {
 
     private fun phoneText(jo: JSONObject) {
         val enter = jo.optString("action") == "enter"
+        if (enter) TextGhost.clear()
         if (resumed && !isFinishing) {
             ui.post {
                 if (enter) keyboardEnter() else keyboardEdit(jo.optInt("del").coerceAtLeast(0), jo.optString("ins"))
@@ -1550,10 +1551,12 @@ class MainActivity : Activity(), FullscreenHost {
         val f = rootView.findFocus()
         if (f is android.widget.EditText) {
             try {
+                val (del2, ins2) = TextGhost.applied(del, ins)
+                if (del2 == 0 && ins2.isEmpty()) return
                 val t = f.text
                 val a = f.selectionStart.coerceAtLeast(0); val b = f.selectionEnd.coerceAtLeast(0)
-                if (a != b) t.replace(minOf(a, b), maxOf(a, b), ins)
-                else t.replace((b - del).coerceAtLeast(0), b, ins)
+                if (a != b) t.replace(minOf(a, b), maxOf(a, b), ins2)
+                else t.replace((b - del2).coerceAtLeast(0), b, ins2)
             } catch (e: Exception) { }
             return
         }

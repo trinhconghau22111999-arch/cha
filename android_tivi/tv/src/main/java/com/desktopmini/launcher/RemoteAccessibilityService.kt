@@ -217,12 +217,14 @@ class RemoteAccessibilityService : AccessibilityService() {
     }
 
     /** Gõ từ điện thoại vào ô nhập đang chọn của app khác: xoá [del] ký tự trước con trỏ (hoặc thay vùng đang chọn) rồi chèn [ins] tại con trỏ. */
-    private fun typeText(del: Int, ins: String) {
+    private fun typeText(delRaw: Int, insRaw: String) {
         if (Build.VERSION.SDK_INT < 21) return
         val root = try { rootInActiveWindow } catch (e: Exception) { null } ?: return
         try {
-            val n = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT) ?: return
-            if (!n.isEditable) return
+            val n = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT)
+            if (n == null || !n.isEditable) { TextGhost.dropped(insRaw); return }     // không có ô nhập: bỏ chữ, nhớ để khỏi dồn vào sau
+            val (del, ins) = TextGhost.applied(delRaw, insRaw)
+            if (del == 0 && ins.isEmpty()) return
             val showingHint = Build.VERSION.SDK_INT >= 26 && n.isShowingHintText
             val base = if (showingHint) "" else (n.text ?: "").toString()
             var a = n.textSelectionStart; var b = n.textSelectionEnd

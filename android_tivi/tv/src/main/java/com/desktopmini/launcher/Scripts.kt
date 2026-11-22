@@ -3,13 +3,21 @@ package com.desktopmini.launcher
 internal val TEXT_EDIT_FN = """
 function(del, ins) {
   var el = document.activeElement;
+  function drop() { window.__wbGhost = ins ? ins : null; return false; }     // không có ô nhập: bỏ chữ, nhớ để khỏi dồn vào lần gõ sau
   try {
     while (el && el.tagName === 'IFRAME' && el.contentDocument && el.contentDocument.activeElement) {
       el = el.contentDocument.activeElement;
     }
   } catch (e) {}
-  if (!el) return false;
+  if (!el) return drop();
   var doc = el.ownerDocument;
+  if (!(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return drop();
+  var g = window.__wbGhost; window.__wbGhost = null;
+  if (g != null && del === g.length) {
+    var p = 0; while (p < g.length && p < ins.length && g.charAt(p) === ins.charAt(p)) p++;
+    del = 0; ins = ins.substring(p);
+    if (!ins) return true;
+  }
   function stepBack(str, idx, n) {
     while (n > 0 && idx > 0) {
       idx--;
