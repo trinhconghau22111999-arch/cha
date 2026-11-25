@@ -364,6 +364,16 @@ class MainActivity : Activity(), FullscreenHost {
                     ScreenAdmin.requestActivation(this@MainActivity)
                 }
             }
+            // Nhấn giữ 1 giây: mở bảng Tắt nguồn của hệ thống (nhấn thường vẫn tắt màn hình như cũ)
+            var held = false
+            val fire = Runnable { held = true; openSystemPowerMenu() }
+            setOnTouchListener { _, ev ->
+                when (ev.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> { held = false; ui.removeCallbacks(fire); ui.postDelayed(fire, 1000); false }
+                    android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> { ui.removeCallbacks(fire); val h = held; held = false; h }
+                    else -> held
+                }
+            }
         }
         val btnBack = barBtn("", ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat())).apply {
             contentDescription = "Thoát"; setOnClickListener { buzz(); hideMenu(); goBack() }
@@ -1366,6 +1376,27 @@ class MainActivity : Activity(), FullscreenHost {
             }
             w.clearFlags(android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
         }
+    }
+
+    /**
+     * Nhấn giữ OFF: mở bảng Tắt nguồn của Android. Bảng này là cửa sổ hệ thống nên phải gỡ lớp giao diện phủ của Trợ năng
+     * (nếu không lớp phủ che mất bảng); khi bảng đóng, app lấy lại focus và tự phủ lại giao diện (onWindowFocusChanged).
+     */
+    private fun openSystemPowerMenu() {
+        hideMenu()
+        buzz()
+        val svc = RemoteAccessibilityService.instance
+        if (svc == null || Build.VERSION.SDK_INT < 28) {
+            Toast.makeText(this, "Cần bật Trợ năng cho app TV để mở bảng tắt nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
+            return
+        }
+        detachUiOverlay()
+        ui.postDelayed({
+            if (!svc.powerMenu()) {
+                Toast.makeText(this, "Không mở được bảng tắt nguồn", Toast.LENGTH_LONG).show()
+                attachUiOverlay()
+            }
+        }, 250)
     }
 
     /** (Không còn dùng cho nút OFF) Khung hỏi khởi động lại. Nút "Tắt nguồn" mở menu nguồn của hệ thống như trước. */
