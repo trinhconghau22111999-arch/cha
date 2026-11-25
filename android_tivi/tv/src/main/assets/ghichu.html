@@ -41,9 +41,16 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
 #txtbar{position:fixed;display:none;z-index:20;gap:6px;padding:6px;background:#10162a;border-radius:10px;box-shadow:0 2px 12px #000a;flex-wrap:nowrap;white-space:nowrap}
 #txtbar.on{display:flex}
 #txtbar button{font-size:15px;padding:8px 12px;white-space:nowrap}
+#fmtbar,#colbar{display:none;background:#fff;padding:8px;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:2px solid #00e5ff55}
+#fmtbar.on,#colbar.on{display:flex}
+#fmtbar span{color:#222;font-size:15px;font-weight:bold}
+#colbar{padding-top:4px}
+#colbar .sw{width:40px;height:40px;padding:0;border-radius:50%;border:2px solid #999;flex:0 0 auto}
+#bFmt{background:#00897b}
 </style></head><body>
 <div id="top">
   <button class="i" id="bList">📂 List</button>
+  <button id="bFmt">🔤 Định dạng</button>
   <button class="n" id="bCam">📷 Chụp</button>
   <button class="c" id="bCopy">📋 Copy</button>
   <button class="i" id="bPaste">🖼 Dán</button>
@@ -59,6 +66,27 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
   <button class="c" id="cI">📋 Copy ảnh</button>
   <button class="d" id="dI">🗑 Xoá ảnh</button>
   <button id="xI">✔ Xong</button>
+</div>
+<div id="fmtbar">
+  <span>Định dạng:</span>
+  <button id="fL">◀ Trái</button><button id="fC">▣ Giữa</button><button id="fR">Phải ▶</button>
+  <button id="fSm">− Nhỏ</button><button id="fBig">+ Lớn</button>
+  <button id="fColor">🎨 Màu</button>
+  <button id="fU"><u>U</u> Gạch chân</button><button id="fB"><b>B</b> In đậm</button><button id="fI"><i>I</i> In nghiêng</button>
+  <button id="fDone">✔ Xong</button>
+</div>
+<div id="colbar">
+  <button class="sw" data-c="#e53935" style="background:#e53935" title="Đỏ"></button>
+  <button class="sw" data-c="#1e88e5" style="background:#1e88e5" title="Xanh dương"></button>
+  <button class="sw" data-c="#43a047" style="background:#43a047" title="Xanh lá"></button>
+  <button class="sw" data-c="#fdd835" style="background:#fdd835" title="Vàng"></button>
+  <button class="sw" data-c="#f06292" style="background:#f06292" title="Hồng"></button>
+  <button class="sw" data-c="#000000" style="background:#000000" title="Đen"></button>
+  <button class="sw" data-c="#ffffff" style="background:#ffffff" title="Trắng"></button>
+  <button class="sw" data-c="#fb8c00" style="background:#fb8c00" title="Cam"></button>
+  <button class="sw" data-c="#8e24aa" style="background:#8e24aa" title="Tím"></button>
+  <button class="sw" data-c="#6d4c41" style="background:#6d4c41" title="Nâu"></button>
+  <button id="colOff" style="background:#555">✕ Tắt màu</button>
 </div>
 <div id="list"><div id="lh"><span>Ghi chú đã lưu</span><button class="n" id="bLsNew">➕ Ghi chú mới</button></div><div id="lb"></div></div>
 <div id="txtbar"><button class="n" id="tCut">✂ Cắt</button><button class="c" id="tCopy">📋 Copy</button><button class="i" id="tPaste">Dán 📄</button><button class="d" id="tDel">🗑 Xoá</button><button class="s" id="tAll">☑ Chọn tất cả</button></div>
@@ -258,7 +286,7 @@ function curRange(){
 }
 function updTxtBar(){
   var r=curRange();
-  if(!r||$('list').classList.contains('on')){tb.classList.remove('on');return}
+  if(!r||fmtOn||$('list').classList.contains('on')){tb.classList.remove('on');return}
   tb.classList.add('on');
   var box=r.getBoundingClientRect(),w=tb.offsetWidth,h=tb.offsetHeight;
   var top=box.top-h-8;if(top<4)top=box.bottom+8;
@@ -292,6 +320,78 @@ $('tAll').onclick=function(){
 document.addEventListener('selectionchange',updTxtBar);
 document.addEventListener('scroll',updTxtBar,true);
 window.addEventListener('resize',updTxtBar);
+
+/* ---- định dạng: căn lề, cỡ chữ, màu, gạch chân, in đậm, in nghiêng (áp dụng cho nguyên dòng đang chọn) ---- */
+var fmtOn=false;
+document.execCommand('styleWithCSS',false,false);
+/* đoạn (dòng) cấp cao nhất trong ô soạn thảo chứa nút n */
+function blockOf(n){
+  while(n&&n.parentNode!==ed)n=n.parentNode;
+  return n||ed;
+}
+/* mở rộng vùng chọn ra cho đủ các dòng nó đi qua */
+function lineRange(r){
+  var a=blockOf(r.startContainer),b=blockOf(r.endContainer),x=document.createRange();
+  if(a===ed||b===ed){x.selectNodeContents(ed);return x}
+  x.setStartBefore(a);x.setEndAfter(b);return x;
+}
+function fmtApply(fn){
+  var r=curRange()||(saved&&ed.contains(saved.startContainer)?saved:null);
+  if(!r){if(A())A().toast('Chọn một dòng trước');return}
+  var lr=lineRange(r);
+  ed.focus();
+  var s=getSelection();s.removeAllRanges();s.addRange(lr);
+  fn(lr);
+  s=getSelection();s.removeAllRanges();s.addRange(lineRange(lr));
+  schedule();updTxtBar();
+}
+function fmtAlign(cmd){fmtApply(function(){document.execCommand(cmd,false,null)})}
+function fmtSize(d){
+  fmtApply(function(lr){
+    var st=lr.startContainer,el=st.nodeType===3?st.parentNode:st;
+    var cur=parseFloat(getComputedStyle(el).fontSize)||19;
+    var nw=Math.max(10,Math.min(60,cur+d));
+    document.execCommand('fontSize',false,'7');
+    ed.querySelectorAll('font[size="7"]').forEach(function(f){
+      var sp=document.createElement('span');sp.style.fontSize=nw+'px';
+      while(f.firstChild)sp.appendChild(f.firstChild);
+      f.parentNode.replaceChild(sp,f);
+    });
+  });
+}
+function fmtColor(c){fmtApply(function(){document.execCommand('foreColor',false,c)})}
+function fmtStyle(cmd){fmtApply(function(){document.execCommand(cmd,false,null)})}
+
+$('bFmt').onclick=function(){
+  fmtOn=!fmtOn;
+  $('fmtbar').classList.toggle('on',fmtOn);
+  if(!fmtOn)$('colbar').classList.remove('on');
+  updTxtBar();
+};
+['fmtbar','colbar'].forEach(function(id){
+  var el=$(id);
+  el.addEventListener('mousedown',function(e){e.preventDefault()});
+  el.addEventListener('pointerdown',function(e){e.preventDefault()});
+});
+$('fL').onclick=function(){fmtAlign('justifyLeft')};
+$('fC').onclick=function(){fmtAlign('justifyCenter')};
+$('fR').onclick=function(){fmtAlign('justifyRight')};
+$('fSm').onclick=function(){fmtSize(-4)};
+$('fBig').onclick=function(){fmtSize(4)};
+$('fColor').onclick=function(){$('colbar').classList.toggle('on')};
+document.querySelectorAll('#colbar .sw').forEach(function(b){
+  b.onclick=function(){fmtColor(b.getAttribute('data-c'))};
+});
+$('colOff').onclick=function(){$('colbar').classList.remove('on')};
+$('fU').onclick=function(){fmtStyle('underline')};
+$('fB').onclick=function(){fmtStyle('bold')};
+$('fI').onclick=function(){fmtStyle('italic')};
+$('fDone').onclick=function(){
+  fmtOn=false;
+  $('fmtbar').classList.remove('on');
+  $('colbar').classList.remove('on');
+  updTxtBar();
+};
 
 /* mọi nút trong trang ghi chú kêu một tiếng như nút điều hướng của TV */
 document.addEventListener('click',function(e){var t=e.target;if(t&&t.closest&&t.closest('button')&&A()){try{A().clickSound()}catch(_){}}},true);
