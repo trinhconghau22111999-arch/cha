@@ -1311,7 +1311,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.WHITE)
-            elevation = dp(8).toFloat()
+            if (Build.VERSION.SDK_INT >= 21) elevation = dp(8).toFloat()
             setOnClickListener { }
         }
         for ((label, checked, action) in items) {

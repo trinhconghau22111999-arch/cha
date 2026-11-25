@@ -58,6 +58,7 @@ class MainActivity : Activity(), FullscreenHost {
     private lateinit var rootView: FrameLayout           // toàn bộ giao diện (trên + dưới), cùng nổi trong cửa sổ trợ năng khi dịch vụ bật
     private var uiParent: android.view.ViewGroup? = null // chỗ cũ của rootView trong cửa sổ Activity
     private var rootInOverlay = false
+    private var noOverlayUntil = 0L
     private lateinit var fullLayer: FrameLayout
     private lateinit var hidden: FrameLayout
     private lateinit var btnMenu: TextView
@@ -493,6 +494,7 @@ class MainActivity : Activity(), FullscreenHost {
     // Có hộp thoại/cửa sổ hệ thống hiện lên (Activity mất focus) thì giao diện tạm về lại trong app để hộp thoại không bị che.
     fun attachUiOverlay() {
         if (rootInOverlay || Build.VERSION.SDK_INT < 22 || !resumed || isFinishing || !hasWindowFocus()) return
+        if (android.os.SystemClock.uptimeMillis() < noOverlayUntil) return      // đang mở bảng tắt nguồn của hệ thống: chưa phủ lại
         val svc = RemoteAccessibilityService.instance ?: return
         val parent = rootView.parent as? android.view.ViewGroup ?: return
         try {
@@ -1375,26 +1377,49 @@ class MainActivity : Activity(), FullscreenHost {
     }
 
     /**
-     * Nhấn giữ OFF 1 giây: hiện khung "Tắt nguồn TV" là hộp thoại của app (giống khung hỏi khi bấm nút X): lớp phủ trợ năng được gỡ,
-     * hệ thống hiện thanh điều hướng/thanh trạng thái. Bấm "Tắt nguồn" thì mở bảng tắt nguồn của Android (cửa sổ hệ thống, không bị
-     * lớp phủ che vì lớp phủ đã gỡ); bấm "Khởi động lại" thì khởi động lại TV. Đóng khung thì app tự phủ lại giao diện.
+     * Nhấn giữ OFF 1 giây: rung, rồi hiện khung "Tắt nguồn TV" (hộp thoại của app, hệ thống hiện thanh điều hướng/trạng thái).
+     * Chờ 0,5 giây mới hiện: cú chạm giữ chưa nhả hẳn, cú nhả rơi xuống ngoài khung sẽ đóng khung ngay (chỉ thấy rung, không thấy gì).
+     * Bấm "Tắt nguồn" thì mở bảng tắt nguồn của Android (cửa sổ hệ thống); lớp phủ trợ năng được gỡ và không phủ lại trong lúc đó.
      */
     private fun openSystemPowerMenu() {
         hideMenu()
         buzz()
-        detachUiOverlay()
-        AlertDialog.Builder(this)
-            .setTitle("Tắt nguồn TV")
-            .setMessage("Bấm \"Tắt nguồn\" để mở bảng tắt nguồn của hệ thống, hoặc \"Khởi động lại\".")
-            .setPositiveButton("Tắt nguồn") { _, _ ->
-                ui.postDelayed({
-                    if (RemoteAccessibilityService.instance?.powerMenu() != true)
-                        Toast.makeText(this, "Không mở được bảng tắt nguồn (cần bật Trợ năng cho app TV, Android 9 trở lên). Android ${Build.VERSION.RELEASE}, ${Build.MANUFACTURER} ${Build.MODEL}", Toast.LENGTH_LONG).show()
-                }, 300)
-            }
-            .setNeutralButton("Khởi động lại") { _, _ -> restartTv() }
-            .setNegativeButton("Hủy", null)
-            .show()
+        ui.postDelayed({ showPowerDialog() }, 500)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun showSystemBars() {
+        try {
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_VISIBLE
+            if (Build.VERSION.SDK_INT >= 30) window.insetsController?.show(WindowInsets.Type.navigationBars() or WindowInsets.Type.statusBars())
+        } catch (e: Exception) { }
+    }
+
+    private fun showPowerDialog() {
+        if (isFinishing) return
+        try {
+            detachUiOverlay()
+            showSystemBars()
+            val dlg = AlertDialog.Builder(this)
+                .setTitle("Tắt nguồn TV")
+                .setMessage("Bấm \"Tắt nguồn\" để mở bảng tắt nguồn của hệ thống, hoặc \"Khởi động lại\".")
+                .setPositiveButton("Tắt nguồn") { _, _ ->
+                    noOverlayUntil = android.os.SystemClock.uptimeMillis() + 5000
+                    ui.postDelayed({
+                        if (RemoteAccessibilityService.instance?.powerMenu() != true)
+                            Toast.makeText(this, "Không mở được bảng tắt nguồn (cần bật Trợ năng cho app TV, Android 9 trở lên). Android ${Build.VERSION.RELEASE}, ${Build.MANUFACTURER} ${Build.MODEL}", Toast.LENGTH_LONG).show()
+                    }, 300)
+                    ui.postDelayed({ attachUiOverlay() }, 5200)
+                }
+                .setNeutralButton("Khởi động lại") { _, _ -> restartTv() }
+                .setNegativeButton("Hủy", null)
+                .create()
+            dlg.setCanceledOnTouchOutside(false)
+            dlg.show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Lỗi mở khung tắt nguồn: ${e.message}", Toast.LENGTH_LONG).show()
+            attachUiOverlay()
+        }
     }
 
     /** (Không còn dùng cho nút OFF) Khung hỏi khởi động lại. Nút "Tắt nguồn" mở menu nguồn của hệ thống như trước. */
