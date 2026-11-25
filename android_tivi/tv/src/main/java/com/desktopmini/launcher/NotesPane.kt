@@ -402,6 +402,7 @@ class NotesPane(private val act: Activity) {
     private var cam: Camera? = null
     private var camRot = 0
     private var shooting = false
+    private var partialNext = false   // true = lần chụp này là "chụp một phần" (phải kéo chọn vùng)
 
     private fun dp(v: Int) = (v * act.resources.displayMetrics.density).toInt()
 
@@ -476,7 +477,17 @@ class NotesPane(private val act: Activity) {
         close.setOnClickListener { closeOverlay() }
         root.addView(close, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(dp(10), dp(10), dp(10), dp(10)) })
 
+        // nút vuông "Một phần" (góc trên bên trái): chụp rồi kéo chọn vùng cần lấy
+        val part = TextView(act)
+        part.text = "✂\nMột phần"
+        part.gravity = Gravity.CENTER
+        part.setTextColor(Color.WHITE); part.textSize = 12f
+        part.background = GradientDrawable().apply { setColor(0xFF1E88E5.toInt()); cornerRadius = dp(8).toFloat() }
+        part.setOnClickListener { if (!shooting && cam != null) { partialNext = true; takePhoto() } }
+        root.addView(part, FrameLayout.LayoutParams(dp(72), dp(72), Gravity.TOP or Gravity.START).apply { setMargins(dp(10), dp(10), dp(10), dp(10)) })
+
         shooting = false
+        partialNext = false
         shutter.setOnClickListener { takePhoto() }
         seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -550,6 +561,7 @@ class NotesPane(private val act: Activity) {
                 c.takePicture(null, null, Camera.PictureCallback { data, _ -> onPhoto(data, camRot) })
             } catch (e: Throwable) {
                 shooting = false
+                partialNext = false
                 Toast.makeText(act, "Chụp lỗi: " + (e.message ?: ""), Toast.LENGTH_SHORT).show()
             }
         }
@@ -558,8 +570,11 @@ class NotesPane(private val act: Activity) {
         } catch (e: Throwable) { shoot() }
     }
 
-    /** Chụp xong: 1 bản đầy đủ lưu vào trang Tệp (TruyenTep), 1 bản hiện ngay trên ghi chú đang làm. */
+    /** Chụp xong: 1 bản đầy đủ lưu vào trang Tệp (TruyenTep), 1 bản hiện ngay trên ghi chú đang làm.
+     *  Nếu vừa bấm nút "Một phần" thì mở màn kéo chọn vùng trước; phần đã cắt mới được lưu và chèn. */
     private fun onPhoto(data: ByteArray, rot: Int) {
+        val partial = partialNext
+        partialNext = false
         closeOverlay()
         Thread {
             try {
@@ -570,20 +585,15 @@ class NotesPane(private val act: Activity) {
                 val full = BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
                     ?: throw Exception("không đọc được ảnh vừa chụp")
                 val bmp = if (rot != 0) Bitmap.createBitmap(full, 0, 0, full.width, full.height, Matrix().apply { postRotate(rot.toFloat()) }, true) else full
-                val base = act.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: act.filesDir
-                val d = File(base, "TruyenTep"); d.mkdirs()
-                val name = "Anh_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-                var f = File(d, "$name.jpg"); var k = 1
-                while (f.exists()) { f = File(d, "$name ($k).jpg"); k++ }
-                FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 92, it) }
-                val m = maxOf(bmp.width, bmp.height)
-                val small = if (m > 1280) Bitmap.createScaledBitmap(bmp, (bmp.width * 1280f / m).toInt(), (bmp.height * 1280f / m).toInt(), true) else bmp
-                val bo = ByteArrayOutputStream()
-                small.compress(Bitmap.CompressFormat.JPEG, 85, bo)
-                val url = "data:image/jpeg;base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP)
-                ui.post {
-                    web.evaluateJavascript("insertPhoto(" + JSONObject.quote(url) + ")", null)
-                    Toast.makeText(act, "Đã chụp - lưu vào trang Tệp: " + f.name, Toast.LENGTH_SHORT).show()
+                if (partial) {
+                    ui.post { showCrop(bmp, true) }
+                } else {
+                    val f = saveToTruyenTep(bmp)
+                    val url = photoUrl(bmp)
+                    ui.post {
+                        web.evaluateJavascript("insertPhoto(" + JSONObject.quote(url) + ")", null)
+                        Toast.makeText(act, "Đã chụp - lưu vào trang Tệp: " + f.name, Toast.LENGTH_SHORT).show()
+                    }
                 }
             } catch (e: Throwable) {
                 ui.post { Toast.makeText(act, "Lưu ảnh chụp lỗi: " + (e.message ?: ""), Toast.LENGTH_LONG).show() }
@@ -591,23 +601,53 @@ class NotesPane(private val act: Activity) {
         }.start()
     }
 
-    private fun showCrop(bmp: Bitmap) {
+    /** Lưu ảnh vào thư mục TruyenTep (gọi trên luồng nền). */
+    private fun saveToTruyenTep(bmp: Bitmap): File {
+        val base = act.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: act.filesDir
+        val d = File(base, "TruyenTep"); d.mkdirs()
+        val name = "Anh_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        var f = File(d, "$name.jpg"); var k = 1
+        while (f.exists()) { f = File(d, "$name ($k).jpg"); k++ }
+        FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+        return f
+    }
+
+    /** Thu nhỏ còn tối đa 1280 px rồi đổi sang chuỗi data: để chèn vào ghi chú (gọi trên luồng nền). */
+    private fun photoUrl(bmp: Bitmap): String {
+        val m = maxOf(bmp.width, bmp.height)
+        val small = if (m > 1280) Bitmap.createScaledBitmap(bmp, (bmp.width * 1280f / m).toInt(), (bmp.height * 1280f / m).toInt(), true) else bmp
+        val bo = ByteArrayOutputStream()
+        small.compress(Bitmap.CompressFormat.JPEG, 85, bo)
+        return "data:image/jpeg;base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP)
+    }
+
+    /** Mở màn kéo chọn vùng. asNewPhoto = true: vùng cắt là ảnh chụp mới (lưu + chèn như ảnh chụp thường). */
+    private fun showCrop(bmp: Bitmap, asNewPhoto: Boolean = false) {
         if (overlay != null) return
-        val v = CropView(bmp)
+        val v = CropView(bmp, asNewPhoto)
         overlay = v
         view.addView(v, FrameLayout.LayoutParams(-1, -1))
         v.bringToFront()
     }
 
-    private fun applyCropped(crop: Bitmap) {
+    private fun applyCropped(crop: Bitmap, asNewPhoto: Boolean) {
         closeOverlay()
         Thread {
             try {
-                val bo = ByteArrayOutputStream()
-                val alpha = crop.hasAlpha()
-                crop.compress(if (alpha) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, 90, bo)
-                val data = "data:" + (if (alpha) "image/png" else "image/jpeg") + ";base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP)
-                ui.post { web.evaluateJavascript("replaceSelImg(" + JSONObject.quote(data) + ")", null) }
+                if (asNewPhoto) {
+                    val f = saveToTruyenTep(crop)
+                    val url = photoUrl(crop)
+                    ui.post {
+                        web.evaluateJavascript("insertPhoto(" + JSONObject.quote(url) + ")", null)
+                        Toast.makeText(act, "Đã chụp một phần - lưu vào trang Tệp: " + f.name, Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    val bo = ByteArrayOutputStream()
+                    val alpha = crop.hasAlpha()
+                    crop.compress(if (alpha) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, 90, bo)
+                    val data = "data:" + (if (alpha) "image/png" else "image/jpeg") + ";base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP)
+                    ui.post { web.evaluateJavascript("replaceSelImg(" + JSONObject.quote(data) + ")", null) }
+                }
             } catch (e: Throwable) {
                 ui.post { Toast.makeText(act, "Cắt ảnh lỗi: " + (e.message ?: ""), Toast.LENGTH_SHORT).show() }
             }
@@ -616,7 +656,7 @@ class NotesPane(private val act: Activity) {
 
     /** Kéo chọn vùng cần giữ lại (giống nút chụp màn hình của trình duyệt); thả ra là cắt xong. */
     @SuppressLint("ViewConstructor")
-    private inner class CropView(private val shot: Bitmap) : View(act) {
+    private inner class CropView(private val shot: Bitmap, private val asNewPhoto: Boolean) : View(act) {
         private val dim = Paint().apply { color = 0x99000000.toInt() }
         private val border = Paint().apply { color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = dp(2).toFloat() }
         private val hintBg = Paint().apply { color = 0xCC000000.toInt(); isAntiAlias = true }
@@ -683,7 +723,7 @@ class NotesPane(private val act: Activity) {
             val t = ((sel.top - img.top) * k).toInt().coerceIn(0, shot.height - 1)
             val w = (sel.width() * k).toInt().coerceIn(1, shot.width - l)
             val h = (sel.height() * k).toInt().coerceIn(1, shot.height - t)
-            applyCropped(Bitmap.createBitmap(shot, l, t, w, h))
+            applyCropped(Bitmap.createBitmap(shot, l, t, w, h), asNewPhoto)
         }
     }
 
