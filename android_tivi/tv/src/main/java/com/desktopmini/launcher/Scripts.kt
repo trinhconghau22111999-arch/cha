@@ -12,12 +12,43 @@ function(del, ins) {
   if (!el) return drop();
   var doc = el.ownerDocument;
   if (!(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return drop();
+  // Bàn phím gửi "xoá cả từ đang gõ + chèn lại từ mới". Nếu con trỏ đã sang chỗ khác (vd ô bảng khác)
+  // thì không được chèn lại chữ cũ: chỉ chèn phần mới. skip = số ký tự đầu của từ không nằm ở chỗ con trỏ.
+  function commonLen(a, b) { var n = 0; while (n < a.length && n < b.length && a.charAt(n) === b.charAt(n)) n++; return n; }
+  function norm(t) { t = t.replace(/\u00a0/g, ' '); if (t.normalize) t = t.normalize('NFC'); return t.toLowerCase(); }
+  var cell = null, before = '';
+  try {
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+      before = el.selectionStart === null ? el.value : el.value.slice(0, el.selectionStart);
+    } else {
+      var sl = doc.getSelection();
+      if (sl.rangeCount) {
+        var cr = sl.getRangeAt(0), nd = cr.startContainer, pe = nd.nodeType === 1 ? nd : nd.parentNode;
+        cell = pe.closest('td,th');
+        var rg = doc.createRange();
+        rg.selectNodeContents(pe.closest('td,th,li,p,div,h1,h2,h3,h4,h5,h6') || el);
+        rg.setEnd(cr.startContainer, cr.startOffset);
+        before = rg.toString();
+      }
+    }
+  } catch (e) {}
+  var word = ins, skip = 0, last = window.__wbLast;
   var g = window.__wbGhost; window.__wbGhost = null;
   if (g != null && del === g.length) {
-    var p = 0; while (p < g.length && p < ins.length && g.charAt(p) === ins.charAt(p)) p++;
-    del = 0; ins = ins.substring(p);
-    if (!ins) return true;
+    skip = commonLen(g, ins); del = 0; ins = ins.substring(skip);
+  } else if (last && del > 0 && del === last.word.length) {
+    var real = norm(last.word.substring(last.skip));
+    var here = last.el === el && last.cell === cell && before.length >= real.length && norm(before).slice(before.length - real.length) === real;
+    if (here) {
+      skip = Math.min(last.skip, ins.length); del -= last.skip; ins = ins.substring(skip);
+    } else if (ins.length < del) {          // phím xoá ở chỗ mới: chỉ xoá 1 ký tự
+      skip = ins.length; del = 1; ins = '';
+    } else {
+      skip = commonLen(last.word, ins); del = 0; ins = ins.substring(skip);
+    }
   }
+  window.__wbLast = { el: el, cell: cell, word: word, skip: skip };
+  if (!del && !ins) return true;
   function stepBack(str, idx, n) {
     while (n > 0 && idx > 0) {
       idx--;

@@ -58,6 +58,7 @@ class NotesPane(private val act: Activity) {
     private var pendingOpen: File? = null
     private var listOnReady = false
     @Volatile private var listOpen = false      // trang danh sách đang hiện (JS báo qua AndroidNote.listState)
+    var onCaretTap: (() -> Unit)? = null        // người dùng chạm đặt con trỏ chỗ khác trong ghi chú
 
     init {
         view.setBackgroundColor(0xFF05070D.toInt())
@@ -162,7 +163,8 @@ class NotesPane(private val act: Activity) {
 
     private fun wrap(title: String, body: String): String =
         "<!DOCTYPE html>\n<html><head><meta charset=\"utf-8\"><title>" + esc(title) + "</title><style>" +
-        "body{font-family:sans-serif;font-size:19px;line-height:1.45;padding:14px;max-width:900px;margin:auto}" +
+        "body{font-family:sans-serif;font-size:19px;line-height:1.45;padding:14px;max-width:900px;margin:auto;" +
+        "text-decoration-skip-ink:none;text-underline-position:under}" +
         "img{max-width:100%}img.l{float:left;margin:2px 14px 6px 0}img.r{float:right;margin:2px 0 6px 14px}" +
         "img.b{display:block;margin:8px auto}</style></head><body>\n<!--NOTE-->" + body + "<!--/NOTE-->\n</body></html>"
 
@@ -241,6 +243,8 @@ class NotesPane(private val act: Activity) {
 
         /** Hiện thông báo ngắn (cho JS báo lỗi/kết quả). */
         @JavascriptInterface fun toast(m: String) { toastMsg(m) }
+
+        @JavascriptInterface fun caretTap() { ui.post { onCaretTap?.invoke() } }
 
         /** Âm bấm giống các nút điều hướng của TV (âm chạm của hệ thống). */
         @JavascriptInterface fun clickSound() { ui.post { web.playSoundEffect(android.view.SoundEffectConstants.CLICK) } }

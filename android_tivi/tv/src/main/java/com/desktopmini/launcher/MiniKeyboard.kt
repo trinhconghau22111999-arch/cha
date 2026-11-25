@@ -141,7 +141,8 @@ class MiniKeyboard(
     }
 
     // ----- gõ -----
-    private fun resetWord() { raw.setLength(0); shown = 0 }
+    /** Quên từ đang gõ (gọi khi con trỏ được đặt sang chỗ khác, vd ô bảng khác) để không chèn lại chữ cũ. */
+    fun resetWord() { raw.setLength(0); shown = 0 }
 
     private fun typeLetter(ch: Char) {
         val c = if (shift) Character.toUpperCase(ch) else ch
