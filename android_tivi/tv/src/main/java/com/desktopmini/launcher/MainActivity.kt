@@ -281,7 +281,7 @@ class MainActivity : Activity(), FullscreenHost {
         val isOff = b.tag == "off"
         val isKill = b === btnKillRef
         val isKb = b === btnKb                     // nút ⌨ bàn phím: nền xanh lá (sáng vừa)
-        val fill = if (isKill) 0xFFFFFFFF.toInt() else if (isOff) 0xFFD50000.toInt() else if (isKb) 0xFF2E9E5B.toInt() else if (on) onColor else BAR_BTN_BG
+        val fill = if (isKill) 0xFFFFC107.toInt() else if (isOff) 0xFFD50000.toInt() else if (isKb) 0xFF2E9E5B.toInt() else if (on) onColor else BAR_BTN_BG
         val focused = barFocus >= 0 && barItems.indexOf(b) == barFocus
         b.background = android.graphics.drawable.GradientDrawable().apply {
             cornerRadius = dp(6).toFloat()
@@ -289,12 +289,12 @@ class MainActivity : Activity(), FullscreenHost {
             when {
                 focused -> setStroke(dp(3), FOCUS_RING)                 // ô chọn (viền vàng)
                 on -> setStroke(dp(2), 0xCCFFFFFF.toInt())              // nút đang mở: viền sáng
-                isKill -> setStroke(dp(1), 0xFFE0E0E0.toInt())
+                isKill -> setStroke(dp(1), 0xFFFFD54F.toInt())
                 isOff -> setStroke(dp(1), 0xFFFF8A80.toInt())
                 else -> setStroke(dp(1), BTN_EDGE)
             }
         }
-        b.setTextColor(if (isKill) Color.BLACK else if (on || isOff || isKb) Color.WHITE else BAR_TEXT)
+        b.setTextColor(if (isKill) Color.WHITE else if (on || isOff || isKb) Color.WHITE else BAR_TEXT)
     }
 
     private fun barBtn(text: String, arrow: ArrowLeftDrawable? = null): TextView = (if (arrow != null) ArrowButton(this, arrow) else TextView(this)).apply {
@@ -400,8 +400,8 @@ class MainActivity : Activity(), FullscreenHost {
         tvLunar = small("", cluster, true).apply { setTextColor(NEON_CYAN) }
         bar.addView(tvLunar, LinearLayout.LayoutParams(-2, -1))
         val btnKill = barBtn("X").apply {
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFFFFFFF.toInt()); setStroke(dp(1), 0xFFE0E0E0.toInt()) }
-            setTextColor(Color.BLACK)
+            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFFFC107.toInt()); setStroke(dp(1), 0xFFFFD54F.toInt()) }
+            setTextColor(Color.WHITE)
             setOnClickListener { hideMenu(); confirmSelfRemove() }
             // Nhấn giữ 1 giây: bảng Ẩn/hiện nút (nhấn thường vẫn hỏi gỡ app như cũ)
             var held = false
