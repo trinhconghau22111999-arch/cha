@@ -402,6 +402,44 @@ $('fDone').onclick=function(){
   updTxtBar();
 };
 
+/* ---- màn hình cảm ứng: giữ ngón yên ~0,4 giây rồi kéo để quét khối chữ ---- */
+var touchSel={mode:0,timer:null,sx:0,sy:0,anc:null};
+function caretAt(x,y){
+  if(!document.caretRangeFromPoint)return null;
+  var r=document.caretRangeFromPoint(x,y);
+  if(!r||!ed.contains(r.startContainer))return null;
+  return {n:r.startContainer,o:r.startOffset};
+}
+function setSelBetween(a,b){getSelection().setBaseAndExtent(a.n,a.o,b.n,b.o)}
+ed.addEventListener('touchstart',function(e){
+  if(e.touches.length!==1)return;
+  var t=e.touches[0];
+  touchSel.mode=1;touchSel.sx=t.clientX;touchSel.sy=t.clientY;
+  clearTimeout(touchSel.timer);
+  touchSel.timer=setTimeout(function(){
+    if(touchSel.mode!==1)return;
+    var c=caretAt(touchSel.sx,touchSel.sy);
+    if(!c){touchSel.mode=0;return}
+    touchSel.mode=2;touchSel.anc=c;
+    setSelBetween(c,c);
+    try{if(navigator.vibrate)navigator.vibrate(30)}catch(_){}
+  },400);
+},{passive:true});
+ed.addEventListener('touchmove',function(e){
+  var t=e.touches[0];
+  if(touchSel.mode===1&&(Math.abs(t.clientX-touchSel.sx)>10||Math.abs(t.clientY-touchSel.sy)>10)){
+    clearTimeout(touchSel.timer);touchSel.mode=0;return;
+  }
+  if(touchSel.mode===2){
+    e.preventDefault();                       /* đang quét chọn: không cuộn trang */
+    var c=caretAt(t.clientX,t.clientY);
+    if(c)setSelBetween(touchSel.anc,c);
+  }
+},{passive:false});
+function touchDone(){clearTimeout(touchSel.timer);touchSel.mode=0}
+ed.addEventListener('touchend',touchDone);
+ed.addEventListener('touchcancel',touchDone);
+
 /* mọi nút trong trang ghi chú kêu một tiếng như nút điều hướng của TV */
 document.addEventListener('click',function(e){var t=e.target;if(t&&t.closest&&t.closest('button')&&A()){try{A().clickSound()}catch(_){}}},true);
 window.onload=function(){if(A())A().ready()};
