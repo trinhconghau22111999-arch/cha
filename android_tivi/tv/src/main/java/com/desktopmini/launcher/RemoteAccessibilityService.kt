@@ -322,6 +322,6 @@ class RemoteAccessibilityService : AccessibilityService() {
 
     fun goHome() { performGlobalAction(GLOBAL_ACTION_HOME) }
 
-    /** Mở menu nguồn của Android (có nút Tắt nguồn). App thường không tự tắt nguồn được, nên người dùng bấm xác nhận trong menu này. Chỉ Android 9 trở lên. */
-    fun powerMenu(): Boolean = Build.VERSION.SDK_INT >= 28 && performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
+    /** Mở menu nguồn của Android (có nút Tắt nguồn). App thường không tự tắt nguồn được, nên người dùng bấm xác nhận trong menu này. Có từ Android 5 (API 21). */
+    fun powerMenu(): Boolean = Build.VERSION.SDK_INT >= 21 && performGlobalAction(GLOBAL_ACTION_POWER_DIALOG)
 }

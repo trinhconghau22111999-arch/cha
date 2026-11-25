@@ -1407,7 +1407,7 @@ class MainActivity : Activity(), FullscreenHost {
                     noOverlayUntil = android.os.SystemClock.uptimeMillis() + 5000
                     ui.postDelayed({
                         if (RemoteAccessibilityService.instance?.powerMenu() != true)
-                            Toast.makeText(this, "Không mở được bảng tắt nguồn (cần bật Trợ năng cho app TV, Android 9 trở lên). Android ${Build.VERSION.RELEASE}, ${Build.MANUFACTURER} ${Build.MODEL}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(this, "Không mở được bảng tắt nguồn. Trợ năng của app TV: ${if (RemoteAccessibilityService.instance != null) "đã bật" else "CHƯA bật (vào Cài đặt > Trợ năng để bật)"}. Android ${Build.VERSION.RELEASE}, ${Build.MANUFACTURER} ${Build.MODEL}", Toast.LENGTH_LONG).show()
                     }, 300)
                     ui.postDelayed({ attachUiOverlay() }, 5200)
                 }
@@ -1430,7 +1430,7 @@ class MainActivity : Activity(), FullscreenHost {
             .setPositiveButton("Khởi động lại") { _, _ -> restartTv() }
             .setNeutralButton("Tắt nguồn") { _, _ ->
                 if (RemoteAccessibilityService.instance?.powerMenu() != true)
-                    Toast.makeText(this, "Cần bật Trợ năng cho app TV để tắt nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Cần bật Trợ năng cho app TV để mở bảng tắt nguồn", Toast.LENGTH_LONG).show()
             }
             .setNegativeButton("Hủy", null)
             .show()
@@ -1443,7 +1443,7 @@ class MainActivity : Activity(), FullscreenHost {
         if (RemoteAccessibilityService.instance?.powerMenu() == true)
             Toast.makeText(this, "Chọn \"Khởi động lại\" trong menu nguồn", Toast.LENGTH_LONG).show()
         else
-            Toast.makeText(this, "Cần bật Trợ năng cho app TV để mở menu nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Cần bật Trợ năng cho app TV để mở menu nguồn", Toast.LENGTH_LONG).show()
     }
 
     private fun confirmSelfRemove() {
