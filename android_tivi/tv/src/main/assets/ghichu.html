@@ -38,6 +38,9 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
 #ed img.r{float:right;margin:2px 0 6px 14px}
 #ed img.b{display:block;float:none;margin:8px auto}
 #ed img.sel{outline:3px solid #00e5ff}
+#txtbar{position:fixed;display:none;z-index:20;gap:6px;padding:6px;background:#10162a;border-radius:10px;box-shadow:0 2px 12px #000a;flex-wrap:nowrap;white-space:nowrap}
+#txtbar.on{display:flex}
+#txtbar button{font-size:15px;padding:8px 12px;white-space:nowrap}
 </style></head><body>
 <div id="top">
   <button class="i" id="bList">📂 List</button>
@@ -58,7 +61,8 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
   <button id="xI">✔ Xong</button>
 </div>
 <div id="list"><div id="lh"><span>Ghi chú đã lưu</span><button class="n" id="bLsNew">➕ Ghi chú mới</button></div><div id="lb"></div></div>
-<div id="wrap"><div id="ed" contenteditable="true" data-ph="Gõ ghi chú ở đây... Dán ảnh: ảnh nằm trái/phải thì chữ chạy bên cạnh ảnh"></div></div>
+<div id="txtbar"><button class="n" id="tCut">✂ Cắt</button><button class="c" id="tCopy">📋 Copy</button><button class="i" id="tPaste">Dán 📄</button><button class="d" id="tDel">🗑 Xoá</button><button class="s" id="tAll">☑ Chọn tất cả</button></div>
+<div id="wrap"><div id="ed\" contenteditable="true" data-ph="Gõ ghi chú ở đây... Dán ảnh: ảnh nằm trái/phải thì chữ chạy bên cạnh ảnh"></div></div>
 <script>
 var ed=document.getElementById('ed'),ti=document.getElementById('title'),bar=document.getElementById('imgbar');
 var sel=null,saved=null,tmr=null;
@@ -244,6 +248,51 @@ function doDelete(name){
 }
 $('bList').onclick=showList;
 $('bLsNew').onclick=function(){hideList();newNote()};
+/* ---- chọn chữ (kéo chọn một dòng / nhiều dòng / nhiều đoạn) rồi thanh nổi: Cắt, Copy, Dán, Xoá, Chọn tất cả ---- */
+var tb=$('txtbar');
+function curRange(){
+  var s=getSelection();
+  if(!s||!s.rangeCount||s.isCollapsed)return null;
+  if(!ed.contains(s.anchorNode)||!ed.contains(s.focusNode))return null;
+  return s.getRangeAt(0);
+}
+function updTxtBar(){
+  var r=curRange();
+  if(!r||$('list').classList.contains('on')){tb.classList.remove('on');return}
+  tb.classList.add('on');
+  var box=r.getBoundingClientRect(),w=tb.offsetWidth,h=tb.offsetHeight;
+  var top=box.top-h-8;if(top<4)top=box.bottom+8;
+  if(top+h>innerHeight-4)top=Math.max(4,innerHeight-h-4);
+  var left=box.left+box.width/2-w/2;left=Math.max(4,Math.min(left,innerWidth-w-4));
+  tb.style.top=top+'px';tb.style.left=left+'px';
+}
+function selCopy(){
+  var r=curRange();if(!r)return false;
+  var d=document.createElement('div');d.appendChild(r.cloneContents());
+  if(A())A().copy(getSelection().toString(),d.innerHTML);
+  return true;
+}
+/* nhấn trên thanh nổi không làm mất vùng đang chọn */
+tb.addEventListener('mousedown',function(e){e.preventDefault()});
+tb.addEventListener('pointerdown',function(e){e.preventDefault()});
+$('tCopy').onclick=function(){selCopy();updTxtBar()};
+$('tCut').onclick=function(){
+  if(!selCopy())return;
+  curRange().deleteContents();schedule();updTxtBar();
+};
+$('tDel').onclick=function(){
+  var r=curRange();if(!r)return;
+  r.deleteContents();schedule();updTxtBar();
+};
+$('tPaste').onclick=function(){if(A())A().pasteText();updTxtBar()};
+$('tAll').onclick=function(){
+  var r=document.createRange();r.selectNodeContents(ed);
+  var s=getSelection();s.removeAllRanges();s.addRange(r);updTxtBar();
+};
+document.addEventListener('selectionchange',updTxtBar);
+document.addEventListener('scroll',updTxtBar,true);
+window.addEventListener('resize',updTxtBar);
+
 /* mọi nút trong trang ghi chú kêu một tiếng như nút điều hướng của TV */
 document.addEventListener('click',function(e){var t=e.target;if(t&&t.closest&&t.closest('button')&&A()){try{A().clickSound()}catch(_){}}},true);
 window.onload=function(){if(A())A().ready()};
