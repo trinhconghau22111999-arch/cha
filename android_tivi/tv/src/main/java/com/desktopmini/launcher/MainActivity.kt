@@ -1690,6 +1690,7 @@ class MainActivity : Activity(), FullscreenHost {
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (browser?.handlePermissionsResult(requestCode, permissions, grantResults) == true) return
+        if (requestCode == NotesPane.REQ_CAM) { notes?.onCameraPermission(grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED); return }
         if (requestCode == REQ_VOICE_PERM && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) launchVoice()
     }
 

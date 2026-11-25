@@ -38,9 +38,11 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
 #ed img.sel{outline:3px solid #00e5ff}
 </style></head><body>
 <div id="top">
-  <button class="i" id="bList">📂 Danh sách</button>
-  <button class="c" id="bCopy">📋 Copy ghi chú</button>
-  <button class="i" id="bPaste">🖼 Dán ảnh</button>
+  <button class="i" id="bList">📂 List</button>
+  <button class="n" id="bCam">📷 Chụp</button>
+  <button class="c" id="bCopy">📋 Copy</button>
+  <button class="i" id="bPaste">🖼 Dán</button>
+  <button class="i" id="bPasteTxt">📄 Dán chữ</button>
   <input id="title" placeholder="Tiêu đề">
   <button class="s" id="bSave">💾 Lưu</button>
 </div>
@@ -48,6 +50,7 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
   <span>Ảnh:</span>
   <button id="pL">◀ Trái</button><button id="pB">▣ Giữa</button><button id="pR">Phải ▶</button>
   <button id="zM">− Nhỏ</button><button id="zP">+ Lớn</button>
+  <button class="n" id="kI">✂ Cắt</button>
   <button class="c" id="cI">📋 Copy ảnh</button>
   <button class="d" id="dI">🗑 Xoá ảnh</button>
   <button id="xI">✔ Xong</button>
@@ -98,14 +101,34 @@ function shrink(src,cb){
   im.onerror=function(){cb(src)};
   im.src=src;
 }
-function insertImg(src){
+function insertImg(src,selectIt){
   shrink(src,function(s){
     ed.focus();
     var g=getSelection();
     if(saved){g.removeAllRanges();g.addRange(saved)}
     document.execCommand('insertHTML',false,'<img class="l" style="width:30%" src="'+s+'">');
+    if(selectIt){
+      var im=ed.querySelectorAll('img'),f=null;
+      for(var i=0;i<im.length;i++){if(im[i].getAttribute('src')===s)f=im[i]}
+      if(f)select(f);
+    }
     schedule();
   });
+}
+/* ảnh vừa chụp: chèn vào ghi chú và chọn sẵn để bấm ✂ Cắt */
+function insertPhoto(src){insertImg(src,true)}
+/* thay ảnh đang chọn bằng ảnh đã cắt */
+function replaceSelImg(src){
+  if(!sel){insertImg(src,true);return}
+  sel.src=src;schedule();
+}
+/* chèn chữ lấy từ bộ nhớ tạm vào chỗ con trỏ */
+function insertText(t){
+  ed.focus();
+  var g=getSelection();
+  if(saved){g.removeAllRanges();g.addRange(saved)}
+  document.execCommand('insertText',false,t);
+  schedule();
 }
 
 ed.addEventListener('input',schedule);
@@ -142,6 +165,7 @@ $('zP').onclick=function(){size(8)};
 $('xI').onclick=unselect;
 $('dI').onclick=function(){if(sel){sel.remove();unselect();schedule()}};
 $('cI').onclick=function(){if(sel&&A())A().copyImage(sel.src)};
+$('kI').onclick=function(){if(sel&&A())A().cropImage(sel.src)};
 
 function newNote(){
   flush(false);
@@ -170,6 +194,8 @@ kbUI();
 $('bSave').onclick=function(){flush(true);showList()};   /* lưu ngay (ghi tệp đồng bộ) rồi về trang danh sách */
 $('bCopy').onclick=function(){if(A())A().copy(ed.innerText||'',cleanHtml())};
 $('bPaste').onclick=function(){if(A())A().pasteImage()};
+$('bPasteTxt').onclick=function(){if(A())A().pasteText()};
+$('bCam').onclick=function(){if(A())A().openCamera()};
 
 /* gọi từ ứng dụng */
 function loadNote(title,html){hideList();ti.value=title;ed.innerHTML=html;unselect();saved=null}

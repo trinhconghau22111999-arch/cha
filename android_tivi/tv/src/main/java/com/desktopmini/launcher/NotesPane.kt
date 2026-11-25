@@ -6,7 +6,24 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.RectF
+import android.graphics.SurfaceTexture
+import android.graphics.drawable.GradientDrawable
+import android.hardware.Camera
+import android.view.Gravity
+import android.view.MotionEvent
+import android.view.TextureView
+import android.view.View
+import android.widget.SeekBar
+import android.widget.TextView
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
+import java.io.FileOutputStream
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
@@ -60,6 +77,7 @@ class NotesPane(private val act: Activity) {
     /** Bấm nút Ghi chú trên thanh dưới: mở thẳng danh sách ghi chú đã lưu. */
     /** Nút Back khi đang soạn: về trang danh sách (trả true = đã xử lý). Đang ở danh sách: trả false để app quay về trang trước. */
     fun onBack(): Boolean {
+        if (overlay != null) { closeOverlay(); return true }      // đang mở camera / cắt ảnh: đóng lại
         if (listOpen || !pageReady) return false
         listOpen = true
         showList()
@@ -72,9 +90,12 @@ class NotesPane(private val act: Activity) {
     }
 
     /** Rời trang hoặc app đi nền: lưu nốt những gì đang gõ. */
-    fun onPause() { if (pageReady) web.evaluateJavascript("flush(false)", null) }
+    fun onPause() {
+        closeOverlay()
+        if (pageReady) web.evaluateJavascript("flush(false)", null)
+    }
 
-    fun destroy() { try { web.destroy() } catch (e: Exception) { } }
+    fun destroy() { closeOverlay(); try { web.destroy() } catch (e: Exception) { } }
 
     /** Mở một ghi chú đã lưu (từ trang Tệp). */
     fun openFile(f: File) {
@@ -318,6 +339,39 @@ class NotesPane(private val act: Activity) {
             }.start()
         }
 
+        /** Dán chữ trong bộ nhớ tạm vào ghi chú (chỗ con trỏ). */
+        @JavascriptInterface fun pasteText() {
+            ui.post {
+                val item = try { clipboard().primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0) } catch (e: Throwable) { null }
+                val t: String? = try {
+                    if (item == null) null
+                    else if (item.text != null) item.text.toString()
+                    else if (item.uri == null) item.coerceToText(act).toString()
+                    else null
+                } catch (e: Throwable) { null }
+                if (t.isNullOrEmpty()) { Toast.makeText(act, "Chưa có chữ trong bộ nhớ tạm", Toast.LENGTH_SHORT).show(); return@post }
+                web.evaluateJavascript("insertText(" + JSONObject.quote(t) + ")", null)
+            }
+        }
+
+        /** Nút Chụp: mở camera sau (có thanh zoom, nút chụp). */
+        @JavascriptInterface fun openCamera() { ui.post { openCameraUi() } }
+
+        /** Cắt ảnh đang chọn: kéo chọn vùng giống nút chụp màn hình của trình duyệt. */
+        @JavascriptInterface fun cropImage(src: String) {
+            Thread {
+                try {
+                    val comma = src.indexOf(',')
+                    if (!src.startsWith("data:") || comma < 0) throw Exception("không phải ảnh")
+                    val bytes = Base64.decode(src.substring(comma + 1), Base64.DEFAULT)
+                    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: throw Exception("không đọc được ảnh")
+                    ui.post { showCrop(bmp) }
+                } catch (e: Throwable) {
+                    ui.post { Toast.makeText(act, "Cắt ảnh lỗi: " + (e.message ?: ""), Toast.LENGTH_SHORT).show() }
+                }
+            }.start()
+        }
+
         /** Dán ảnh đang có trong bộ nhớ tạm của máy vào ghi chú (chỗ con trỏ). */
         @JavascriptInterface fun pasteImage() {
             ui.post {
@@ -337,6 +391,295 @@ class NotesPane(private val act: Activity) {
                     }
                 }.start()
             }
+        }
+    }
+
+    // ---------------- camera + cắt ảnh ----------------
+
+    companion object { const val REQ_CAM = 3010 }
+
+    private var overlay: View? = null
+    private var cam: Camera? = null
+    private var camRot = 0
+    private var shooting = false
+
+    private fun dp(v: Int) = (v * act.resources.displayMetrics.density).toInt()
+
+    private fun closeOverlay() {
+        releaseCamera()
+        overlay?.let { try { view.removeView(it) } catch (e: Exception) { } }
+        overlay = null
+    }
+
+    private fun releaseCamera() {
+        val c = cam ?: return
+        cam = null
+        try { c.stopPreview() } catch (e: Exception) { }
+        try { c.release() } catch (e: Exception) { }
+    }
+
+    private fun openCameraUi() {
+        if (overlay != null) return
+        if (android.os.Build.VERSION.SDK_INT >= 23 && act.checkSelfPermission(android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            act.requestPermissions(arrayOf(android.Manifest.permission.CAMERA), REQ_CAM)
+            return
+        }
+        startCamera()
+    }
+
+    /** Gọi từ MainActivity sau khi người dùng trả lời hộp xin quyền camera. */
+    fun onCameraPermission(ok: Boolean) {
+        if (ok) ui.post { startCamera() } else Toast.makeText(act, "Chưa cấp quyền camera", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun startCamera() {
+        if (overlay != null) return
+        val n = try { Camera.getNumberOfCameras() } catch (e: Throwable) { 0 }
+        if (n <= 0) { Toast.makeText(act, "Máy này không có camera", Toast.LENGTH_SHORT).show(); return }
+        var id = 0
+        val info = Camera.CameraInfo()
+        for (i in 0 until n) { Camera.getCameraInfo(i, info); if (info.facing == Camera.CameraInfo.CAMERA_FACING_BACK) { id = i; break } }
+
+        val root = FrameLayout(act)
+        root.setBackgroundColor(Color.BLACK)
+        root.isClickable = true
+        val tex = TextureView(act)
+        root.addView(tex, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
+
+        // thanh dưới: − [thanh kéo zoom] + và nút chụp tròn
+        val bar = android.widget.LinearLayout(act)
+        bar.orientation = android.widget.LinearLayout.HORIZONTAL
+        bar.gravity = Gravity.CENTER_VERTICAL
+        bar.setBackgroundColor(0x99000000.toInt())
+        bar.setPadding(dp(14), dp(8), dp(14), dp(8))
+        fun label(t: String) = TextView(act).apply { text = t; setTextColor(Color.WHITE); textSize = 22f; setPadding(dp(8), 0, dp(8), 0) }
+        val seek = SeekBar(act)
+        bar.addView(label("−"))
+        bar.addView(seek, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
+        bar.addView(label("+"))
+        val shutter = TextView(act)
+        shutter.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.WHITE); setStroke(dp(4), 0xFF00B85C.toInt()) }
+        shutter.gravity = Gravity.CENTER
+        shutter.contentDescription = "Chụp"
+        bar.addView(shutter, android.widget.LinearLayout.LayoutParams(dp(64), dp(64)).apply { leftMargin = dp(16) })
+        root.addView(bar, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+
+        val close = TextView(act)
+        close.text = "✕ Đóng"
+        close.setTextColor(Color.WHITE); close.textSize = 16f
+        close.setPadding(dp(14), dp(8), dp(14), dp(8))
+        close.background = GradientDrawable().apply { setColor(0xFFD50000.toInt()); cornerRadius = dp(8).toFloat() }
+        close.setOnClickListener { closeOverlay() }
+        root.addView(close, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.END).apply { setMargins(dp(10), dp(10), dp(10), dp(10)) })
+
+        shooting = false
+        shutter.setOnClickListener { takePhoto() }
+        seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
+                val c = cam ?: return
+                try { val p = c.parameters; if (p.isZoomSupported) { p.zoom = progress; c.parameters = p } } catch (e: Exception) { }
+            }
+            override fun onStartTrackingTouch(sb: SeekBar?) { }
+            override fun onStopTrackingTouch(sb: SeekBar?) { }
+        })
+        tex.surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(st: SurfaceTexture, w: Int, h: Int) { startPreview(id, st, tex, root, seek) }
+            override fun onSurfaceTextureSizeChanged(st: SurfaceTexture, w: Int, h: Int) { }
+            override fun onSurfaceTextureDestroyed(st: SurfaceTexture): Boolean { releaseCamera(); return true }
+            override fun onSurfaceTextureUpdated(st: SurfaceTexture) { }
+        }
+        overlay = root
+        view.addView(root, FrameLayout.LayoutParams(-1, -1))
+        root.bringToFront()
+    }
+
+    private fun startPreview(id: Int, st: SurfaceTexture, tex: TextureView, root: View, seek: SeekBar) {
+        try {
+            val c = Camera.open(id)
+            cam = c
+            val info = Camera.CameraInfo()
+            Camera.getCameraInfo(id, info)
+            val deg = when (act.windowManager.defaultDisplay.rotation) {
+                android.view.Surface.ROTATION_90 -> 90
+                android.view.Surface.ROTATION_180 -> 180
+                android.view.Surface.ROTATION_270 -> 270
+                else -> 0
+            }
+            val rot = if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) (360 - (info.orientation + deg) % 360) % 360
+                      else (info.orientation - deg + 360) % 360
+            camRot = rot
+            c.setDisplayOrientation(rot)
+            val p = c.parameters
+            val vw = maxOf(1, root.width).toFloat(); val vh = maxOf(1, root.height).toFloat()
+            val swap = rot == 90 || rot == 270
+            val target = if (swap) vh / vw else vw / vh              // tỉ lệ w/h của khung cảm biến
+            val pv = p.supportedPreviewSizes.filter { it.width <= 1920 }.ifEmpty { p.supportedPreviewSizes }
+                .sortedWith(compareBy({ Math.abs(it.width.toFloat() / it.height - target) > 0.05f }, { -(it.width * it.height) })).first()
+            p.setPreviewSize(pv.width, pv.height)
+            val pic = p.supportedPictureSizes.filter { it.width * it.height <= 8_000_000 }.ifEmpty { p.supportedPictureSizes }
+                .sortedWith(compareBy({ Math.abs(it.width.toFloat() / it.height - pv.width.toFloat() / pv.height) > 0.05f }, { -(it.width * it.height) })).first()
+            p.setPictureSize(pic.width, pic.height)
+            val modes = p.supportedFocusModes ?: emptyList<String>()
+            if (modes.contains(Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)) p.focusMode = Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE
+            else if (modes.contains(Camera.Parameters.FOCUS_MODE_AUTO)) p.focusMode = Camera.Parameters.FOCUS_MODE_AUTO
+            c.parameters = p
+            if (p.isZoomSupported) { seek.max = p.maxZoom; seek.progress = 0 } else seek.visibility = View.INVISIBLE
+            // khung xem trước giữ đúng tỉ lệ, nằm giữa màn hình
+            val dr = if (swap) pv.height.toFloat() / pv.width else pv.width.toFloat() / pv.height
+            val lw: Int; val lh: Int
+            if (vw / vh > dr) { lh = vh.toInt(); lw = (vh * dr).toInt() } else { lw = vw.toInt(); lh = (vw / dr).toInt() }
+            tex.layoutParams = FrameLayout.LayoutParams(lw, lh, Gravity.CENTER)
+            c.setPreviewTexture(st)
+            c.startPreview()
+        } catch (e: Throwable) {
+            Toast.makeText(act, "Không mở được camera: " + (e.message ?: ""), Toast.LENGTH_LONG).show()
+            closeOverlay()
+        }
+    }
+
+    private fun takePhoto() {
+        val c = cam ?: return
+        if (shooting) return
+        shooting = true
+        val shoot = {
+            try {
+                c.takePicture(null, null, Camera.PictureCallback { data, _ -> onPhoto(data, camRot) })
+            } catch (e: Throwable) {
+                shooting = false
+                Toast.makeText(act, "Chụp lỗi: " + (e.message ?: ""), Toast.LENGTH_SHORT).show()
+            }
+        }
+        try {
+            if (c.parameters.focusMode == Camera.Parameters.FOCUS_MODE_AUTO) c.autoFocus { _, _ -> shoot() } else shoot()
+        } catch (e: Throwable) { shoot() }
+    }
+
+    /** Chụp xong: 1 bản đầy đủ lưu vào trang Tệp (TruyenTep), 1 bản hiện ngay trên ghi chú đang làm. */
+    private fun onPhoto(data: ByteArray, rot: Int) {
+        closeOverlay()
+        Thread {
+            try {
+                val opt = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(data, 0, data.size, opt)
+                var sample = 1
+                while (opt.outWidth / sample > 4096 || opt.outHeight / sample > 4096) sample *= 2
+                val full = BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
+                    ?: throw Exception("không đọc được ảnh vừa chụp")
+                val bmp = if (rot != 0) Bitmap.createBitmap(full, 0, 0, full.width, full.height, Matrix().apply { postRotate(rot.toFloat()) }, true) else full
+                val base = act.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: act.filesDir
+                val d = File(base, "TruyenTep"); d.mkdirs()
+                val name = "Anh_" + SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                var f = File(d, "$name.jpg"); var k = 1
+                while (f.exists()) { f = File(d, "$name ($k).jpg"); k++ }
+                FileOutputStream(f).use { bmp.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+                val m = maxOf(bmp.width, bmp.height)
+                val small = if (m > 1280) Bitmap.createScaledBitmap(bmp, (bmp.width * 1280f / m).toInt(), (bmp.height * 1280f / m).toInt(), true) else bmp
+                val bo = ByteArrayOutputStream()
+                small.compress(Bitmap.CompressFormat.JPEG, 85, bo)
+                val url = "data:image/jpeg;base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP)
+                ui.post {
+                    web.evaluateJavascript("insertPhoto(" + JSONObject.quote(url) + ")", null)
+                    Toast.makeText(act, "Đã chụp - lưu vào trang Tệp: " + f.name, Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Throwable) {
+                ui.post { Toast.makeText(act, "Lưu ảnh chụp lỗi: " + (e.message ?: ""), Toast.LENGTH_LONG).show() }
+            }
+        }.start()
+    }
+
+    private fun showCrop(bmp: Bitmap) {
+        if (overlay != null) return
+        val v = CropView(bmp)
+        overlay = v
+        view.addView(v, FrameLayout.LayoutParams(-1, -1))
+        v.bringToFront()
+    }
+
+    private fun applyCropped(crop: Bitmap) {
+        closeOverlay()
+        Thread {
+            try {
+                val bo = ByteArrayOutputStream()
+                val alpha = crop.hasAlpha()
+                crop.compress(if (alpha) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, 90, bo)
+                val data = "data:" + (if (alpha) "image/png" else "image/jpeg") + ";base64," + Base64.encodeToString(bo.toByteArray(), Base64.NO_WRAP)
+                ui.post { web.evaluateJavascript("replaceSelImg(" + JSONObject.quote(data) + ")", null) }
+            } catch (e: Throwable) {
+                ui.post { Toast.makeText(act, "Cắt ảnh lỗi: " + (e.message ?: ""), Toast.LENGTH_SHORT).show() }
+            }
+        }.start()
+    }
+
+    /** Kéo chọn vùng cần giữ lại (giống nút chụp màn hình của trình duyệt); thả ra là cắt xong. */
+    @SuppressLint("ViewConstructor")
+    private inner class CropView(private val shot: Bitmap) : View(act) {
+        private val dim = Paint().apply { color = 0x99000000.toInt() }
+        private val border = Paint().apply { color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = dp(2).toFloat() }
+        private val hintBg = Paint().apply { color = 0xCC000000.toInt(); isAntiAlias = true }
+        private val hintTx = Paint().apply { color = Color.WHITE; textSize = dp(14).toFloat(); isAntiAlias = true; textAlign = Paint.Align.CENTER }
+        private val cancelBg = Paint().apply { color = 0xFFD50000.toInt(); isAntiAlias = true }
+        private val img = RectF()
+        private val sel = RectF()
+        private val cancelBox = RectF()
+        private var hasSel = false
+        private var sx = 0f; private var sy = 0f
+
+        private fun fit() {
+            val k = minOf(width.toFloat() / shot.width, height.toFloat() / shot.height)
+            val w = shot.width * k; val h = shot.height * k
+            img.set((width - w) / 2, (height - h) / 2, (width + w) / 2, (height + h) / 2)
+        }
+
+        override fun onDraw(c: Canvas) {
+            fit()
+            c.drawColor(Color.BLACK)
+            val dst = Rect(img.left.toInt(), img.top.toInt(), img.right.toInt(), img.bottom.toInt())
+            c.drawBitmap(shot, null, dst, null)
+            c.drawRect(img, dim)
+            if (hasSel) {
+                c.save(); c.clipRect(sel)
+                c.drawBitmap(shot, null, dst, null)
+                c.restore()
+                c.drawRect(sel, border)
+            }
+            val w = width.toFloat(); val pad = dp(10).toFloat()
+            val t = "Kéo để chọn vùng cần cắt"
+            val tw = hintTx.measureText(t)
+            c.drawRoundRect(w / 2 - tw / 2 - pad, pad, w / 2 + tw / 2 + pad, pad + dp(32), dp(8).toFloat(), dp(8).toFloat(), hintBg)
+            c.drawText(t, w / 2, pad + dp(21), hintTx)
+            val cw = dp(72).toFloat()
+            cancelBox.set(w - cw - pad, pad, w - pad, pad + dp(32))
+            c.drawRoundRect(cancelBox, dp(8).toFloat(), dp(8).toFloat(), cancelBg)
+            c.drawText("✕ Hủy", cancelBox.centerX(), pad + dp(21), hintTx)
+        }
+
+        @SuppressLint("ClickableViewAccessibility")
+        override fun onTouchEvent(e: MotionEvent): Boolean {
+            val x = e.x.coerceIn(img.left, img.right); val y = e.y.coerceIn(img.top, img.bottom)
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    if (cancelBox.contains(e.x, e.y)) { closeOverlay(); return true }
+                    sx = x; sy = y; hasSel = false
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    sel.set(minOf(sx, x), minOf(sy, y), maxOf(sx, x), maxOf(sy, y)); hasSel = true; invalidate()
+                }
+                MotionEvent.ACTION_UP -> {
+                    sel.set(minOf(sx, x), minOf(sy, y), maxOf(sx, x), maxOf(sy, y))
+                    if (sel.width() >= dp(12) && sel.height() >= dp(12)) done() else { hasSel = false; invalidate() }
+                }
+                MotionEvent.ACTION_CANCEL -> { hasSel = false; invalidate() }
+            }
+            return true
+        }
+
+        private fun done() {
+            val k = shot.width / img.width()
+            val l = ((sel.left - img.left) * k).toInt().coerceIn(0, shot.width - 1)
+            val t = ((sel.top - img.top) * k).toInt().coerceIn(0, shot.height - 1)
+            val w = (sel.width() * k).toInt().coerceIn(1, shot.width - l)
+            val h = (sel.height() * k).toInt().coerceIn(1, shot.height - t)
+            applyCropped(Bitmap.createBitmap(shot, l, t, w, h))
         }
     }
 
