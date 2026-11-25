@@ -858,11 +858,11 @@ class MainActivity : Activity(), FullscreenHost {
             "text", "enter" -> { phoneText(jo); return }
         }
         when (jo.optString("action")) {
-            "move", "click", "longclick", "scroll" -> if (mouseFlag == false) return
+            "move", "click", "longclick", "scroll", "dragstart" -> if (mouseFlag == false) return
             else -> { }
         }
         when (jo.optString("action")) {
-            "move", "click", "longclick" -> if (!allowPointerInput(force = mouseFlag == true)) return      // chuột TẮT/đang dùng phím (bản cũ): bỏ chuột
+            "move", "click", "longclick", "dragstart" -> if (!allowPointerInput(force = mouseFlag == true)) return      // chuột TẮT/đang dùng phím (bản cũ): bỏ chuột
             "key" -> if (!allowKeyInput(force = mouseFlag == false)) return                    // chuột BẬT và đang dùng chuột: tạm bỏ phím
         }
         val svc = RemoteAccessibilityService.instance

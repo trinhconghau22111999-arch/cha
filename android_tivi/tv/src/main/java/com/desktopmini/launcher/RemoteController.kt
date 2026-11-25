@@ -8,6 +8,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.media.AudioManager
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -69,6 +70,9 @@ class RemoteController(
     private var cx = 0f
     private var cy = 0f
     private var placed = false
+    // kéo chọn chữ: giữ chuột trái tại con trỏ (lệnh dragstart), di chuyển là kéo, nhả là dragend
+    private var dragging = false
+    private var dragT0 = 0L
     private val size = (28 * act.resources.displayMetrics.density).toInt()
 
     private val cursor = object : View(act) {
@@ -110,9 +114,12 @@ class RemoteController(
                 if (!placed) { cx = w / 2f; cy = h / 2f; placed = true }
                 cx = (cx + o.optInt("dx") * GAIN).coerceIn(0f, w - 1f)
                 cy = (cy + o.optInt("dy") * GAIN).coerceIn(0f, h - 1f)
+                if (dragging) dragEv(MotionEvent.ACTION_MOVE)
                 showCursor()
             }
             "click" -> { showCursor(); tap() }
+            "dragstart" -> { showCursor(); beginDrag() }
+            "dragend" -> endDrag()
             "longclick" -> { showCursor(); longTap() }       // chuột phải / nhấn giữ tại con trỏ
             "scroll" -> {
                 val dy = o.optInt("dy")
@@ -254,6 +261,36 @@ class RemoteController(
         val js = "(function(){var q=$q,n='$name';try{var t=Date.now();localStorage.setItem('yt-player-quality',JSON.stringify({data:JSON.stringify({quality:q,previousQuality:q}),expiration:t+2592000000,creation:t}));}catch(e){}" +
             "try{var p=document.getElementById('movie_player')||document.querySelector('.html5-video-player');if(p){if(p.setPlaybackQualityRange)p.setPlaybackQualityRange(n,n);if(p.setPlaybackQuality)p.setPlaybackQuality(n);}}catch(e){}})()"
         for (d in longArrayOf(0, 1500, 4000)) ui.postDelayed({ activeWeb()?.evaluateJavascript(js, null) }, d)
+    }
+
+    /** Bắt đầu kéo chọn: giữ chuột trái tại con trỏ. */
+    private fun beginDrag() {
+        if (dragging) return
+        dragT0 = SystemClock.uptimeMillis()
+        dragging = true
+        dragEv(MotionEvent.ACTION_DOWN)
+    }
+
+    /** Kết thúc kéo chọn: nhả chuột trái. */
+    private fun endDrag() {
+        if (!dragging) return
+        dragEv(MotionEvent.ACTION_UP)
+        dragging = false
+    }
+
+    /** Gửi một sự kiện chuột (đang giữ nút trái) tới giao diện tại con trỏ. Android < 6 thì dùng chạm thường. */
+    private fun dragEv(action: Int) {
+        val t = SystemClock.uptimeMillis()
+        val ev: MotionEvent = if (Build.VERSION.SDK_INT >= 23) {
+            val props = arrayOf(MotionEvent.PointerProperties().apply { id = 0; toolType = MotionEvent.TOOL_TYPE_MOUSE })
+            val coords = arrayOf(MotionEvent.PointerCoords().apply { x = cx; y = cy; pressure = 1f; size = 1f })
+            MotionEvent.obtain(dragT0, t, action, 1, props, coords, 0, MotionEvent.BUTTON_PRIMARY, 1f, 1f, 0, 0,
+                android.view.InputDevice.SOURCE_MOUSE, 0)
+        } else {
+            MotionEvent.obtain(t, t, action, cx, cy, 0).also { it.source = android.view.InputDevice.SOURCE_TOUCHSCREEN }
+        }
+        root.dispatchTouchEvent(ev)
+        ev.recycle()
     }
 
     private fun tap(x: Float = cx, y: Float = cy) {

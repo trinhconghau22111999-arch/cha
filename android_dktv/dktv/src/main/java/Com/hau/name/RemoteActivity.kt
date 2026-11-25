@@ -539,6 +539,8 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
     private var downAt = 0L
     private var moved = false
     private var multi = false
+    private var dragging = false                 // đang kéo chọn (đã gửi dragstart)
+    private var dragArm: Runnable? = null        // hẹn giờ: giữ yên đủ lâu thì bắt đầu kéo
     private var pendDx = 0f
     private var pendDy = 0f
     private var pendScroll = 0f
@@ -617,12 +619,25 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
                 MotionEvent.ACTION_DOWN -> {
                     lastX = e.x; lastY = e.y; startX = e.x; startY = e.y
                     downAt = e.eventTime; moved = false; multi = false
+                    dragging = false
+                    dragArm?.let { ui.removeCallbacks(it) }
+                    val arm = Runnable {
+                        if (!moved && !multi && mouseOn) {
+                            dragging = true
+                            Haptics.tick(pad)
+                            send(JSONObject().put("action", "dragstart"))
+                        }
+                    }
+                    dragArm = arm
+                    ui.postDelayed(arm, DRAG_HOLD_MS)
                     stopFling(); scrollActive = false; sampN = 0; lastMoveT = e.eventTime
                     // Bao TV hien con tro ngay luc cham (khong cho den khi truot)
                     send(JSONObject().put("action", "move").put("dx", 0).put("dy", 0), warn = false)
                 }
                 MotionEvent.ACTION_POINTER_DOWN -> {
                     multi = true
+                    dragArm?.let { ui.removeCallbacks(it) }
+                    if (dragging) { dragging = false; send(JSONObject().put("action", "dragend")) }
                     stopFling(); sampN = 0
                     lastY = avgY(e)
                 }
@@ -638,7 +653,10 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
                         val dx = e.x - lastX
                         val dy = e.y - lastY
                         lastX = e.x; lastY = e.y
-                        if (!moved && (abs(e.x - startX) > dp(6) || abs(e.y - startY) > dp(6))) moved = true
+                        if (!moved && (abs(e.x - startX) > dp(6) || abs(e.y - startY) > dp(6))) {
+                            moved = true
+                            if (!dragging) dragArm?.let { ui.removeCallbacks(it) }     // di chuyển trước khi kịp giữ: chỉ là di chuột
+                        }
                         // Gia toc con tro: di cham = chinh xac, vuot nhanh = bay xa (nhu chuot may tinh)
                         val dt = (e.eventTime - lastMoveT).coerceAtLeast(1L)
                         lastMoveT = e.eventTime
@@ -657,10 +675,18 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
                     if (idx < e.pointerCount) { lastX = e.getX(idx); lastY = e.getY(idx) }
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (!moved && !multi && e.eventTime - downAt < TAP_MS) {
+                    dragArm?.let { ui.removeCallbacks(it) }
+                    if (dragging) {
+                        dragging = false
+                        send(JSONObject().put("action", "dragend"))
+                    } else if (!moved && !multi && e.eventTime - downAt < TAP_MS) {
                         Haptics.tick(pad)
                         send(JSONObject().put("action", "click"))
                     }
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    dragArm?.let { ui.removeCallbacks(it) }
+                    if (dragging) { dragging = false; send(JSONObject().put("action", "dragend")) }
                 }
             }
             return true
@@ -873,7 +899,7 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
 
     private fun send(cmd: JSONObject, warn: Boolean = true) {
         // Lệnh phím / chuột kèm trạng thái nút chuột để TV biết ưu tiên bên nào
-        when (cmd.optString("action")) { "key", "move", "click", "longclick", "scroll" -> cmd.put("mouse", mouseOn) }
+        when (cmd.optString("action")) { "key", "move", "click", "longclick", "scroll", "dragstart", "dragend" -> cmd.put("mouse", mouseOn) }
         val json = cmd.put("type", "remote").toString()
         sender.execute {
             val n = CameraStreamService.instance?.sendRemoteCommand(json) ?: 0
@@ -992,5 +1018,6 @@ class RemoteActivity : AppCompatActivity(), CameraStreamService.ConnectionStatus
         private const val SCROLL_GAIN = 1.0f
         private const val TAP_MS = 250L
         private const val BAR_HOLD_MS = 2000L
+        private const val DRAG_HOLD_MS = 350L        // giữ ngón yên bấy nhiêu thì bắt đầu kéo chọn
     }
 }
