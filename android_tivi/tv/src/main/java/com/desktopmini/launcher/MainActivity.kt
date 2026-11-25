@@ -1375,24 +1375,26 @@ class MainActivity : Activity(), FullscreenHost {
     }
 
     /**
-     * Nhấn giữ OFF: mở bảng Tắt nguồn của Android. Bảng này là cửa sổ hệ thống nên phải gỡ lớp giao diện phủ của Trợ năng
-     * (nếu không lớp phủ che mất bảng); khi bảng đóng, app lấy lại focus và tự phủ lại giao diện (onWindowFocusChanged).
+     * Nhấn giữ OFF 1 giây: hiện khung "Tắt nguồn TV" là hộp thoại của app (giống khung hỏi khi bấm nút X): lớp phủ trợ năng được gỡ,
+     * hệ thống hiện thanh điều hướng/thanh trạng thái. Bấm "Tắt nguồn" thì mở bảng tắt nguồn của Android (cửa sổ hệ thống, không bị
+     * lớp phủ che vì lớp phủ đã gỡ); bấm "Khởi động lại" thì khởi động lại TV. Đóng khung thì app tự phủ lại giao diện.
      */
     private fun openSystemPowerMenu() {
         hideMenu()
         buzz()
-        val svc = RemoteAccessibilityService.instance
-        if (svc == null || Build.VERSION.SDK_INT < 28) {
-            Toast.makeText(this, "Cần bật Trợ năng cho app TV để mở bảng tắt nguồn (Android 9 trở lên)", Toast.LENGTH_LONG).show()
-            return
-        }
         detachUiOverlay()
-        ui.postDelayed({
-            if (!svc.powerMenu()) {
-                Toast.makeText(this, "Không mở được bảng tắt nguồn", Toast.LENGTH_LONG).show()
-                attachUiOverlay()
+        AlertDialog.Builder(this)
+            .setTitle("Tắt nguồn TV")
+            .setMessage("Bấm \"Tắt nguồn\" để mở bảng tắt nguồn của hệ thống, hoặc \"Khởi động lại\".")
+            .setPositiveButton("Tắt nguồn") { _, _ ->
+                ui.postDelayed({
+                    if (RemoteAccessibilityService.instance?.powerMenu() != true)
+                        Toast.makeText(this, "Không mở được bảng tắt nguồn (cần bật Trợ năng cho app TV, Android 9 trở lên). Android ${Build.VERSION.RELEASE}, ${Build.MANUFACTURER} ${Build.MODEL}", Toast.LENGTH_LONG).show()
+                }, 300)
             }
-        }, 250)
+            .setNeutralButton("Khởi động lại") { _, _ -> restartTv() }
+            .setNegativeButton("Hủy", null)
+            .show()
     }
 
     /** (Không còn dùng cho nút OFF) Khung hỏi khởi động lại. Nút "Tắt nguồn" mở menu nguồn của hệ thống như trước. */
