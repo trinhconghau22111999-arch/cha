@@ -340,7 +340,7 @@ class MainActivity : Activity(), FullscreenHost {
                 android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
                 intArrayOf(NEON_CYAN, 0xFF7C4DFF.toInt(), NEON_MAGENTA))
             background = android.graphics.drawable.LayerDrawable(arrayOf(
-                android.graphics.drawable.ColorDrawable(BAR_BG), strip)).also { it.setLayerInset(1, 0, 0, 0, barH - dp(2)) }
+                android.graphics.drawable.ColorDrawable(BAR_BG), strip)).also { it.setLayerInset(1, 0, 0, 0, barH - maxOf(1, (dp(2) * 0.4f).toInt())) }
             setPadding(dp(4), dp(3), dp(6), dp(3))
         }
         btnMenu = barBtn("Menu").apply { setOnClickListener { toggleMenu() } }
