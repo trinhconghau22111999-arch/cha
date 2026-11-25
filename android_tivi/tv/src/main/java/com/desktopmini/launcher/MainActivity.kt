@@ -424,12 +424,8 @@ class MainActivity : Activity(), FullscreenHost {
             val ls = if (Build.VERSION.SDK_INT >= 21) btnOff.letterSpacing * btnOff.textSize * 3 else 0f
             (btnOff.paint.measureText("OFF") + ls + btnOff.paddingLeft + btnOff.paddingRight).toInt() + dp(4)
         }
-        bar.addView(btnOff, LinearLayout.LayoutParams(offNeed(), -1).also { it.leftMargin = dp(4) })
-        btnMenu.addOnLayoutChangeListener { v, l, _, r, _, _, _, _, _ ->
-            // 60% bề ngang nút thường, nhưng không nhỏ hơn bề ngang chữ OFF
-            val w = maxOf(((r - l) * 0.6f).toInt(), offNeed())
-            if (w > 0 && btnOff.layoutParams.width != w) { btnOff.layoutParams = btnOff.layoutParams.also { it.width = w } }
-        }
+        // OFF: bề ngang bằng nút X (dp(44)); chỉ rộng hơn nếu chữ "OFF" không vừa
+        bar.addView(btnOff, LinearLayout.LayoutParams(maxOf(dp(44), offNeed()), -1).also { it.leftMargin = dp(4) })
 
         barView = bar
         if (Build.VERSION.SDK_INT >= 29) {
