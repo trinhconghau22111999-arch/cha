@@ -398,9 +398,16 @@ class MainActivity : Activity(), FullscreenHost {
         btnKillRef = btnKill; barItems.add(barItems.indexOf(btnOff), btnKill)      // remote ◀▶ chọn được nút X, OK = bấm
         // OFF: cuối cùng bên phải nút X, bề ngang = 60% một nút thường (theo bề ngang nút Menu sau khi bố cục xong)
         btnOff.minWidth = 0
-        bar.addView(btnOff, LinearLayout.LayoutParams(dp(30), -1).also { it.leftMargin = dp(4) })
+        btnOff.ellipsize = null
+        // Bề ngang tối thiểu đủ chứa trọn chữ "OFF" (đo theo chính font/cỡ chữ + giãn chữ + padding) để không bao giờ bị cắt còn "OF"
+        val offNeed = {
+            val ls = if (Build.VERSION.SDK_INT >= 21) btnOff.letterSpacing * btnOff.textSize * 3 else 0f
+            (btnOff.paint.measureText("OFF") + ls + btnOff.paddingLeft + btnOff.paddingRight).toInt() + dp(4)
+        }
+        bar.addView(btnOff, LinearLayout.LayoutParams(offNeed(), -1).also { it.leftMargin = dp(4) })
         btnMenu.addOnLayoutChangeListener { v, l, _, r, _, _, _, _, _ ->
-            val w = ((r - l) * 0.6f).toInt()
+            // 60% bề ngang nút thường, nhưng không nhỏ hơn bề ngang chữ OFF
+            val w = maxOf(((r - l) * 0.6f).toInt(), offNeed())
             if (w > 0 && btnOff.layoutParams.width != w) { btnOff.layoutParams = btnOff.layoutParams.also { it.width = w } }
         }
 
