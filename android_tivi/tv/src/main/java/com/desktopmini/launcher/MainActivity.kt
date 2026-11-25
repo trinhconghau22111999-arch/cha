@@ -280,7 +280,7 @@ class MainActivity : Activity(), FullscreenHost {
         val isOff = b.tag == "off"
         val isKill = b === btnKillRef
         val isKb = b === btnKb                     // nút ⌨ bàn phím: nền xanh lá (sáng vừa)
-        val fill = if (isKill) 0xFFFFF3B0.toInt() else if (isOff) 0xFFD50000.toInt() else if (isKb) 0xFF2E9E5B.toInt() else if (on) onColor else BAR_BTN_BG
+        val fill = if (isKill) 0xFFFFC107.toInt() else if (isOff) 0xFFD50000.toInt() else if (isKb) 0xFF2E9E5B.toInt() else if (on) onColor else BAR_BTN_BG
         val focused = barFocus >= 0 && barItems.indexOf(b) == barFocus
         b.background = android.graphics.drawable.GradientDrawable().apply {
             cornerRadius = dp(6).toFloat()
@@ -288,7 +288,7 @@ class MainActivity : Activity(), FullscreenHost {
             when {
                 focused -> setStroke(dp(3), FOCUS_RING)                 // ô chọn (viền vàng)
                 on -> setStroke(dp(2), 0xCCFFFFFF.toInt())              // nút đang mở: viền sáng
-                isKill -> setStroke(dp(1), 0xFFFFF9D6.toInt())
+                isKill -> setStroke(dp(1), 0xFFFFD54F.toInt())
                 isOff -> setStroke(dp(1), 0xFFFF8A80.toInt())
                 else -> setStroke(dp(1), BTN_EDGE)
             }
@@ -379,7 +379,7 @@ class MainActivity : Activity(), FullscreenHost {
         tvLunar = small("", cluster, true).apply { setTextColor(0xFFFFC400.toInt()) }
         bar.addView(tvLunar, LinearLayout.LayoutParams(-2, -1))
         val btnKill = barBtn("X").apply {
-            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFFFF3B0.toInt()); setStroke(dp(1), 0xFFFFF9D6.toInt()) }
+            background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFFFC107.toInt()); setStroke(dp(1), 0xFFFFD54F.toInt()) }
             setTextColor(0xFF3A3000.toInt())
             setOnClickListener { hideMenu(); confirmSelfRemove() }
             // Nhấn giữ 1 giây: bảng Ẩn/hiện nút (nhấn thường vẫn hỏi gỡ app như cũ)
