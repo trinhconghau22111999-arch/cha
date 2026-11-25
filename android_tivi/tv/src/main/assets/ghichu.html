@@ -242,6 +242,8 @@ function doDelete(name){
 }
 $('bList').onclick=showList;
 $('bLsNew').onclick=function(){hideList();newNote()};
+/* mọi nút trong trang ghi chú kêu một tiếng như nút điều hướng của TV */
+document.addEventListener('click',function(e){var t=e.target;if(t&&t.closest&&t.closest('button')&&A()){try{A().clickSound()}catch(_){}}},true);
 window.onload=function(){if(A())A().ready()};
 </script>
 </body></html>

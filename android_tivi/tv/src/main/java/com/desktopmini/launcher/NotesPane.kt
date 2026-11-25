@@ -242,6 +242,9 @@ class NotesPane(private val act: Activity) {
         /** Hiện thông báo ngắn (cho JS báo lỗi/kết quả). */
         @JavascriptInterface fun toast(m: String) { toastMsg(m) }
 
+        /** Âm bấm giống các nút điều hướng của TV (âm chạm của hệ thống). */
+        @JavascriptInterface fun clickSound() { ui.post { web.playSoundEffect(android.view.SoundEffectConstants.CLICK) } }
+
         /** Ẩn bàn phím của máy (khi ô đang lấy tiêu điểm mà chế độ gõ đang tắt). */
         @JavascriptInterface fun hideIme() {
             ui.post {
