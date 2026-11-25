@@ -38,7 +38,7 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
 #ed img.r{float:right;margin:2px 0 6px 14px}
 #ed img.b{display:block;float:none;margin:8px auto}
 #ed img.sel{outline:3px solid #00e5ff}
-#txtbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:none;z-index:20;gap:6px;padding:6px;background:#10162a;border-radius:10px;box-shadow:0 2px 12px #000a;flex-wrap:nowrap;white-space:nowrap}
+#txtbar{position:fixed;left:0;top:0;display:none;z-index:20;gap:6px;padding:6px;background:#10162a;border-radius:10px;box-shadow:0 2px 12px #000a;flex-wrap:nowrap;white-space:nowrap}
 #txtbar.on{display:flex}
 #txtbar button{font-size:15px;padding:8px 12px;white-space:nowrap}
 #fmtbar,#colbar{display:none;background:#fff;padding:8px;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:2px solid #00e5ff55}
@@ -287,7 +287,14 @@ function curRange(){
 function updTxtBar(){
   var r=curRange();
   if(!r||fmtOn||$('list').classList.contains('on')){tb.classList.remove('on');return}
-  tb.classList.add('on');   /* thanh cố định ở đáy màn hình, không che thanh trên */
+  tb.classList.add('on');
+  /* thanh nằm ngay DƯỚI dãy chữ đang quét khối; hết chỗ phía dưới thì lên trên */
+  var box=r.getBoundingClientRect(),w=tb.offsetWidth,h=tb.offsetHeight;
+  var top=box.bottom+8;
+  if(top+h>innerHeight-4)top=box.top-h-8;
+  if(top<4)top=Math.max(4,innerHeight-h-4);
+  var left=box.left+box.width/2-w/2;left=Math.max(4,Math.min(left,innerWidth-w-4));
+  tb.style.top=top+'px';tb.style.left=left+'px';
 }
 function selCopy(){
   var r=curRange();if(!r)return false;
