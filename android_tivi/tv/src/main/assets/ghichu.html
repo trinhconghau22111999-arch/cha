@@ -47,11 +47,20 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
 #colbar{padding-top:4px}
 #colbar .sw{width:40px;height:40px;padding:0;border-radius:50%;border:2px solid #999;flex:0 0 auto}
 #bFmt{background:#00897b}
+#bTbl{background:#6d4c41}
+#tblbar{display:none;background:#fff;padding:8px;gap:10px;align-items:center;flex-wrap:wrap;border-top:2px solid #00e5ff55}
+#tblbar.on{display:flex}
+#tblbar span{color:#222;font-size:15px;font-weight:bold}
+#tblbar .num{min-width:34px;text-align:center;color:#111;font-size:20px;font-weight:bold}
+#tblbar .st{padding:8px 16px;font-size:22px;line-height:1}
+#tblbar .st:disabled{opacity:.3}
+#ed table{border-collapse:collapse;margin:8px 0}
 </style></head><body>
 <div id="top">
   <button class="i" id="bList">📂 List</button>
   <button id="bFmt">🔤 Định dạng</button>
   <button class="n" id="bCam">📷 Chụp</button>
+  <button id="bTbl">▦ Bảng</button>
   <button class="c" id="bCopy">📋 Copy</button>
   <button class="i" id="bPaste">🖼 Dán</button>
   <button class="i" id="bPasteTxt">Dán 📄</button>
@@ -91,6 +100,11 @@ button.n{background:#1e88e5}button.s{background:#00b85c}button.c{background:#8e4
 <div id="list"><div id="lh"><span>Ghi chú đã lưu</span><button class="n" id="bLsNew">➕ Ghi chú mới</button></div><div id="lb"></div></div>
 <div id="txtbar"><button class="n" id="tCut">✂ Cắt</button><button class="c" id="tCopy">📋 Copy</button><button class="i" id="tPaste">Dán 📄</button><button class="d" id="tDel">🗑 Xoá</button><button class="s" id="tAll">☑ Chọn tất cả</button></div>
 <div id="wrap"><div id="ed" contenteditable="true" data-ph="Gõ ghi chú ở đây... Dán ảnh: ảnh nằm trái/phải thì chữ chạy bên cạnh ảnh"></div></div>
+<div id="tblbar">
+  <span>Cột:</span><button class="st" id="cMinus">−</button><span class="num" id="cNum">1</span><button class="st" id="cPlus">+</button>
+  <span>Dòng:</span><button class="st" id="rMinus">−</button><span class="num" id="rNum">1</span><button class="st" id="rPlus">+</button>
+  <button class="s" id="tblOk">✔ Chèn bảng</button><button id="tblX">✕ Đóng</button>
+</div>
 <script>
 var ed=document.getElementById('ed'),ti=document.getElementById('title'),bar=document.getElementById('imgbar');
 var sel=null,saved=null,tmr=null;
@@ -454,6 +468,45 @@ $('fDone').onclick=function(){
   $('colbar').classList.remove('on');
   updTxtBar();
 };
+
+/* ---- chèn bảng: thanh dưới đáy chọn số cột / số dòng (mặc định 1 x 1, dấu − chỉ bấm được khi > 1) ---- */
+var tbl={c:1,r:1,rng:null},TMAX=20;
+function tblShow(){
+  $('cNum').textContent=tbl.c;$('rNum').textContent=tbl.r;
+  $('cMinus').disabled=tbl.c<=1;$('rMinus').disabled=tbl.r<=1;
+  $('cPlus').disabled=tbl.c>=TMAX;$('rPlus').disabled=tbl.r>=TMAX;
+}
+function tblClose(){$('tblbar').classList.remove('on')}
+$('bTbl').onclick=function(){
+  var b=$('tblbar');
+  if(b.classList.contains('on')){tblClose();return}
+  var r=curRange()||(saved&&ed.contains(saved.startContainer)?saved:null);
+  tbl.rng=r?r.cloneRange():null;
+  tbl.c=1;tbl.r=1;tblShow();b.classList.add('on');
+};
+$('cMinus').onclick=function(){if(tbl.c>1){tbl.c--;tblShow()}};
+$('cPlus').onclick=function(){if(tbl.c<TMAX){tbl.c++;tblShow()}};
+$('rMinus').onclick=function(){if(tbl.r>1){tbl.r--;tblShow()}};
+$('rPlus').onclick=function(){if(tbl.r<TMAX){tbl.r++;tblShow()}};
+$('tblX').onclick=tblClose;
+$('tblOk').onclick=function(){
+  var cell='<td style="border:1px solid #555;padding:8px;min-width:70px"><br></td>',row='<tr>',i;
+  for(i=0;i<tbl.c;i++)row+=cell;row+='</tr>';
+  var h='<table style="border-collapse:collapse;margin:8px 0">',t='';
+  for(i=0;i<tbl.r;i++)t+=row;
+  h+='<tbody>'+t+'</tbody></table><div><br></div>';
+  ed.focus();
+  var s=getSelection();s.removeAllRanges();
+  if(tbl.rng&&ed.contains(tbl.rng.startContainer))s.addRange(tbl.rng);
+  else{var e=document.createRange();e.selectNodeContents(ed);e.collapse(false);s.addRange(e)}
+  document.execCommand('insertHTML',false,h);
+  schedule();tblClose();
+};
+['tblbar'].forEach(function(id){
+  var el=$(id);
+  el.addEventListener('mousedown',function(e){e.preventDefault()});
+  el.addEventListener('pointerdown',function(e){e.preventDefault()});
+});
 
 /* ---- màn hình cảm ứng: giữ ngón yên ~0,4 giây rồi kéo để quét khối chữ ---- */
 var touchSel={mode:0,timer:null,sx:0,sy:0,anc:null};
