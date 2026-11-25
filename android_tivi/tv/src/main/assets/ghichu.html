@@ -342,8 +342,17 @@ function fmtApply(fn){
   ed.focus();
   var s=getSelection();s.removeAllRanges();s.addRange(lr);
   fn(lr);
-  s=getSelection();s.removeAllRanges();s.addRange(lineRange(lr));
+  /* bỏ vùng chọn để màu/cỡ/kiểu mới hiện ngay trên chữ (WebView không vẽ lại chữ khi còn vùng chọn);
+     sau đó chọn lại đúng các dòng vừa định dạng để tiếp tục bấm nút khác */
+  s=getSelection();s.removeAllRanges();
+  void ed.offsetHeight;
   schedule();updTxtBar();
+  var keep=lineRange(lr);
+  setTimeout(function(){
+    var q=getSelection();
+    if(!q.rangeCount||q.isCollapsed){q.removeAllRanges();q.addRange(keep)}
+    updTxtBar();
+  },60);
 }
 function fmtAlign(cmd){fmtApply(function(){document.execCommand(cmd,false,null)})}
 function fmtSize(d){
