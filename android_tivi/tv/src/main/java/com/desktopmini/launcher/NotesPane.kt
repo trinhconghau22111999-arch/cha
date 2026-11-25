@@ -452,16 +452,20 @@ class NotesPane(private val act: Activity) {
         bar.gravity = Gravity.CENTER_VERTICAL
         bar.setBackgroundColor(0x99000000.toInt())
         bar.setPadding(dp(14), dp(8), dp(14), dp(8))
-        fun label(t: String) = TextView(act).apply { text = t; setTextColor(Color.WHITE); textSize = 22f; setPadding(dp(8), 0, dp(8), 0) }
         val seek = SeekBar(act)
-        bar.addView(label("−"))
+        // thanh zoom dày gấp 4 lần mặc định (~4dp -> 16dp), bỏ dấu − và +
+        val track = GradientDrawable().apply { setColor(0x66FFFFFF); cornerRadius = dp(8).toFloat(); setSize(-1, dp(16)) }
+        val fill = GradientDrawable().apply { setColor(0xFF00B85C.toInt()); cornerRadius = dp(8).toFloat(); setSize(-1, dp(16)) }
+        seek.progressDrawable = android.graphics.drawable.LayerDrawable(arrayOf(
+            track, android.graphics.drawable.ClipDrawable(fill, Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL)
+        )).also { it.setId(0, android.R.id.background); it.setId(1, android.R.id.progress) }
+        seek.thumb = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.WHITE); setSize(dp(28), dp(28)) }
         bar.addView(seek, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
-        bar.addView(label("+"))
         val shutter = TextView(act)
         shutter.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.WHITE); setStroke(dp(4), 0xFF00B85C.toInt()) }
         shutter.gravity = Gravity.CENTER
         shutter.contentDescription = "Chụp"
-        bar.addView(shutter, android.widget.LinearLayout.LayoutParams(dp(64), dp(64)).apply { leftMargin = dp(16) })
+        bar.addView(shutter, android.widget.LinearLayout.LayoutParams(dp(51), dp(51)).apply { leftMargin = dp(16) })
         root.addView(bar, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
 
         val close = TextView(act)
