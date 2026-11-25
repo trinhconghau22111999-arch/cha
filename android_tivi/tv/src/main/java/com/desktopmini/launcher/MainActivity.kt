@@ -311,6 +311,16 @@ class MainActivity : Activity(), FullscreenHost {
         setPadding(dp(4), 0, dp(4), 0)
     }
 
+    // Rung nhẹ một cái (nút Cập nhật và nút mũi tên Thoát)
+    private fun buzz() {
+        try {
+            val v = getSystemService(Context.VIBRATOR_SERVICE) as? android.os.Vibrator ?: return
+            if (!v.hasVibrator()) return
+            if (Build.VERSION.SDK_INT >= 26) v.vibrate(android.os.VibrationEffect.createOneShot(40, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+            else @Suppress("DEPRECATION") v.vibrate(40)
+        } catch (_: Exception) {}
+    }
+
     private fun small(t: String, sp: Float = 11f, bold: Boolean = false) = TextView(this).apply {
         text = t; textSize = sp; setTextColor(BAR_TEXT); gravity = Gravity.CENTER_VERTICAL
         if (bold) typeface = android.graphics.Typeface.DEFAULT_BOLD
@@ -341,7 +351,7 @@ class MainActivity : Activity(), FullscreenHost {
         val btnSettings = barBtn("Cài đặt").apply { setOnClickListener { hideMenu(); openTvSettings() } }
         btnFiles = barBtn("Tệp").apply { setOnClickListener { hideMenu(); onModeButton(3) } }
         val btnHome = barBtn("Home").apply { setOnClickListener { hideMenu(); goTvHome() } }
-        val btnUpdate = barBtn("Cập nhật").apply { setOnClickListener { hideMenu(); Updater.start(this@MainActivity) } }
+        val btnUpdate = barBtn("Cập nhật").apply { setOnClickListener { buzz(); hideMenu(); Updater.start(this@MainActivity) } }
         // OFF: nhấp 1 lần = tắt hình TV (khóa màn hình), tắt ngay
         val btnOff = barBtn("OFF").apply {
             tag = "off"
@@ -356,7 +366,7 @@ class MainActivity : Activity(), FullscreenHost {
             }
         }
         val btnBack = barBtn("", ArrowLeftDrawable(dp(22), BAR_TEXT, dp(3).toFloat())).apply {
-            contentDescription = "Thoát"; setOnClickListener { hideMenu(); goBack() }
+            contentDescription = "Thoát"; setOnClickListener { buzz(); hideMenu(); goBack() }
         }
         // 10 nút bằng nhau: Menu | TV | YouTube | Trình duyệt | Ghi chú | Ái Kara | Cài đặt | Tệp | Home | Cập nhật | ← (Thoát); OFF nằm cuối hàng, bên phải nút X
         btnKb = barBtn("⌨").apply { minWidth = 0; setBackgroundColor(0xFF2E9E5B.toInt()); setTextColor(Color.WHITE); contentDescription = "Bàn phím"; setOnClickListener { hideMenu(); toggleKeyboard() } }
