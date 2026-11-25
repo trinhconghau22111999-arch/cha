@@ -370,13 +370,13 @@ class MainActivity : Activity(), FullscreenHost {
         // Góc phải: giờ, ngày, âm lịch (cùng cỡ chữ 13sp, đậm), rồi nút X gỡ app
         val cluster = 13f
         // Pin nằm bên trái giờ: "Pin 25%"; đang sạc thì "10W Pin 25%"
-        tvBatt = small("", cluster, true).apply { setTextColor(0xFF69F0AE.toInt()); setPadding(dp(14), 0, 0, 0) }
+        tvBatt = small("", cluster, true).apply { setTextColor(NEON_CYAN); setPadding(dp(14), 0, 0, 0) }
         bar.addView(tvBatt, LinearLayout.LayoutParams(-2, -1))
         tvTime = small("--:--", cluster, true).apply { setTextColor(NEON_CYAN); setPadding(dp(14), 0, dp(12), 0) }
         bar.addView(tvTime, LinearLayout.LayoutParams(-2, -1))
-        tvDate = small("", cluster, true).apply { setTextColor(0xFFB0BEC5.toInt()); setPadding(0, 0, dp(12), 0) }
+        tvDate = small("", cluster, true).apply { setTextColor(NEON_CYAN); setPadding(0, 0, dp(12), 0) }
         bar.addView(tvDate, LinearLayout.LayoutParams(-2, -1))
-        tvLunar = small("", cluster, true).apply { setTextColor(0xFFFFC400.toInt()) }
+        tvLunar = small("", cluster, true).apply { setTextColor(NEON_CYAN) }
         bar.addView(tvLunar, LinearLayout.LayoutParams(-2, -1))
         val btnKill = barBtn("X").apply {
             background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFFFC107.toInt()); setStroke(dp(1), 0xFFFFD54F.toInt()) }
