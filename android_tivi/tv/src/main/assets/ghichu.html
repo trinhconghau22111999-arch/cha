@@ -323,7 +323,7 @@ document.addEventListener('selectionchange',updTxtBar);
 document.addEventListener('scroll',updTxtBar,true);
 window.addEventListener('resize',updTxtBar);
 
-/* ---- định dạng: căn lề, cỡ chữ, màu, gạch chân, in đậm, in nghiêng (áp dụng cho nguyên dòng đang chọn) ---- */
+/* ---- định dạng: căn lề, cỡ chữ, màu, gạch chân, in đậm, in nghiêng (chỉ áp dụng đúng phần đang quét khối) ---- */
 var fmtOn=false;
 document.execCommand('styleWithCSS',false,false);
 /* đoạn (dòng) cấp cao nhất trong ô soạn thảo chứa nút n */
@@ -337,37 +337,88 @@ function lineRange(r){
   if(a===ed||b===ed){x.selectNodeContents(ed);return x}
   x.setStartBefore(a);x.setEndAfter(b);return x;
 }
-function fmtApply(fn){
+/* ---- tách riêng phần quét khối: cắt đoạn chứa nó thành các khối riêng, chỉ phần quét được căn lề ---- */
+function hasContent(n){return n.textContent.length>0||!!(n.querySelector&&n.querySelector('img'))}
+var BLK=/^(DIV|P|H[1-6]|UL|OL|LI|TABLE|BLOCKQUOTE|PRE|IMG)$/;
+/* chữ/thẻ nằm trần trong ô soạn thảo (vd dòng đầu tiên) được bọc vào <div> để thành 1 khối */
+function normalizeBlocks(){
+  var run=null;
+  Array.prototype.slice.call(ed.childNodes).forEach(function(n){
+    if(n.nodeType===1&&BLK.test(n.nodeName)){run=null;return}
+    if(!run){run=document.createElement('div');ed.insertBefore(run,n)}
+    run.appendChild(n);
+  });
+}
+/* cắt khối chứa mốc m: before=true thì cắt ngay trước m, ngược lại ngay sau m */
+function splitAt(m,before){
+  var B=blockOf(m);
+  if(B===ed||B.nodeType!==1)return;
+  var x=document.createRange();
+  if(before)x.setStartBefore(m);else x.setStartAfter(m);
+  x.setEnd(B,B.childNodes.length);
+  var nb=B.cloneNode(false);              /* giữ nguyên căn lề cũ cho phần bị cắt ra */
+  nb.appendChild(x.extractContents());
+  B.parentNode.insertBefore(nb,B.nextSibling);
+  if(before){if(!hasContent(B))B.parentNode.removeChild(B)}
+  else if(!hasContent(nb))nb.parentNode.removeChild(nb);
+}
+/* trả về vùng chọn bao đúng các khối chỉ chứa phần quét (các dòng khác của đoạn bị tách ra) */
+function isolate(r){
+  var sr=r.cloneRange(),er=r.cloneRange();
+  sr.collapse(true);er.collapse(false);
+  var mS=document.createElement('span'),mE=document.createElement('span');
+  er.insertNode(mE);sr.insertNode(mS);
+  normalizeBlocks();
+  splitAt(mS,true);
+  splitAt(mE,false);
+  var first=blockOf(mS),last=blockOf(mE);
+  mS.parentNode.removeChild(mS);mE.parentNode.removeChild(mE);
+  ed.normalize();
+  var x=document.createRange();
+  x.setStartBefore(first);x.setEndAfter(last);
+  return x;
+}
+/* block=true (căn lề): tách phần quét thành khối riêng; còn lại (cỡ chữ, màu, đậm...) chỉ tác động đúng phần quét.
+   Chưa quét gì (chỉ đặt con trỏ) thì áp dụng cho dòng/đoạn đang đứng. */
+function fmtApply(fn,block){
   var r=curRange()||(saved&&ed.contains(saved.startContainer)?saved:null);
   if(!r){if(A())A().toast('Chọn một dòng trước');return}
-  var lr=lineRange(r);
+  var lr;
+  if(r.collapsed)lr=lineRange(r);
+  else if(block)lr=isolate(r.cloneRange());
+  else lr=r.cloneRange();
   ed.focus();
   var s=getSelection();s.removeAllRanges();s.addRange(lr);
   fn(lr);
+  var keep=s.rangeCount?s.getRangeAt(0).cloneRange():lr;
   /* bỏ vùng chọn để màu/cỡ/kiểu mới hiện ngay trên chữ (WebView không vẽ lại chữ khi còn vùng chọn);
-     sau đó chọn lại đúng các dòng vừa định dạng để tiếp tục bấm nút khác */
-  s=getSelection();s.removeAllRanges();
+     sau đó chọn lại đúng phần vừa định dạng để tiếp tục bấm nút khác */
+  s.removeAllRanges();
   void ed.offsetHeight;
   schedule();updTxtBar();
-  var keep=lineRange(lr);
   setTimeout(function(){
     var q=getSelection();
     if(!q.rangeCount||q.isCollapsed){q.removeAllRanges();q.addRange(keep)}
     updTxtBar();
   },60);
 }
-function fmtAlign(cmd){fmtApply(function(){document.execCommand(cmd,false,null)})}
+function fmtAlign(cmd){fmtApply(function(){document.execCommand(cmd,false,null)},true)}
 function fmtSize(d){
   fmtApply(function(lr){
     var st=lr.startContainer,el=st.nodeType===3?st.parentNode:st;
     var cur=parseFloat(getComputedStyle(el).fontSize)||19;
     var nw=Math.max(10,Math.min(60,cur+d));
     document.execCommand('fontSize',false,'7');
+    var spans=[];
     ed.querySelectorAll('font[size="7"]').forEach(function(f){
       var sp=document.createElement('span');sp.style.fontSize=nw+'px';
       while(f.firstChild)sp.appendChild(f.firstChild);
-      f.parentNode.replaceChild(sp,f);
+      f.parentNode.replaceChild(sp,f);spans.push(sp);
     });
+    if(spans.length){   /* chọn lại đúng phần vừa đổi cỡ */
+      var nr=document.createRange();nr.setStartBefore(spans[0]);nr.setEndAfter(spans[spans.length-1]);
+      var q=getSelection();q.removeAllRanges();q.addRange(nr);
+    }
   });
 }
 function fmtColor(c){fmtApply(function(){document.execCommand('foreColor',false,c)})}
