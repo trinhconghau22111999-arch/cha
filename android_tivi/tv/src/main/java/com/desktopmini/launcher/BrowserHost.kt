@@ -50,7 +50,6 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
-import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
@@ -326,6 +325,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         when {
             snipView != null -> cancelSnip()
             customView != null -> hideCustomView()
+            menuScrim != null -> closeMenu()
             dlScrim.visibility == View.VISIBLE -> closeDownloads()
             drawerScrim.visibility == View.VISIBLE -> closeDrawer()
             splitService != null && splitTab?.webView?.hasFocus() == true &&
@@ -1286,41 +1286,53 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         active?.webView?.let { go(it, url) }
     }
 
+    // Menu ba chấm vẽ ngay trong giao diện (KHÔNG dùng PopupMenu): PopupMenu là một cửa sổ riêng nên làm app mất focus,
+    // lớp giao diện trợ năng bị gỡ và hệ thống kéo thanh trạng thái + thanh đa nhiệm ra.
+    private var menuScrim: FrameLayout? = null
+
+    private fun closeMenu() {
+        menuScrim?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        menuScrim = null
+    }
+
     private fun showMenu(anchor: View) {
-        val tab = active
-        val popup = PopupMenu(this, anchor)
-        val m = popup.menu
-        m.add(0, 16, 0, "Chế độ ẩn danh").apply {
-            isCheckable = true
-            isChecked = incognitoOn
+        if (menuScrim != null) { closeMenu(); return }
+        // Mục "Dấu trang", "Xoá lịch sử", "Chặn web đen / lừa đảo", "Đặt lại zoom" vẫn ẩn như trước (chức năng giữ nguyên trong code).
+        val items = listOf<Triple<String, Boolean?, () -> Unit>>(
+            Triple("Chế độ ẩn danh", incognitoOn, { toggleIncognito() }),
+            Triple("Lịch sử", null, { showList("Lịch sử", "history", true) }),
+            Triple("Chặn quảng cáo YouTube (tự bấm Bỏ qua)", adSkipOn, { toggleAdSkip() }),
+            Triple("Mở link bằng 1 chạm", oneTapOn, { toggleOneTap() })
+        )
+        val scrim = FrameLayout(this).apply {
+            setBackgroundColor(0x00000000)
+            setOnClickListener { closeMenu() }
         }
-        m.add(0, 4, 0, "Lịch sử")
-        // Mục "Xoá lịch sử" (id 7) và "Dấu trang" (id 3) đã ẩn khỏi menu: xoá lịch sử có nút "Xoá hết" trong trang Lịch sử,
-        // dấu trang mở từ nút ★ trên thanh tab; clearData() và showList("Dấu trang") vẫn giữ nguyên.
-        // Mục "Chặn web đen / lừa đảo" (id 11) đã ẩn khỏi menu; showPhishingManager() và cơ chế chặn vẫn giữ nguyên.
-        m.add(0, 13, 0, "Chặn quảng cáo YouTube (tự bấm Bỏ qua)").apply {
-            isCheckable = true
-            isChecked = adSkipOn
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.WHITE)
+            elevation = dp(8).toFloat()
+            setOnClickListener { }
         }
-        m.add(0, 14, 0, "Mở link bằng 1 chạm").apply {
-            isCheckable = true
-            isChecked = oneTapOn
+        for ((label, checked, action) in items) {
+            panel.addView(TextView(this).apply {
+                text = (if (checked == null) "" else if (checked) "✓  " else "☐  ") + label
+                textSize = 16f
+                setTextColor(Color.BLACK)
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16), 0, dp(20), 0)
+                setOnClickListener { closeMenu(); action() }
+            }, LinearLayout.LayoutParams(WRAP, dp(48)))
         }
-        // Mục "Đặt lại zoom trang này" (id 15) đã ẩn khỏi menu; chức năng resetZoom() vẫn giữ nguyên.
-        popup.setOnMenuItemClickListener { item ->
-            when (item.itemId) {
-                3 -> showList("Dấu trang", "bookmarks", false)
-                4 -> showList("Lịch sử", "history", true)
-                16 -> toggleIncognito()
-                7 -> clearData()
-                11 -> showPhishingManager()
-                13 -> toggleAdSkip()
-                14 -> toggleOneTap()
-                15 -> resetZoom()
-            }
-            true
+        val a = IntArray(2); val r = IntArray(2)
+        anchor.getLocationOnScreen(a); rootFrame.getLocationOnScreen(r)
+        val lp = FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.START).apply {
+            leftMargin = (a[0] - r[0]).coerceAtLeast(0)
+            topMargin = (a[1] - r[1]) + anchor.height
         }
-        popup.show()
+        scrim.addView(panel, lp)
+        rootFrame.addView(scrim, FrameLayout.LayoutParams(MATCH, MATCH))
+        menuScrim = scrim
     }
 
     // Chế độ ẩn danh: không ghi lịch sử trang đã mở (kể cả trang tìm kiếm). Chỉ có hiệu lực trong phiên này.
