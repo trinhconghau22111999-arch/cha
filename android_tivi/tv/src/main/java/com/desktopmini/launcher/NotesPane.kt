@@ -155,7 +155,7 @@ class NotesPane(private val act: Activity) {
 
     /** Tiêu đề lúc bấm "+": Ghi chú ngày-tháng giờ-phút (không trùng tên tệp đã có). */
     private fun makeTitle(): String {
-        val base = "Ghi chú ngày " + SimpleDateFormat("dd-MM", Locale("vi")).format(Date()) + " lúc " + SimpleDateFormat("HH:mm", Locale("vi")).format(Date())
+        val base = "Ghi chú ngày " + SimpleDateFormat("dd-MM", Locale("vi")).format(Date()) + " lúc " + SimpleDateFormat("HH'h'mm", Locale("vi")).format(Date())
         if (!File(dir(), "$base.ghichu.html").exists()) return base
         return uniqueFile(base).name.removeSuffix(".ghichu.html")
     }
