@@ -393,7 +393,7 @@ class MainActivity : Activity(), FullscreenHost {
                 }
             }
         }
-        bar.addView(btnKb, LinearLayout.LayoutParams(dp(34), -1).also { it.leftMargin = dp(10) })
+        bar.addView(btnKb, LinearLayout.LayoutParams(dp(44), -1).also { it.leftMargin = dp(10) })
         bar.addView(btnKill, LinearLayout.LayoutParams(dp(44), -1).also { it.leftMargin = dp(4) })
         btnKillRef = btnKill; barItems.add(barItems.indexOf(btnOff), btnKill)      // remote ◀▶ chọn được nút X, OK = bấm
         // OFF: cuối cùng bên phải nút X, bề ngang = 60% một nút thường (theo bề ngang nút Menu sau khi bố cục xong)
