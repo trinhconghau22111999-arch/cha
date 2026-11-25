@@ -1873,7 +1873,7 @@ class BrowserHost(private val act: Activity, private val onClose: () -> Unit) : 
         val landscape = if (rootFrame.width > 0 && rootFrame.height > 0) rootFrame.width > rootFrame.height
             else resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val lp = dlPanel.layoutParams as FrameLayout.LayoutParams
-        if (landscape) { lp.width = m.widthPixels / 2; lp.height = MATCH; lp.gravity = Gravity.START }
+        if (landscape) { lp.width = m.widthPixels / 2; lp.height = MATCH; lp.gravity = Gravity.END }
         else { lp.width = MATCH; lp.height = m.heightPixels / 2; lp.gravity = Gravity.TOP }
         dlPanel.layoutParams = lp
         dlScrim.visibility = View.VISIBLE
