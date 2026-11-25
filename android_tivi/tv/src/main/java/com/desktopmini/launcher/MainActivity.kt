@@ -293,7 +293,7 @@ class MainActivity : Activity(), FullscreenHost {
                 else -> setStroke(dp(1), BTN_EDGE)
             }
         }
-        b.setTextColor(if (isKill) 0xFF3A3000.toInt() else if (on || isOff || isKb) Color.WHITE else BAR_TEXT)
+        b.setTextColor(if (isKill) Color.BLACK else if (on || isOff || isKb) Color.WHITE else BAR_TEXT)
     }
 
     private fun barBtn(text: String, arrow: ArrowLeftDrawable? = null): TextView = (if (arrow != null) ArrowButton(this, arrow) else TextView(this)).apply {
@@ -380,7 +380,7 @@ class MainActivity : Activity(), FullscreenHost {
         bar.addView(tvLunar, LinearLayout.LayoutParams(-2, -1))
         val btnKill = barBtn("X").apply {
             background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dp(6).toFloat(); setColor(0xFFFFC107.toInt()); setStroke(dp(1), 0xFFFFD54F.toInt()) }
-            setTextColor(0xFF3A3000.toInt())
+            setTextColor(Color.BLACK)
             setOnClickListener { hideMenu(); confirmSelfRemove() }
             // Nhấn giữ 1 giây: bảng Ẩn/hiện nút (nhấn thường vẫn hỏi gỡ app như cũ)
             var held = false
