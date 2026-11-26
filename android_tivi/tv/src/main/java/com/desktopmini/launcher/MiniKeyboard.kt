@@ -163,6 +163,9 @@ class MiniKeyboard(
         } else { resetWord(); send(1, "") }
     }
 
+    /** Cập nhật nhãn VN/EN khi chế độ gõ bị đổi từ nơi khác (vd phím tắt bàn phím vật lý). */
+    fun syncLang() { refreshLabels() }
+
     private fun refreshLabels() {
         for ((c, tv) in letterKeys) tv.text = (if (shift) Character.toUpperCase(c) else c).toString()
         shiftKey.background = keyBg(if (shift) 0xFF7C4DFF.toInt() else 0xFF2A3556.toInt())

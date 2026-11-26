@@ -663,6 +663,7 @@ class MainActivity : Activity(), FullscreenHost {
     // Bàn phím / remote vật lý: đưa thẳng vào bộ xử lý ô chọn của app trước khi View nào đó (WebView, nút...) kịp nuốt Enter.
     // Phím giả lập trong app (deviceId ảo) đi đường cũ để không bị lặp.
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (physicalTelex(event)) return true
         if (event.deviceId != android.view.KeyCharacterMap.VIRTUAL_KEYBOARD && keyName(event.keyCode) != null) {
             val handled = if (event.action == KeyEvent.ACTION_DOWN) onKeyDown(event.keyCode, event)
                           else if (event.action == KeyEvent.ACTION_UP) onKeyUp(event.keyCode, event) else false
@@ -670,6 +671,93 @@ class MainActivity : Activity(), FullscreenHost {
         }
         if (forwardPhysicalTypingKey(event)) return true
         return super.dispatchKeyEvent(event)
+    }
+
+    // ===== Gõ tiếng Việt (Telex) bằng bàn phím vật lý / Bluetooth =====
+    // Giao diện nổi trong cửa sổ trợ năng không có bộ gõ của hệ thống nên phím vật lý chỉ ra chữ không dấu.
+    // Ở đây tự ghép Telex bằng đúng bộ Telex của bàn phím ảo. Ctrl+Shift (nhấn rồi nhả, không bấm phím nào khác) = đổi VN/EN.
+    private val pRaw = StringBuilder()
+    private var pShown = ""
+    private val pConsumed = HashSet<Int>()
+    private var vnToggleArmed = false
+
+    private fun pReset() { pRaw.setLength(0); pShown = "" }
+
+    private fun toggleVn() {
+        MiniKeyboard.vnMode = !MiniKeyboard.vnMode
+        pReset(); kb?.syncLang()
+        Toast.makeText(this, if (MiniKeyboard.vnMode) "Gõ tiếng Việt (Telex): BẬT" else "Gõ tiếng Việt: TẮT (gõ không dấu)", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun physicalTelex(event: KeyEvent): Boolean {
+        if (event.deviceId == android.view.KeyCharacterMap.VIRTUAL_KEYBOARD) return false
+        val kc = event.keyCode
+        val isMod = kc == KeyEvent.KEYCODE_CTRL_LEFT || kc == KeyEvent.KEYCODE_CTRL_RIGHT ||
+            kc == KeyEvent.KEYCODE_SHIFT_LEFT || kc == KeyEvent.KEYCODE_SHIFT_RIGHT
+        if (event.action == KeyEvent.ACTION_UP) {
+            if (isMod && vnToggleArmed) { vnToggleArmed = false; toggleVn() }
+            return pConsumed.remove(kc)
+        }
+        if (event.action != KeyEvent.ACTION_DOWN) return false
+        if (isMod) { if (event.isCtrlPressed && event.isShiftPressed) vnToggleArmed = true; return false }
+        vnToggleArmed = false
+        if (event.isCtrlPressed || event.isAltPressed || event.isMetaPressed || !MiniKeyboard.vnMode ||
+            barFocus >= 0 || menuOpen()) { pReset(); return false }
+        val isDel = kc == KeyEvent.KEYCODE_DEL
+        val u = event.unicodeChar
+        val ch: Char = if ((u >= 'a'.code && u <= 'z'.code) || (u >= 'A'.code && u <= 'Z'.code)) u.toChar() else '\u0000'
+        if (ch == '\u0000' && !isDel) { pReset(); return false }
+        if (isDel && pRaw.isEmpty()) return false
+        return try {
+            val f = rootView.findFocus()
+            if (f is android.widget.EditText) physicalTelexEdit(f, kc, ch, isDel)
+            else {
+                val wv = currentWebForKeys()
+                if (wv == null) { pReset(); false } else physicalTelexWeb(wv, event, ch, isDel)
+            }
+        } catch (e: Exception) { pReset(); false }
+    }
+
+    private fun physicalTelexEdit(f: android.widget.EditText, kc: Int, ch: Char, isDel: Boolean): Boolean {
+        val v = f.inputType and android.text.InputType.TYPE_MASK_VARIATION
+        if ((f.inputType and android.text.InputType.TYPE_MASK_CLASS) != android.text.InputType.TYPE_CLASS_TEXT ||
+            v == android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD || v == android.text.InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
+            v == android.text.InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD || v == android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
+            v == android.text.InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS || v == android.text.InputType.TYPE_TEXT_VARIATION_URI) {
+            pReset(); return false
+        }
+        val t = f.text
+        val a = f.selectionStart.coerceAtLeast(0); val b = f.selectionEnd.coerceAtLeast(0)
+        val s = minOf(a, b); val e = maxOf(a, b)
+        if (s != e) pReset()
+        else if (pShown.isNotEmpty() && !(s >= pShown.length && t.substring(s - pShown.length, s) == pShown)) pReset()
+        if (isDel) {
+            if (pRaw.isEmpty()) return false
+            pRaw.setLength(pRaw.length - 1)
+        } else pRaw.append(ch)
+        val out = Telex.compose(pRaw.toString())
+        val from = if (s != e) s else s - pShown.length
+        t.replace(from, e, out)
+        pShown = out
+        pConsumed.add(kc)
+        return true
+    }
+
+    private fun physicalTelexWeb(wv: WebView, event: KeyEvent, ch: Char, isDel: Boolean): Boolean {
+        if (isDel) pRaw.setLength(pRaw.length - 1) else pRaw.append(ch)
+        val out = Telex.compose(pRaw.toString())
+        val del = pShown.length
+        pShown = out
+        pConsumed.add(event.keyCode)
+        val down = KeyEvent.changeAction(event, KeyEvent.ACTION_DOWN)
+        val up = KeyEvent.changeAction(event, KeyEvent.ACTION_UP)
+        wv.evaluateJavascript("(" + TEXT_EDIT_FN + ")(" + del + "," + JSONObject.quote(out) + ",true);") { r ->
+            if (r != "true") {          // trang không có ô chữ đang chọn (hoặc là ô mật khẩu/email...): trả phím thô cho trang
+                pReset()
+                try { wv.dispatchKeyEvent(down); wv.dispatchKeyEvent(up) } catch (e: Exception) { }
+            }
+        }
+        return true
     }
 
     /**

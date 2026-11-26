@@ -1,9 +1,9 @@
 package com.desktopmini.launcher
 
 internal val TEXT_EDIT_FN = """
-function(del, ins) {
+function(del, ins, phys) {
   var el = document.activeElement;
-  function drop() { window.__wbGhost = ins ? ins : null; return false; }     // không có ô nhập: bỏ chữ, nhớ để khỏi dồn vào lần gõ sau
+  function drop() { if (!phys) window.__wbGhost = ins ? ins : null; return false; }     // không có ô nhập: bỏ chữ, nhớ để khỏi dồn vào lần gõ sau
   try {
     while (el && el.tagName === 'IFRAME' && el.contentDocument && el.contentDocument.activeElement) {
       el = el.contentDocument.activeElement;
@@ -12,6 +12,8 @@ function(del, ins) {
   if (!el) return drop();
   var doc = el.ownerDocument;
   if (!(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return drop();
+  // Bàn phím vật lý: ô mật khẩu / email / địa chỉ / số... để phím chạy bình thường (không ghép Telex)
+  if (phys && el.tagName === 'INPUT') { var ty = (el.getAttribute('type') || 'text').toLowerCase(); if (ty !== 'text' && ty !== 'search') return drop(); }
   // Bàn phím gửi "xoá cả từ đang gõ + chèn lại từ mới". Nếu con trỏ đã sang chỗ khác (vd ô bảng khác)
   // thì không được chèn lại chữ cũ: chỉ chèn phần mới. skip = số ký tự đầu của từ không nằm ở chỗ con trỏ.
   function commonLen(a, b) { var n = 0; while (n < a.length && n < b.length && a.charAt(n) === b.charAt(n)) n++; return n; }
