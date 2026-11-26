@@ -365,7 +365,7 @@ class MainActivity : Activity(), FullscreenHost {
                     ScreenAdmin.requestActivation(this@MainActivity)
                 }
             }
-            // Nhấn giữ 1 giây: mở bảng Tắt nguồn của hệ thống (nhấn thường vẫn tắt màn hình như cũ)
+            // Nhấn giữ 1 giây: mở thẳng bảng Tắt nguồn của hệ thống (nhấn thường vẫn tắt màn hình như cũ)
             var held = false
             val fire = Runnable { held = true; openSystemPowerMenu() }
             setOnTouchListener { _, ev ->
@@ -1384,7 +1384,25 @@ class MainActivity : Activity(), FullscreenHost {
     private fun openSystemPowerMenu() {
         hideMenu()
         buzz()
-        ui.postDelayed({ showPowerDialog() }, 500)
+        // Bỏ khung "Tắt nguồn TV" của app: nhấn giữ xong mở thẳng bảng tắt nguồn của hệ thống (Khởi động lại / Tắt nguồn / Chế độ máy bay / Khóa ngay)
+        ui.postDelayed({ openSystemPowerDialogDirect() }, 300)
+    }
+
+    private fun openSystemPowerDialogDirect() {
+        if (isFinishing) return
+        try {
+            detachUiOverlay()
+            showSystemBars()
+            noOverlayUntil = android.os.SystemClock.uptimeMillis() + 5000
+            ui.postDelayed({
+                if (RemoteAccessibilityService.instance?.powerMenu() != true)
+                    Toast.makeText(this, "Không mở được bảng tắt nguồn. Trợ năng của app TV: ${if (RemoteAccessibilityService.instance != null) "đã bật" else "CHƯA bật (vào Cài đặt > Trợ năng để bật)"}. Android ${Build.VERSION.RELEASE}, ${Build.MANUFACTURER} ${Build.MODEL}", Toast.LENGTH_LONG).show()
+            }, 200)
+            ui.postDelayed({ attachUiOverlay() }, 5200)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Lỗi mở bảng tắt nguồn: ${e.message}", Toast.LENGTH_LONG).show()
+            attachUiOverlay()
+        }
     }
 
     @Suppress("DEPRECATION")
