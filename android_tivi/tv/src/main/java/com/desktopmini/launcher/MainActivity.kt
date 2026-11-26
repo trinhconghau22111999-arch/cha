@@ -668,8 +668,40 @@ class MainActivity : Activity(), FullscreenHost {
                           else if (event.action == KeyEvent.ACTION_UP) onKeyUp(event.keyCode, event) else false
             if (handled) return true
         }
+        if (forwardPhysicalTypingKey(event)) return true
         return super.dispatchKeyEvent(event)
     }
+
+    /**
+     * Bàn phím vật lý (Bluetooth/USB) gõ chữ: khi giao diện đang nằm trong cửa sổ trợ năng nổi (không nhận focus),
+     * cửa sổ Activity bên dưới đã trống nên phím chữ rơi vào hư không. Chuyển thẳng phím vào ô đang focus
+     * (EditText) hoặc trang web đang mở (Ghi chú, Trình duyệt, YouTube tìm kiếm, Ái Kara).
+     */
+    private fun forwardPhysicalTypingKey(event: KeyEvent): Boolean {
+        if (!rootInOverlay) return false
+        if (event.deviceId == android.view.KeyCharacterMap.VIRTUAL_KEYBOARD) return false
+        if (barFocus >= 0 || menuOpen()) return false
+        val kc = event.keyCode
+        val typing = event.isPrintingKey || event.unicodeChar != 0 ||
+            kc == KeyEvent.KEYCODE_DEL || kc == KeyEvent.KEYCODE_FORWARD_DEL || kc == KeyEvent.KEYCODE_TAB ||
+            kc == KeyEvent.KEYCODE_SPACE || kc == KeyEvent.KEYCODE_MOVE_HOME || kc == KeyEvent.KEYCODE_MOVE_END ||
+            kc == KeyEvent.KEYCODE_PAGE_UP || kc == KeyEvent.KEYCODE_PAGE_DOWN ||
+            kc == KeyEvent.KEYCODE_ENTER || kc == KeyEvent.KEYCODE_NUMPAD_ENTER
+        if (!typing) return false
+        return try {
+            val f = rootView.findFocus()
+            val target: View? = if (f is android.widget.EditText) f else currentWebForKeys()
+            if (target == null) false else {
+                if (!target.hasFocus()) target.requestFocus()
+                target.dispatchKeyEvent(event)
+                true
+            }
+        } catch (e: Exception) { false }
+    }
+
+    private fun currentWebForKeys(): WebView? =
+        if (mode == 1) tv?.activeWeb else if (mode == 2) yt?.web else if (mode == 4) aikara?.web
+        else if (mode == 5) browser?.currentWebView else if (mode == 6) notes?.web else null
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN && barFocus < 0) {
