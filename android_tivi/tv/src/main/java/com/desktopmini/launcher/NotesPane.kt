@@ -79,6 +79,8 @@ class NotesPane(private val act: Activity) {
     /** Nút Back khi đang soạn: về trang danh sách (trả true = đã xử lý). Đang ở danh sách: trả false để app quay về trang trước. */
     fun onBack(): Boolean {
         if (overlay != null) { closeOverlay(); return true }      // đang mở camera / cắt ảnh: đóng lại
+        // Vừa đóng camera / màn cắt ảnh (hoặc vừa chèn ảnh): phím Back / chạm dư của lần đóng đó không được kéo ghi chú về trang danh sách
+        if (android.os.SystemClock.uptimeMillis() < noBackUntil) return true
         if (listOpen || !pageReady) return false
         listOpen = true
         showList()
@@ -90,9 +92,10 @@ class NotesPane(private val act: Activity) {
         web.evaluateJavascript("showList()", null)
     }
 
-    /** Rời trang hoặc app đi nền: lưu nốt những gì đang gõ. */
+    /** Rời trang hoặc app đi nền: lưu nốt những gì đang gõ.
+     *  Màn cắt ảnh (đang kéo chọn vùng) được giữ lại khi app chỉ tạm mất tiêu điểm (hộp thoại quyền, thông báo...). Camera thì nhả ra. */
     fun onPause() {
-        closeOverlay()
+        if (overlay != null && overlay !is CropView) closeOverlay()
         if (pageReady) web.evaluateJavascript("flush(false)", null)
     }
 
@@ -413,7 +416,10 @@ class NotesPane(private val act: Activity) {
 
     private fun dp(v: Int) = (v * act.resources.displayMetrics.density).toInt()
 
+    private var noBackUntil = 0L        // trước mốc này (uptimeMillis) nút Back không đưa ghi chú về danh sách
+
     private fun closeOverlay() {
+        if (overlay != null) noBackUntil = android.os.SystemClock.uptimeMillis() + 2500
         releaseCamera()
         overlay?.let { try { view.removeView(it) } catch (e: Exception) { } }
         overlay = null
@@ -598,6 +604,7 @@ class NotesPane(private val act: Activity) {
                     val f = saveToTruyenTep(bmp)
                     val url = photoUrl(bmp)
                     ui.post {
+                        noBackUntil = android.os.SystemClock.uptimeMillis() + 2500
                         web.evaluateJavascript("insertPhoto(" + JSONObject.quote(url) + ")", null)
                         Toast.makeText(act, "Đã chụp - lưu vào trang Tệp: " + f.name, Toast.LENGTH_SHORT).show()
                     }
@@ -645,6 +652,7 @@ class NotesPane(private val act: Activity) {
                     val f = saveToTruyenTep(crop)
                     val url = photoUrl(crop)
                     ui.post {
+                        noBackUntil = android.os.SystemClock.uptimeMillis() + 2500
                         web.evaluateJavascript("insertPhoto(" + JSONObject.quote(url) + ")", null)
                         Toast.makeText(act, "Đã chụp một phần - lưu vào trang Tệp: " + f.name, Toast.LENGTH_SHORT).show()
                     }

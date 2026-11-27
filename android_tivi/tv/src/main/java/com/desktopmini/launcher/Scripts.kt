@@ -40,7 +40,8 @@ function(del, ins, phys) {
     skip = commonLen(g, ins); del = 0; ins = ins.substring(skip);
   } else if (last && del > 0 && del === last.word.length) {
     var real = norm(last.word.substring(last.skip));
-    var here = last.el === el && last.cell === cell && before.length >= real.length && norm(before).slice(before.length - real.length) === real;
+    var nb = norm(before);      // so sánh trên chuỗi ĐÃ chuẩn hoá (chữ tiếng Việt dạng tổ hợp NFD ngắn lại khi chuẩn hoá -> cắt theo độ dài chưa chuẩn hoá là sai)
+    var here = last.el === el && last.cell === cell && nb.length >= real.length && nb.slice(nb.length - real.length) === real;
     if (here) {
       skip = Math.min(last.skip, ins.length); del -= last.skip; ins = ins.substring(skip);
     } else if (ins.length < del) {          // phím xoá ở chỗ mới: chỉ xoá 1 ký tự

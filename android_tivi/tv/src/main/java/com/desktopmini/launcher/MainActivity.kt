@@ -894,7 +894,7 @@ class MainActivity : Activity(), FullscreenHost {
                 content.addView(p.view, FrameLayout.LayoutParams(-1, -1)); p.onResume()
             }
             6 -> {
-                val p = notes ?: NotesPane(this).also { n -> notes = n; n.onCaretTap = { kb?.resetWord() } }
+                val p = notes ?: NotesPane(this).also { n -> notes = n; n.onCaretTap = { kb?.resetWord(); pReset() } }
                 content.addView(p.view, FrameLayout.LayoutParams(-1, -1)); p.onResume()
             }
             5 -> {
