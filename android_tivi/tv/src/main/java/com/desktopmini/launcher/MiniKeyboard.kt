@@ -25,18 +25,29 @@ object TouchRouter {
     private var toKb = false
     private val r = Rect()
 
-    fun dispatch(target: View, ev: MotionEvent) {
+    /**
+     * Chốt chặn chạm đặt ở gốc giao diện (xem MainActivity.buildUi). Cú chạm BẮT ĐẦU trong khung bàn phím
+     * được đưa hết vào bàn phím (DOWN/MOVE/UP) và trả true, nên view bên dưới không bao giờ nhận được nó.
+     * Trả false với các chạm khác để giao diện xử lý như bình thường.
+     */
+    fun route(ev: MotionEvent): Boolean {
         val action = ev.actionMasked
         if (action == MotionEvent.ACTION_DOWN) toKb = hitKeyboard(ev)
         val kb = keyboard
+        var handled = false
         if (toKb && kb != null && kb.isAttachedToWindow) {
             ev.offsetLocation(-kb.left.toFloat(), -kb.top.toFloat())   // đổi sang toạ độ của khung bàn phím
             kb.dispatchTouchEvent(ev)
             ev.offsetLocation(kb.left.toFloat(), kb.top.toFloat())
-        } else {
-            target.dispatchTouchEvent(ev)
+            handled = true
         }
         if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) toKb = false
+        return handled
+    }
+
+    /** Chạm từ điều khiển (chuột ảo): đi qua chốt chặn trước, nếu không thuộc bàn phím thì vào [target]. */
+    fun dispatch(target: View, ev: MotionEvent) {
+        if (!route(ev)) target.dispatchTouchEvent(ev)
     }
 
     private fun hitKeyboard(ev: MotionEvent): Boolean {

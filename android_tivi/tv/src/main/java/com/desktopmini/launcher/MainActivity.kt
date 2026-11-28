@@ -328,7 +328,13 @@ class MainActivity : Activity(), FullscreenHost {
     }
 
     private fun buildUi() {
-        val root = FrameLayout(this)
+        // Gốc giao diện có chốt chặn chạm: chạm bắt đầu trên bàn phím ảo chỉ vào bàn phím, không xuyên xuống nút/ô phía dưới
+        val root = object : FrameLayout(this) {
+            override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+                if (ev != null && TouchRouter.route(ev)) return true
+                return super.dispatchTouchEvent(ev)
+            }
+        }
         root.setBackgroundColor(Color.BLACK)
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
