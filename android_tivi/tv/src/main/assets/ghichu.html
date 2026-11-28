@@ -916,8 +916,10 @@ function cellBar(){
   $('cMerge').style.display=l.length>1?'':'none';
   $('cSplit').style.display=l.some(function(c){return c.colSpan>1||c.rowSpan>1})?'':'none';
   var dl=$('cDel'),dc=$('cDelC'),R=csel.rect,nr=R?R.r2-R.r1+1:1,nc=R?R.c2-R.c1+1:1,dr=csel.dir;
-  dl.style.display=(dr==='h'||dr==='r')?'':'none';dl.textContent='🗑 Xóa '+(nr>1?nr+' ':'')+'dòng';
-  dc.style.display=(dr==='v'||dr==='r')?'':'none';dc.textContent='🗑 Xóa '+(nc>1?nc+' ':'')+'cột';
+  /* chọn trọn cả bảng: bỏ nút Xóa dòng / Xóa cột, chỉ còn Xóa bảng */
+  var tg=R?grid(l[0].closest('table')):null,all=!!(R&&tg&&R.r1===0&&R.c1===0&&R.r2>=tg.length-1&&R.c2>=tg.cols-1);
+  dl.style.display=(!all&&(dr==='h'||dr==='r'))?'':'none';dl.textContent='🗑 Xóa '+(nr>1?nr+' ':'')+'dòng';
+  dc.style.display=(!all&&(dr==='v'||dr==='r'))?'':'none';dc.textContent='🗑 Xóa '+(nc>1?nc+' ':'')+'cột';
   var a=l[0].getBoundingClientRect(),z=l[l.length-1].getBoundingClientRect(),w=bar.offsetWidth,h=bar.offsetHeight;
   var top=Math.max(a.bottom,z.bottom)+8;
   if(top+h>innerHeight-4)top=Math.min(a.top,z.top)-h-8;
