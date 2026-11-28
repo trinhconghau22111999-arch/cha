@@ -236,10 +236,7 @@ class PhoneKeyboard(
         body.addView(row(*"1234567890".map { d -> key(d.toString(), 1f) { typeOther(d.toString()) } }.toTypedArray()))
         if (!symbols) {
             body.addView(row(*chars("qwertyuiop")))
-            // 2 ô đầu/cuối hàng asdfghjkl: bên trái = click chuột, bên phải = chuột phải / nhấn giữ (tại vị trí con trỏ trên TV)
-            val clickKey = key("CLICK", 0.5f, TEAL, 9f) { onClick() }
-            val rightKey = key("PHẢI", 0.5f, TEAL, 9f) { onLongClick() }
-            body.addView(row(clickKey, *chars("asdfghjkl"), rightKey))
+            body.addView(row(spacer(0.5f), *chars("asdfghjkl"), spacer(0.5f)))
             val shiftKey = key("⇧", 1.5f, if (shift) 0xFF7C4DFF.toInt() else TEAL, 32f) { shift = !shift; rebuild() }
             body.addView(row(shiftKey, *chars("zxcvbnm"), bsKey(1.5f)))
         } else {
@@ -270,10 +267,10 @@ class PhoneKeyboard(
     init {
         view.orientation = LinearLayout.VERTICAL
         view.setBackgroundColor(Neon.BG)
-        view.setPadding(dp(8), dp(6), dp(8), dp(6))
+        view.setPadding(0, 0, 0, dp(6))          // lề trên/trái/phải nằm trong thanh trên để vùng chạm chuột ra tới mép
         view.isClickable = true                  // nuốt chạm, không rơi xuống phần dưới
 
-        // Thanh trên: tên + chữ vừa gõ + đóng
+        // Thanh trên: tên + chữ vừa gõ + đóng. Cả thanh còn là 2 nút chuột: nửa trái = chuột trái, nửa phải = chuột phải
         val bar = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         bar.addView(TextView(ctx).apply {
             text = "GÕ SANG TV"; textSize = 10f; setTextColor(Neon.DIM); letterSpacing = 0.1f
@@ -292,9 +289,20 @@ class PhoneKeyboard(
             contentDescription = "Đóng bàn phím"
             setOnClickListener { Haptics.tick(this); onClose() }
         }, LinearLayout.LayoutParams(dp(48), dp(40)).also { it.leftMargin = dp(6) })
-        view.addView(bar, LinearLayout.LayoutParams(-1, -2).also { it.bottomMargin = dp(4) })
+        bar.setPadding(dp(8), dp(6), dp(8), dp(4))
+        bar.setOnTouchListener { v, ev ->        // riêng nút ✕ tự nhận chạm của nó nên vẫn đóng bàn phím
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> Haptics.key(v)
+                MotionEvent.ACTION_UP -> if (ev.x >= 0 && ev.x < v.width && ev.y >= 0 && ev.y < v.height) {
+                    if (ev.x < v.width / 2f) onClick() else onLongClick()
+                }
+            }
+            true                                 // vuốt trên thanh vẫn là di chuột (view cha chặn lại và gửi CANCEL)
+        }
+        view.addView(bar, LinearLayout.LayoutParams(-1, -2))
 
         body.orientation = LinearLayout.VERTICAL
+        body.setPadding(dp(8), 0, dp(8), 0)
         view.addView(body, LinearLayout.LayoutParams(-1, 0, 1f))      // phím chiếm hết phần còn lại của màn hình
         rebuild()
     }
