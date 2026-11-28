@@ -2,6 +2,7 @@ package com.desktopmini.launcher
 
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
 import android.os.Handler
@@ -12,6 +13,38 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+
+/**
+ * Định tuyến chạm do điều khiển (chuột ảo) gửi vào giao diện.
+ * Nếu cú chạm BẮT ĐẦU trong khung bàn phím ảo thì cả chuỗi chạm (DOWN/MOVE/UP) đi thẳng vào bàn phím,
+ * không đi xuống ô ghi chú / trang web nằm bên dưới (nếu không, ô ghi chú sẽ đặt con trỏ tại chỗ phím vừa bấm
+ * nên chữ bị chèn sai hàng). Các chạm khác đi vào [target] như bình thường.
+ */
+object TouchRouter {
+    @Volatile var keyboard: View? = null
+    private var toKb = false
+    private val r = Rect()
+
+    fun dispatch(target: View, ev: MotionEvent) {
+        val action = ev.actionMasked
+        if (action == MotionEvent.ACTION_DOWN) toKb = hitKeyboard(ev)
+        val kb = keyboard
+        if (toKb && kb != null && kb.isAttachedToWindow) {
+            ev.offsetLocation(-kb.left.toFloat(), -kb.top.toFloat())   // đổi sang toạ độ của khung bàn phím
+            kb.dispatchTouchEvent(ev)
+            ev.offsetLocation(kb.left.toFloat(), kb.top.toFloat())
+        } else {
+            target.dispatchTouchEvent(ev)
+        }
+        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) toKb = false
+    }
+
+    private fun hitKeyboard(ev: MotionEvent): Boolean {
+        val kb = keyboard ?: return false
+        if (!kb.isAttachedToWindow || !kb.getGlobalVisibleRect(r)) return false
+        return r.contains(ev.rawX.toInt(), ev.rawY.toInt())
+    }
+}
 
 /** Bộ gõ tiếng Việt kiểu Telex: ghép các phím đã gõ của TỪ đang gõ thành chữ có dấu. */
 object Telex {

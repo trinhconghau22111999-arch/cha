@@ -200,13 +200,13 @@ class RemoteAccessibilityService : AccessibilityService() {
         val x = cx; val y = cy
         val down = MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, x, y, 0)
         down.source = InputDevice.SOURCE_TOUCHSCREEN
-        box.dispatchTouchEvent(down)
+        TouchRouter.dispatch(box, down)
         down.recycle()
         ui.postDelayed({
             val u = SystemClock.uptimeMillis()
             val up = MotionEvent.obtain(t, u, MotionEvent.ACTION_UP, x, y, 0)
             up.source = InputDevice.SOURCE_TOUCHSCREEN
-            uiBox?.dispatchTouchEvent(up)
+            uiBox?.let { TouchRouter.dispatch(it, up) }
             up.recycle()
         }, holdMs)
         return true

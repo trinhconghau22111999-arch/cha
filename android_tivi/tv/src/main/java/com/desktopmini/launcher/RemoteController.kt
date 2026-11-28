@@ -289,7 +289,7 @@ class RemoteController(
         } else {
             MotionEvent.obtain(t, t, action, cx, cy, 0).also { it.source = android.view.InputDevice.SOURCE_TOUCHSCREEN }
         }
-        root.dispatchTouchEvent(ev)
+        TouchRouter.dispatch(root, ev)
         ev.recycle()
     }
 
@@ -299,8 +299,8 @@ class RemoteController(
         val up = MotionEvent.obtain(t, t + 60, MotionEvent.ACTION_UP, x, y, 0)
         down.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
         up.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
-        root.dispatchTouchEvent(down)
-        ui.postDelayed({ root.dispatchTouchEvent(up); up.recycle() }, 60)
+        TouchRouter.dispatch(root, down)
+        ui.postDelayed({ TouchRouter.dispatch(root, up); up.recycle() }, 60)
         down.recycle()
     }
 
@@ -309,13 +309,13 @@ class RemoteController(
         val t = SystemClock.uptimeMillis()
         val down = MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, x, y, 0)
         down.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
-        root.dispatchTouchEvent(down)
+        TouchRouter.dispatch(root, down)
         down.recycle()
         ui.postDelayed({
             val u = SystemClock.uptimeMillis()
             val up = MotionEvent.obtain(t, u, MotionEvent.ACTION_UP, x, y, 0)
             up.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
-            root.dispatchTouchEvent(up); up.recycle()
+            TouchRouter.dispatch(root, up); up.recycle()
         }, 1000)
     }
 
