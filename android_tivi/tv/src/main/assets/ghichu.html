@@ -1014,6 +1014,15 @@ ed.addEventListener('touchmove',function(e){
 },{passive:false});
 ed.addEventListener('touchend',cellUp);
 ed.addEventListener('touchcancel',cellUp);
+/* bàn phím vật lý: Delete / Backspace khi đang chọn nhiều ô => xoá sạch nội dung các ô đã chọn (giữ nguyên ô và vùng chọn) */
+ed.addEventListener('keydown',function(e){
+  if((e.key!=='Delete'&&e.key!=='Backspace')||csel.drag||csel.cells.length<2)return;
+  if(csel.cells.some(function(c){return !ed.contains(c)}))return;
+  e.preventDefault();e.stopPropagation();
+  csel.cells.forEach(function(c){c.innerHTML='<br>'});
+  cellCaret(csel.cells[0]);
+  cellBar();schedule();
+},true);
 ed.addEventListener('input',function(){if(!csel.busy)cellClear()});
 ti.addEventListener('focus',cellClear);
 document.addEventListener('scroll',cellBar,true);
