@@ -328,13 +328,7 @@ class MainActivity : Activity(), FullscreenHost {
     }
 
     private fun buildUi() {
-        // Gốc giao diện có chốt chặn chạm: chạm bắt đầu trên bàn phím ảo chỉ vào bàn phím, không xuyên xuống nút/ô phía dưới
-        val root = object : FrameLayout(this) {
-            override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
-                if (ev != null && TouchRouter.route(ev)) return true
-                return super.dispatchTouchEvent(ev)
-            }
-        }
+        val root = FrameLayout(this)
         root.setBackgroundColor(Color.BLACK)
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
 
@@ -1780,7 +1774,6 @@ class MainActivity : Activity(), FullscreenHost {
         if (x < 0 || y < 0) { x = (rw - w - dp(8)).coerceAtLeast(0); y = (rh - (dp(190) * MiniKeyboard.SCALE).toInt() - barH - dp(8)).coerceAtLeast(0) }
         lp.leftMargin = x; lp.topMargin = y
         rootView.addView(k.view, lp)
-        TouchRouter.keyboard = k.view
         val l = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> k.clamp() }
         k.layoutListener = l
         rootView.addOnLayoutChangeListener(l)
@@ -1793,7 +1786,6 @@ class MainActivity : Activity(), FullscreenHost {
         val k = kb ?: return
         kb = null
         k.layoutListener?.let { rootView.removeOnLayoutChangeListener(it) }
-        TouchRouter.keyboard = null
         rootView.removeView(k.view)
         k.destroy()
         getSharedPreferences("tv", MODE_PRIVATE).edit().putBoolean("kbOn", false).apply()

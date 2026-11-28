@@ -2,7 +2,6 @@ package com.desktopmini.launcher
 
 import android.content.Context
 import android.graphics.Color
-import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
 import android.os.Handler
@@ -13,49 +12,6 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-
-/**
- * Định tuyến chạm do điều khiển (chuột ảo) gửi vào giao diện.
- * Nếu cú chạm BẮT ĐẦU trong khung bàn phím ảo thì cả chuỗi chạm (DOWN/MOVE/UP) đi thẳng vào bàn phím,
- * không đi xuống ô ghi chú / trang web nằm bên dưới (nếu không, ô ghi chú sẽ đặt con trỏ tại chỗ phím vừa bấm
- * nên chữ bị chèn sai hàng). Các chạm khác đi vào [target] như bình thường.
- */
-object TouchRouter {
-    @Volatile var keyboard: View? = null
-    private var toKb = false
-    private val r = Rect()
-
-    /**
-     * Chốt chặn chạm đặt ở gốc giao diện (xem MainActivity.buildUi). Cú chạm BẮT ĐẦU trong khung bàn phím
-     * được đưa hết vào bàn phím (DOWN/MOVE/UP) và trả true, nên view bên dưới không bao giờ nhận được nó.
-     * Trả false với các chạm khác để giao diện xử lý như bình thường.
-     */
-    fun route(ev: MotionEvent): Boolean {
-        val action = ev.actionMasked
-        if (action == MotionEvent.ACTION_DOWN) toKb = hitKeyboard(ev)
-        val kb = keyboard
-        var handled = false
-        if (toKb && kb != null && kb.isAttachedToWindow) {
-            ev.offsetLocation(-kb.left.toFloat(), -kb.top.toFloat())   // đổi sang toạ độ của khung bàn phím
-            kb.dispatchTouchEvent(ev)
-            ev.offsetLocation(kb.left.toFloat(), kb.top.toFloat())
-            handled = true
-        }
-        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) toKb = false
-        return handled
-    }
-
-    /** Chạm từ điều khiển (chuột ảo): đi qua chốt chặn trước, nếu không thuộc bàn phím thì vào [target]. */
-    fun dispatch(target: View, ev: MotionEvent) {
-        if (!route(ev)) target.dispatchTouchEvent(ev)
-    }
-
-    private fun hitKeyboard(ev: MotionEvent): Boolean {
-        val kb = keyboard ?: return false
-        if (!kb.isAttachedToWindow || !kb.getGlobalVisibleRect(r)) return false
-        return r.contains(ev.rawX.toInt(), ev.rawY.toInt())
-    }
-}
 
 /** Bộ gõ tiếng Việt kiểu Telex: ghép các phím đã gõ của TỪ đang gõ thành chữ có dấu. */
 object Telex {
@@ -223,7 +179,6 @@ class MiniKeyboard(
             cornerRadius = dp(10).toFloat(); setColor(0xEE0A0D16.toInt()); setStroke(dp(2), 0xFF00E5FF.toInt())
         }
         view.isClickable = true            // nuốt chạm trên bàn phím, không rơi xuống trang bên dưới
-        view.setOnTouchListener { _, _ -> true }   // mọi chạm trong khung bàn phím (kể cả khe hở) đều được giữ lại
         if (android.os.Build.VERSION.SDK_INT >= 21) view.elevation = dp(8).toFloat()
 
         // Thanh trên: kéo để di chuyển, ✕ để đóng
