@@ -4,11 +4,20 @@ internal val TEXT_EDIT_FN = """
 function(del, ins, phys) {
   var el = document.activeElement;
   function drop() { if (!phys) window.__wbGhost = ins ? ins : null; return false; }     // không có ô nhập: bỏ chữ, nhớ để khỏi dồn vào lần gõ sau
-  try {
-    while (el && el.tagName === 'IFRAME' && el.contentDocument && el.contentDocument.activeElement) {
-      el = el.contentDocument.activeElement;
+  // Đi sâu vào iframe và shadow DOM: ô tìm kiếm YouTube nằm trong <ytd-searchbox> -> shadowRoot -> <input>,
+  // document.activeElement chỉ trả về thẻ bọc ngoài (không phải INPUT) nên trước đây chữ bị bỏ mất.
+  function deepActive(e) {
+    for (var g = 0; e && g < 30; g++) {
+      if (e.tagName === 'IFRAME') {
+        try { if (e.contentDocument && e.contentDocument.activeElement) { e = e.contentDocument.activeElement; continue; } } catch (x) {}
+        break;
+      }
+      if (e.shadowRoot && e.shadowRoot.activeElement) { e = e.shadowRoot.activeElement; continue; }
+      break;
     }
-  } catch (e) {}
+    return e;
+  }
+  try { el = deepActive(el); } catch (e) {}
   if (!el) return drop();
   var doc = el.ownerDocument;
   if (!(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return drop();
@@ -66,7 +75,7 @@ function(del, ins, phys) {
   }
   function fire(target) {
     try {
-      target.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: ins ? 'insertText' : 'deleteContentBackward', data: ins || null }));
+      target.dispatchEvent(new InputEvent('input', { bubbles: true, composed: true, inputType: ins ? 'insertText' : 'deleteContentBackward', data: ins || null }));
     } catch (e) {
       target.dispatchEvent(new Event('input', { bubbles: true }));
     }
