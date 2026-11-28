@@ -1555,6 +1555,23 @@ function splitCells(list){
   goCell(first,false);
   schedule();
 }
+/* bấm đúp vào ô đã gộp: chọn cả ô đó, hiện thanh có nút "Tách ô" */
+var dbl={c:null,t:0};
+ed.addEventListener('click',function(e){
+  var c=e.target&&e.target.closest?e.target.closest('td,th'):null;
+  if(!c||!ed.contains(c)||!(c.colSpan>1||c.rowSpan>1)){dbl.c=null;return}
+  var now=Date.now();
+  if(dbl.c===c&&now-dbl.t<500){
+    dbl.c=null;
+    var p=cellPos(grid(c.closest('table')),c);
+    if(!p)return;
+    plusHide();
+    cellMark([c],'s',{r1:p.r,r2:p.r+c.rowSpan-1,c1:p.c,c2:p.c+c.colSpan-1});
+    csel.pin=true;
+    cellCaret(c);
+    cellBar();
+  }else{dbl.c=c;dbl.t=now}
+});
 /* ---- xoá cả bảng ---- */
 function deleteTable(t){
   if(!t||!ed.contains(t))return;
