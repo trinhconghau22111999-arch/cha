@@ -179,6 +179,7 @@ class MiniKeyboard(
             cornerRadius = dp(10).toFloat(); setColor(0xEE0A0D16.toInt()); setStroke(dp(2), 0xFF00E5FF.toInt())
         }
         view.isClickable = true            // nuốt chạm trên bàn phím, không rơi xuống trang bên dưới
+        view.setOnTouchListener { _, _ -> true }   // mọi chạm trong khung bàn phím (kể cả khe hở) đều được giữ lại
         if (android.os.Build.VERSION.SDK_INT >= 21) view.elevation = dp(8).toFloat()
 
         // Thanh trên: kéo để di chuyển, ✕ để đóng

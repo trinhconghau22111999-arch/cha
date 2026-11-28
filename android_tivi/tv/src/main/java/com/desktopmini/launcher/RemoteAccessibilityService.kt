@@ -12,8 +12,11 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.DisplayMetrics
 import android.view.Gravity
+import android.view.InputDevice
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -186,6 +189,29 @@ class RemoteAccessibilityService : AccessibilityService() {
         } catch (e: Exception) { }
     }
 
+    /**
+     * Chạm ngay trong giao diện TV (cửa sổ trợ năng [uiBox]) bằng cách đưa sự kiện thẳng vào cây view của nó,
+     * thay vì dispatchGesture (cử chỉ hệ thống có thể chọn cửa sổ khác bên dưới, nên chạm trên nền bàn phím
+     * ảo bị "xuyên" xuống trang phía sau). Trả false nếu giao diện không nằm trong cửa sổ trợ năng.
+     */
+    private fun tapInUi(holdMs: Long): Boolean {
+        val box = uiBox ?: return false
+        val t = SystemClock.uptimeMillis()
+        val x = cx; val y = cy
+        val down = MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, x, y, 0)
+        down.source = InputDevice.SOURCE_TOUCHSCREEN
+        box.dispatchTouchEvent(down)
+        down.recycle()
+        ui.postDelayed({
+            val u = SystemClock.uptimeMillis()
+            val up = MotionEvent.obtain(t, u, MotionEvent.ACTION_UP, x, y, 0)
+            up.source = InputDevice.SOURCE_TOUCHSCREEN
+            uiBox?.dispatchTouchEvent(up)
+            up.recycle()
+        }, holdMs)
+        return true
+    }
+
     /** Nhận cùng JSON với RemoteController.handle(); chỉ xử lý các lệnh liên quan app ngoài. */
     fun handle(json: String) {
         val o = try { JSONObject(json) } catch (e: Exception) { return }
@@ -200,8 +226,8 @@ class RemoteAccessibilityService : AccessibilityService() {
                     cy = (cy + o.optInt("dy") * 1.6f).coerceIn(0f, dm.heightPixels - 1f)
                     showCursor()
                 }
-                "click" -> { showCursor(); gesture(cx, cy, cx, cy, 50) }
-                "longclick" -> { showCursor(); gesture(cx, cy, cx, cy, 1000) }       // chuột phải / nhấn giữ
+                "click" -> { showCursor(); if (!tapInUi(50)) gesture(cx, cy, cx, cy, 50) }
+                "longclick" -> { showCursor(); if (!tapInUi(1000)) gesture(cx, cy, cx, cy, 1000) }       // chuột phải / nhấn giữ
                 "scroll" -> {
                     scrollAccum += -o.optInt("dy") * 2 * resources.displayMetrics.density * 6f
                     showCursor(); pumpScroll(dm)
