@@ -1185,20 +1185,32 @@ function tzDraw(){
   var t=tz.t,box=$('tz');
   if(!t||!ed.contains(t)||$('list').classList.contains('on')){tzHide();return}
   var geo=tzGeo(t),tr=geo.tr,view=$('wrap').getBoundingClientRect(),out=[],i;
-  var top=Math.max(tr.top,view.top),bot=Math.min(tr.bottom,view.bottom);
-  var lft=Math.max(tr.left,view.left),rgt=Math.min(tr.right,view.right);
-  if(bot>top){
-    for(i=0;i<geo.xs.length;i++){
-      var x=geo.xs[i];
-      if(x<view.left||x>view.right)continue;
-      out.push('<div class="vc" data-i="'+i+'" style="left:'+Math.round(x-7)+'px;top:'+Math.round(top)+'px;height:'+Math.round(bot-top)+'px"></div>');
+  /* thanh kéo đổi cỡ chỉ vẽ ở đoạn đường kẻ THẬT (đi qua ô đã gộp thì bỏ đoạn đó, ô gộp nhìn là một ô) */
+  var g=grid(t),ys=geo.ys,xs=geo.xs,r,c,r1,c1;
+  for(i=0;i<xs.length;i++){
+    var x=xs[i];
+    if(x<view.left||x>view.right)continue;
+    r=0;
+    while(r<g.length){
+      while(r<g.length&&i<g.cols-1&&g[r][i]===g[r][i+1])r++;
+      if(r>=g.length)break;
+      r1=r;
+      while(r<g.length&&(i>=g.cols-1||g[r][i]!==g[r][i+1]))r++;
+      var vt=Math.max(r1===0?tr.top:ys[r1-1],view.top),vb=Math.min(ys[r-1],view.bottom);
+      if(vb>vt)out.push('<div class="vc" data-i="'+i+'" style="left:'+Math.round(x-7)+'px;top:'+Math.round(vt)+'px;height:'+Math.round(vb-vt)+'px"></div>');
     }
   }
-  if(rgt>lft){
-    for(i=0;i<geo.ys.length;i++){
-      var y=geo.ys[i];
-      if(y<view.top||y>view.bottom)continue;
-      out.push('<div class="hr" data-i="'+i+'" style="top:'+Math.round(y-7)+'px;left:'+Math.round(lft)+'px;width:'+Math.round(rgt-lft)+'px"></div>');
+  for(i=0;i<ys.length;i++){
+    var y=ys[i];
+    if(y<view.top||y>view.bottom)continue;
+    c=0;
+    while(c<g.cols){
+      while(c<g.cols&&i<g.length-1&&g[i][c]===g[i+1][c])c++;
+      if(c>=g.cols)break;
+      c1=c;
+      while(c<g.cols&&(i>=g.length-1||g[i][c]!==g[i+1][c]))c++;
+      var hl=Math.max(c1===0?tr.left:xs[c1-1],view.left),hrr=Math.min(xs[c-1],view.right);
+      if(hrr>hl)out.push('<div class="hr" data-i="'+i+'" style="top:'+Math.round(y-7)+'px;left:'+Math.round(hl)+'px;width:'+Math.round(hrr-hl)+'px"></div>');
     }
   }
   if(tr.right>=view.left&&tr.right<=view.right+14&&tr.bottom>=view.top&&tr.bottom<=view.bottom+14){
