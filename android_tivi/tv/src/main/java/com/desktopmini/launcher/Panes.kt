@@ -215,6 +215,20 @@ class YouTubePane(private val act: Activity, private val full: FullscreenHost) {
         return true
     }
 
+    /**
+     * Bàn phím vật lý / Bluetooth: ◀ ▶ khi đang xem video YouTube (trang /watch) = tua lùi / tua tới 10 giây.
+     * Trả false khi không phải trang xem video (hoặc đang gõ chữ) để ◀ ▶ làm việc như cũ (chọn video, dời con trỏ chữ).
+     */
+    fun seekKey(k: String, done: (Boolean) -> Unit) {
+        val d = if (k == "left") -1 else if (k == "right") 1 else { done(false); return }
+        val js = "(function(d){try{var v=document.querySelector('video');" +
+            "if(!v||location.pathname.indexOf('/watch')!==0)return false;" +
+            "var a=document.activeElement;if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.isContentEditable))return false;" +
+            "var t=v.currentTime+d*10;if(isFinite(v.duration)&&v.duration>0)t=Math.min(t,v.duration);" +
+            "v.currentTime=Math.max(0,t);return true;}catch(e){return false}})(" + d + ")"
+        web.evaluateJavascript(js) { r -> done(r == "true") }
+    }
+
     /** Enter của bàn phím chữ: đang có ô chọn (video / nút tìm kiếm) thì làm OK; đang gõ chữ thì Enter đi thẳng vào ô gõ (tìm kiếm). */
     fun enterKey() {
         web.evaluateJavascript("window.__wbOk&&window.__wbOk()") { r ->

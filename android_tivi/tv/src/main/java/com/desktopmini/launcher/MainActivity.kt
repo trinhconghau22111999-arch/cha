@@ -774,7 +774,9 @@ class MainActivity : Activity(), FullscreenHost {
             kc == KeyEvent.KEYCODE_DEL || kc == KeyEvent.KEYCODE_FORWARD_DEL || kc == KeyEvent.KEYCODE_TAB ||
             kc == KeyEvent.KEYCODE_SPACE || kc == KeyEvent.KEYCODE_MOVE_HOME || kc == KeyEvent.KEYCODE_MOVE_END ||
             kc == KeyEvent.KEYCODE_PAGE_UP || kc == KeyEvent.KEYCODE_PAGE_DOWN ||
-            kc == KeyEvent.KEYCODE_ENTER || kc == KeyEvent.KEYCODE_NUMPAD_ENTER
+            kc == KeyEvent.KEYCODE_ENTER || kc == KeyEvent.KEYCODE_NUMPAD_ENTER ||
+            // Ghi chú: mũi tên đi thẳng vào trang (dời con trỏ chữ, chuyển ô bảng)
+            (mode == 6 && (kc == KeyEvent.KEYCODE_DPAD_LEFT || kc == KeyEvent.KEYCODE_DPAD_RIGHT || kc == KeyEvent.KEYCODE_DPAD_UP))
         if (!typing) return false
         return try {
             val f = rootView.findFocus()
@@ -785,6 +787,15 @@ class MainActivity : Activity(), FullscreenHost {
                 true
             }
         } catch (e: Exception) { false }
+    }
+
+    private fun sendKeyToNotes(code: Int) {
+        val wv = notes?.web ?: return
+        try {
+            wv.requestFocus()
+            wv.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, code))
+            wv.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, code))
+        } catch (e: Exception) { }
     }
 
     private fun currentWebForKeys(): WebView? =
@@ -805,6 +816,12 @@ class MainActivity : Activity(), FullscreenHost {
             val isEnter = keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER
             // Trang đang mở (YouTube / chọn đài-kênh TV): ▲ ◀ ▶ OK đi qua đúng bộ xử lý như remote điện thoại.
             // Các trang khác: Enter của bàn phím chữ giữ nguyên cho trang.
+            // YouTube đang xem video: ◀ ▶ của bàn phím vật lý/Bluetooth = tua lùi / tua tới 10 giây (remote điện thoại giữ nguyên cách cũ)
+            if ((k == "left" || k == "right") && !inBarOrMenu && mode == 2 && event != null &&
+                event.deviceId != android.view.KeyCharacterMap.VIRTUAL_KEYBOARD) {
+                yt?.seekKey(k) { ok -> if (!ok) yt?.onKey(k) }
+                return true
+            }
             if (isEnter && !inBarOrMenu && mode == 2) {        // YouTube: Enter = OK trên ô chọn, hoặc Enter trong ô gõ tìm kiếm
                 if ((event?.repeatCount ?: 0) == 0) yt?.enterKey()
                 return true
@@ -831,7 +848,10 @@ class MainActivity : Activity(), FullscreenHost {
             downHoldFired = false
             if (downHoldPending) {
                 ui.removeCallbacks(downHold); downHoldPending = false
-                if (!fired && !handleRemoteKey("down")) super.onKeyDown(keyCode, KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
+                if (!fired && !handleRemoteKey("down")) {
+                    if (mode == 6 && !menuOpen()) sendKeyToNotes(KeyEvent.KEYCODE_DPAD_DOWN)    // Ghi chú: ▼ đi xuống dòng / ô bảng bên dưới
+                    else super.onKeyDown(keyCode, KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
+                }
             }
             return true
         }
